@@ -10,6 +10,7 @@ import SwiftData
 
 struct HomeView: View {
     @Query(sort: \LogEntry.loggedAt, order: .reverse) private var logs: [LogEntry]
+    @State private var isShowingNewLog = false
 
     var body: some View {
         List {
@@ -22,12 +23,28 @@ struct HomeView: View {
             } else {
                 Section("Recent Logs") {
                     ForEach(logs) { log in
-                        RecentLogRow(log: log)
+                        NavigationLink {
+                            LogEntryDetailView(log: log)
+                        } label: {
+                            RecentLogRow(log: log)
+                        }
                     }
                 }
             }
         }
         .navigationTitle("Listend")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    isShowingNewLog = true
+                } label: {
+                    Label("Add Log", systemImage: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $isShowingNewLog) {
+            LogEntryEditorView()
+        }
     }
 }
 

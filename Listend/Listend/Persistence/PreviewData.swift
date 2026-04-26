@@ -16,19 +16,37 @@ enum PreviewData {
     static let unlockedPersonaContainer: ModelContainer = makeContainer(logCount: 5, includePersona: true)
 
     @MainActor
-    private static func makeContainer(logCount: Int, includePersona: Bool) -> ModelContainer {
+    static let coldStartRecommendationContainer: ModelContainer = makeContainer(logCount: 0, includePersona: false)
+
+    @MainActor
+    static let activeRecommendationContainer: ModelContainer = makeContainer(logCount: 5, includePersona: true, includeRecommendation: true)
+
+    @MainActor
+    private static func makeContainer(
+        logCount: Int,
+        includePersona: Bool,
+        includeRecommendation: Bool = false
+    ) -> ModelContainer {
         let schema = Schema([
             Album.self,
             LogEntry.self,
             TasteDimension.self,
             TasteEvidence.self,
-            SoundPrintPersona.self
+            SoundPrintPersona.self,
+            Recommendation.self,
+            RecommendationReceipt.self,
+            RecommendationFeedback.self
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
 
         do {
             let container = try ModelContainer(for: schema, configurations: [configuration])
-            seedPreviewData(logCount: logCount, includePersona: includePersona, in: container.mainContext)
+            seedPreviewData(
+                logCount: logCount,
+                includePersona: includePersona,
+                includeRecommendation: includeRecommendation,
+                in: container.mainContext
+            )
             return container
         } catch {
             fatalError("Could not create preview container: \(error)")
@@ -36,7 +54,12 @@ enum PreviewData {
     }
 
     @MainActor
-    private static func seedPreviewData(logCount: Int, includePersona: Bool, in modelContext: ModelContext) {
+    private static func seedPreviewData(
+        logCount: Int,
+        includePersona: Bool,
+        includeRecommendation: Bool,
+        in modelContext: ModelContext
+    ) {
         let albums = [
             Album(title: "Blonde", artistName: "Frank Ocean", releaseYear: 2016, genreName: "Alternative R&B"),
             Album(title: "Titanic Rising", artistName: "Weyes Blood", releaseYear: 2019, genreName: "Art Pop"),
@@ -93,6 +116,36 @@ enum PreviewData {
                 SoundPrintPersona(
                     personaText: "Across 5 logs, your ear keeps rewarding vocal focus and polished storytelling, especially when the notes drift toward vocals. Blonde by Frank Ocean looks like the current north star, and your 4.4 average says you are picky without being joyless.",
                     logCountAtGeneration: 5
+                )
+            )
+        }
+
+        if includeRecommendation {
+            let recommendedAlbum = Album(
+                appleMusicID: "mock.fiona-apple.fetch-the-bolt-cutters",
+                title: "Fetch the Bolt Cutters",
+                artistName: "Fiona Apple",
+                releaseYear: 2020,
+                genreName: "Art Pop"
+            )
+            let recommendation = Recommendation(
+                album: recommendedAlbum,
+                score: 0.82,
+                confidence: 0.84,
+                explanationText: "Because you liked Titanic Rising, Tonight's Pick is Fetch the Bolt Cutters by Fiona Apple. Rated Titanic Rising 4.5 stars and tagged it lush, layered."
+            )
+
+            modelContext.insert(recommendedAlbum)
+            modelContext.insert(recommendation)
+            modelContext.insert(
+                RecommendationReceipt(
+                    recommendationID: recommendation.id,
+                    logEntryID: UUID(),
+                    sourceAlbumTitle: "Titanic Rising",
+                    sourceArtistName: "Weyes Blood",
+                    sourceRating: 4.5,
+                    snippet: "Rated Titanic Rising 4.5 stars and tagged it lush, layered.",
+                    linkedDimension: "instrumentalRichness"
                 )
             )
         }

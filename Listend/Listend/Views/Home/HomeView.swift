@@ -11,6 +11,7 @@ import SwiftData
 struct HomeView: View {
     @Query(sort: \LogEntry.loggedAt, order: .reverse) private var logs: [LogEntry]
     @Query(sort: \SoundPrintPersona.generatedAt, order: .reverse) private var personas: [SoundPrintPersona]
+    @Query(sort: \Recommendation.createdAt, order: .reverse) private var recommendations: [Recommendation]
     @State private var isShowingNewLog = false
 
     var body: some View {
@@ -25,6 +26,23 @@ struct HomeView: View {
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 4)
+                }
+            }
+
+            if canShowTonightPick {
+                Section("Tonight's Pick") {
+                    NavigationLink {
+                        TonightPickView()
+                    } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(tonightPickTitle)
+                                .font(.headline)
+                            Text(tonightPickSubtitle)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
                 }
             }
 
@@ -64,11 +82,33 @@ struct HomeView: View {
     private var currentPersona: SoundPrintPersona? {
         personas.first
     }
+
+    private var activeRecommendation: Recommendation? {
+        recommendations.first { $0.status == RecommendationStatus.active.rawValue }
+    }
+
+    private var canShowTonightPick: Bool {
+        activeRecommendation != nil || logs.contains { log in
+            log.album != nil && !log.isNegativeSignal && log.rating >= 4.0
+        }
+    }
+
+    private var tonightPickTitle: String {
+        activeRecommendation?.album?.title ?? "Find Tonight's Pick"
+    }
+
+    private var tonightPickSubtitle: String {
+        if let album = activeRecommendation?.album {
+            return "\(album.artistName) is ready when you are."
+        }
+
+        return "Generate one local pick with receipts."
+    }
 }
 
 #Preview {
     NavigationStack {
         HomeView()
     }
-    .modelContainer(PreviewData.unlockedPersonaContainer)
+    .modelContainer(PreviewData.activeRecommendationContainer)
 }

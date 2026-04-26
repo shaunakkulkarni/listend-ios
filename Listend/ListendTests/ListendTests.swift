@@ -314,13 +314,193 @@ struct ListendTests {
     }
 
     @MainActor
+    @Test func recommendationGenerationExcludesLoggedAlbumsAndCreatesReceipts() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let loggedAlbum = Album(appleMusicID: "mock.frank-ocean.blonde", title: "Blonde", artistName: "Frank Ocean", releaseYear: 2016, genreName: "Alternative R&B")
+        let anchorLog = LogEntry(
+            album: loggedAlbum,
+            rating: 5.0,
+            reviewText: "Sparse intimate vocals with real replay value.",
+            tags: ["vocals"],
+            sentimentScore: 0.8
+        )
+
+        modelContext.insert(loggedAlbum)
+        modelContext.insert(anchorLog)
+        try modelContext.save()
+
+        let recommendation = try await LocalRecommendationService().currentOrGenerateRecommendation(in: modelContext)
+        let receipts = try modelContext.fetch(FetchDescriptor<RecommendationReceipt>())
+
+        #expect(recommendation.album?.title != "Blonde")
+        #expect(recommendation.status == RecommendationStatus.active.rawValue)
+        #expect(!receipts.isEmpty)
+        #expect(receipts[0].sourceAlbumTitle == "Blonde")
+        #expect(receipts[0].sourceArtistName == "Frank Ocean")
+    }
+
+    @MainActor
+    @Test func recommendationGenerationRequiresPositiveAnchorAndIgnoresNegativeLogs() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let negativeAlbum = Album(title: "Negative Album", artistName: "Negative Artist", genreName: "Art Pop")
+        let negativeLog = LogEntry(
+            album: negativeAlbum,
+            rating: 4.5,
+            reviewText: "Bad, boring, and disappointing.",
+            tags: ["lush"],
+            sentimentScore: -0.7
+        )
+
+        modelContext.insert(negativeAlbum)
+        modelContext.insert(negativeLog)
+        try modelContext.save()
+
+        do {
+            _ = try await LocalRecommendationService().currentOrGenerateRecommendation(in: modelContext)
+            Issue.record("Recommendation should require a positive anchor.")
+        } catch let error as LocalRecommendationError {
+            #expect(error == .needsMoreLogs)
+        }
+    }
+
+    @MainActor
+    @Test func recommendationScoringPrefersGenreAndTagMatchesDeterministically() throws {
+        let service = LocalRecommendationService(
+            catalogAlbums: [
+                AlbumSearchResult(id: "mock.z.unrelated", title: "Unrelated", artistName: "Zed", releaseYear: 1991, genreName: "Metal"),
+                AlbumSearchResult(id: "mock.a.match", title: "Vocals Forever", artistName: "Alpha", releaseYear: 2019, genreName: "Art Pop")
+            ]
+        )
+        let anchorAlbum = Album(title: "Anchor", artistName: "Anchor Artist", releaseYear: 2019, genreName: "Art Pop")
+        let anchorLog = LogEntry(
+            album: anchorAlbum,
+            rating: 4.5,
+            reviewText: "Great vocals.",
+            tags: ["vocals"],
+            sentimentScore: 0.8
+        )
+
+        let candidate = service.bestCandidate(
+            logs: [anchorLog],
+            localAlbums: [anchorAlbum],
+            evidence: [],
+            recommendations: [],
+            anchors: [anchorLog],
+            allowDismissed: false
+        )
+
+        #expect(candidate?.album.catalogID == "mock.a.match")
+    }
+
+    @MainActor
+    @Test func recommendationGenerationReusesOneActiveRecommendation() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let anchorAlbum = Album(title: "Anchor", artistName: "Anchor Artist", releaseYear: 2019, genreName: "Art Pop")
+        let activeAlbum = Album(title: "Active Pick", artistName: "Active Artist")
+        let anchorLog = LogEntry(album: anchorAlbum, rating: 4.5, tags: ["lush"], sentimentScore: 0.8)
+        let activeRecommendation = Recommendation(album: activeAlbum, score: 0.8, confidence: 0.8, explanationText: "Already active.")
+
+        modelContext.insert(anchorAlbum)
+        modelContext.insert(activeAlbum)
+        modelContext.insert(anchorLog)
+        modelContext.insert(activeRecommendation)
+        try modelContext.save()
+
+        let returned = try await LocalRecommendationService().currentOrGenerateRecommendation(in: modelContext)
+        let recommendations = try modelContext.fetch(FetchDescriptor<Recommendation>())
+
+        #expect(returned.id == activeRecommendation.id)
+        #expect(recommendations.count == 1)
+    }
+
+    @MainActor
+    @Test func recommendationFeedbackPersistsAndMovesRecommendationAwayFromActive() throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let album = Album(title: "Pick", artistName: "Artist")
+        let recommendation = Recommendation(album: album, score: 0.8, confidence: 0.8, explanationText: "Pick.")
+
+        modelContext.insert(album)
+        modelContext.insert(recommendation)
+        try modelContext.save()
+
+        try LocalRecommendationService().submitFeedback(.savedForLater, for: recommendation, in: modelContext)
+
+        let feedback = try modelContext.fetch(FetchDescriptor<RecommendationFeedback>())
+
+        #expect(recommendation.status == RecommendationStatus.saved.rawValue)
+        #expect(feedback.count == 1)
+        #expect(feedback[0].feedbackType == RecommendationFeedbackType.savedForLater.rawValue)
+    }
+
+    @MainActor
+    @Test func dismissedRecommendationsAreSkippedUntilNoOtherCandidatesRemain() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let dismissedCandidate = Album(appleMusicID: "mock.a.dismissed", title: "Dismissed Pick", artistName: "Artist A", genreName: "Art Pop")
+        let anchorAlbum = Album(title: "Anchor", artistName: "Anchor Artist", genreName: "Art Pop")
+        let anchorLog = LogEntry(album: anchorAlbum, rating: 4.5, tags: ["art"], sentimentScore: 0.8)
+        let dismissedRecommendation = Recommendation(
+            album: dismissedCandidate,
+            score: 0.9,
+            confidence: 0.9,
+            status: RecommendationStatus.dismissed.rawValue,
+            explanationText: "Dismissed."
+        )
+        let service = LocalRecommendationService(
+            catalogAlbums: [
+                AlbumSearchResult(id: "mock.a.dismissed", title: "Dismissed Pick", artistName: "Artist A", releaseYear: nil, genreName: "Art Pop"),
+                AlbumSearchResult(id: "mock.b.available", title: "Available Pick", artistName: "Artist B", releaseYear: nil, genreName: "Art Pop")
+            ]
+        )
+
+        modelContext.insert(dismissedCandidate)
+        modelContext.insert(anchorAlbum)
+        modelContext.insert(anchorLog)
+        modelContext.insert(dismissedRecommendation)
+        try modelContext.save()
+
+        let recommendation = try await service.currentOrGenerateRecommendation(in: modelContext)
+
+        #expect(recommendation.album?.appleMusicID == "mock.b.available")
+    }
+
+    @MainActor
+    @Test func receiptSnapshotSurvivesSourceLogDeletion() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let album = Album(appleMusicID: "mock.frank-ocean.blonde", title: "Blonde", artistName: "Frank Ocean", genreName: "Alternative R&B")
+        let log = LogEntry(album: album, rating: 5.0, tags: ["vocals"], sentimentScore: 0.8)
+
+        modelContext.insert(album)
+        modelContext.insert(log)
+        try modelContext.save()
+
+        _ = try await LocalRecommendationService().currentOrGenerateRecommendation(in: modelContext)
+        modelContext.delete(log)
+        try modelContext.save()
+
+        let receipts = try modelContext.fetch(FetchDescriptor<RecommendationReceipt>())
+
+        #expect(receipts.first?.sourceAlbumTitle == "Blonde")
+        #expect(receipts.first?.sourceArtistName == "Frank Ocean")
+        #expect(receipts.first?.snippet.contains("Blonde") == true)
+    }
+
+    @MainActor
     private func makeInMemoryContainer() throws -> ModelContainer {
         let schema = Schema([
             Album.self,
             LogEntry.self,
             TasteDimension.self,
             TasteEvidence.self,
-            SoundPrintPersona.self
+            SoundPrintPersona.self,
+            Recommendation.self,
+            RecommendationReceipt.self,
+            RecommendationFeedback.self
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [configuration])

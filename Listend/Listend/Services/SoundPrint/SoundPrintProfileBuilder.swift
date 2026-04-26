@@ -68,6 +68,7 @@ struct SoundPrintProfileBuilder {
 
         insertDimensions(from: signalsByDimension, in: modelContext)
         try modelContext.save()
+        await refreshPersona(in: modelContext)
     }
 
     @MainActor
@@ -98,6 +99,99 @@ struct SoundPrintProfileBuilder {
             )
         }
     }
+
+    @MainActor
+    private func refreshPersona(in modelContext: ModelContext) async {
+        do {
+            let logs = try modelContext.fetch(FetchDescriptor<LogEntry>())
+            let existingPersonas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
+
+            guard logs.count >= 5 else {
+                for persona in existingPersonas {
+                    modelContext.delete(persona)
+                }
+
+                try modelContext.save()
+                return
+            }
+
+            let dimensions = try modelContext.fetch(
+                FetchDescriptor<TasteDimension>(
+                    sortBy: [SortDescriptor(\.weight, order: .reverse)]
+                )
+            )
+            let recentLogs = logs
+                .sorted { $0.loggedAt > $1.loggedAt }
+                .prefix(10)
+                .compactMap(PersonaLogInput.init(log:))
+            let topTags = topTags(from: logs)
+            let averageRating = logs.isEmpty ? nil : logs.map(\.rating).average
+            let result = try await provider.generatePersona(
+                input: PersonaInput(
+                    dimensions: dimensions,
+                    recentLogs: Array(recentLogs),
+                    totalLogCount: logs.count,
+                    topTags: topTags,
+                    averageRating: averageRating
+                )
+            )
+
+            for persona in existingPersonas.dropFirst() {
+                modelContext.delete(persona)
+            }
+
+            if let currentPersona = existingPersonas.first {
+                currentPersona.personaText = result.text
+                currentPersona.generatedAt = Date()
+                currentPersona.logCountAtGeneration = logs.count
+            } else {
+                modelContext.insert(
+                    SoundPrintPersona(
+                        personaText: result.text,
+                        logCountAtGeneration: logs.count
+                    )
+                )
+            }
+
+            try modelContext.save()
+        } catch {
+            return
+        }
+    }
+
+    private func topTags(from logs: [LogEntry]) -> [String] {
+        logs
+            .flatMap(\.tags)
+            .reduce(into: [String: Int]()) { counts, tag in
+                counts[tag, default: 0] += 1
+            }
+            .sorted {
+                if $0.value == $1.value {
+                    return $0.key < $1.key
+                }
+
+                return $0.value > $1.value
+            }
+            .prefix(3)
+            .map(\.key)
+    }
+}
+
+private extension PersonaLogInput {
+    init?(log: LogEntry) {
+        guard let album = log.album else {
+            return nil
+        }
+
+        self.init(
+            albumTitle: album.title,
+            artistName: album.artistName,
+            rating: log.rating,
+            reviewSnippet: log.reviewText.trimmedPersonaSnippet,
+            tags: log.tags,
+            isPositiveSignal: log.isPositiveSignal
+        )
+    }
 }
 
 private extension Array where Element == Double {
@@ -107,6 +201,19 @@ private extension Array where Element == Double {
         }
 
         return reduce(0.0, +) / Double(count)
+    }
+}
+
+private extension String {
+    var trimmedPersonaSnippet: String {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard trimmed.count > 120 else {
+            return trimmed
+        }
+
+        let endIndex = trimmed.index(trimmed.startIndex, offsetBy: 120)
+        return String(trimmed[..<endIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

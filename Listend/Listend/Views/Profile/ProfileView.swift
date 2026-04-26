@@ -12,6 +12,7 @@ struct ProfileView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var logs: [LogEntry]
     @Query(sort: \TasteDimension.weight, order: .reverse) private var dimensions: [TasteDimension]
+    @Query(sort: \SoundPrintPersona.generatedAt, order: .reverse) private var personas: [SoundPrintPersona]
     @State private var didRefreshSoundPrintProfile = false
 
     var body: some View {
@@ -23,6 +24,8 @@ struct ProfileView: View {
             }
 
             Section("SoundPrint") {
+                PersonaCard(logCount: logs.count, persona: currentPersona)
+
                 if canShowSoundPrintProfile {
                     NavigationLink {
                         SoundPrintProfileView()
@@ -93,8 +96,35 @@ struct ProfileView: View {
         positiveLogCount >= 2 && !dimensions.isEmpty
     }
 
+    private var currentPersona: SoundPrintPersona? {
+        personas.first
+    }
+
     private var positiveLogCount: Int {
         logs.filter(\.isPositiveSignal).count
+    }
+}
+
+private struct PersonaCard: View {
+    let logCount: Int
+    let persona: SoundPrintPersona?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Persona")
+                .font(.headline)
+
+            if let persona, logCount >= 5 {
+                Text(persona.personaText)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Log 5 albums to unlock your SoundPrint persona.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 
@@ -116,5 +146,12 @@ private struct StatRow: View {
     NavigationStack {
         ProfileView()
     }
-    .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self], inMemory: true)
+    .modelContainer(PreviewData.lockedPersonaContainer)
+}
+
+#Preview("Unlocked Persona") {
+    NavigationStack {
+        ProfileView()
+    }
+    .modelContainer(PreviewData.unlockedPersonaContainer)
 }

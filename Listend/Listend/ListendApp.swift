@@ -16,6 +16,7 @@ struct ListendApp: App {
             LogEntry.self,
             TasteDimension.self,
             TasteEvidence.self,
+            SoundPrintPersona.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

@@ -16,6 +16,10 @@ struct MockSoundPrintProvider: SoundPrintProvider {
         Self.extractTasteSignals(input: input)
     }
 
+    func generatePersona(input: PersonaInput) async throws -> PersonaResult {
+        Self.generatePersona(input: input)
+    }
+
     static func analyzeSentiment(input: SentimentInput) -> SentimentResult {
         let words = Set(input.reviewText.normalizedSoundPrintWords)
         let positiveMatches = words.intersection(positiveKeywords).count
@@ -81,6 +85,147 @@ struct MockSoundPrintProvider: SoundPrintProvider {
         return TasteExtractionResult(signals: signals)
     }
 
+    static func generatePersona(input: PersonaInput) -> PersonaResult {
+        let strongestDimensions = input.dimensions
+            .sorted {
+                if $0.weight == $1.weight {
+                    return $0.label < $1.label
+                }
+
+                return $0.weight > $1.weight
+            }
+        let positiveLogs = input.recentLogs.filter(\.isPositiveSignal)
+        let favoriteLog = positiveLogs
+            .sorted {
+                if $0.rating == $1.rating {
+                    return $0.albumTitle < $1.albumTitle
+                }
+
+                return $0.rating > $1.rating
+            }
+            .first
+
+        let primaryDimension = strongestDimensions.first?.label
+        let secondaryDimension = strongestDimensions.dropFirst().first?.label
+        let primaryTag = input.topTags.first
+        let reviewCue = positiveLogs
+            .map(\.reviewSnippet)
+            .first { !$0.isEmpty }?
+            .firstSoundPrintPhrase
+        let averageRatingText = input.averageRating.map {
+            $0.formatted(.number.precision(.fractionLength(1)))
+        } ?? "unrated"
+
+        let draft = buildPersonaDraft(
+            totalLogCount: input.totalLogCount,
+            primaryDimension: primaryDimension,
+            secondaryDimension: secondaryDimension,
+            primaryTag: primaryTag,
+            favoriteLog: favoriteLog,
+            reviewCue: reviewCue,
+            averageRatingText: averageRatingText
+        )
+        let concreteSignals = concreteSignals(
+            dimensions: strongestDimensions,
+            topTags: input.topTags,
+            logs: input.recentLogs
+        )
+
+        if isValidPersona(draft, concreteSignals: concreteSignals) {
+            return PersonaResult(text: draft)
+        }
+
+        return PersonaResult(
+            text: fallbackPersona(
+                totalLogCount: input.totalLogCount,
+                primaryDimension: primaryDimension,
+                primaryTag: primaryTag,
+                favoriteLog: favoriteLog,
+                averageRatingText: averageRatingText
+            )
+        )
+    }
+
+    private static func buildPersonaDraft(
+        totalLogCount: Int,
+        primaryDimension: String?,
+        secondaryDimension: String?,
+        primaryTag: String?,
+        favoriteLog: PersonaLogInput?,
+        reviewCue: String?,
+        averageRatingText: String
+    ) -> String {
+        let dimensionText = joinedSignals([primaryDimension, secondaryDimension])
+        let tagText = primaryTag.map { "especially when the notes drift toward \($0)" } ?? "when the record has a clear point of view"
+        let albumText = favoriteLog.map { "\($0.albumTitle) by \($0.artistName)" } ?? "your highest-rated albums"
+        let cueText = reviewCue.map { "Your own notes keep circling `\($0)`, which is the receipt, not a horoscope." } ?? "The ratings are doing the talking here, which is refreshingly hard to fake."
+
+        if let dimensionText {
+            return "Across \(totalLogCount) logs, your ear keeps rewarding \(dimensionText), \(tagText). \(albumText) looks like the current north star, and your \(averageRatingText) average says you are picky without being joyless. \(cueText)"
+        }
+
+        return "Across \(totalLogCount) logs, your ratings keep favoring \(albumText), \(tagText). Your \(averageRatingText) average says you are picky without being joyless. \(cueText)"
+    }
+
+    private static func fallbackPersona(
+        totalLogCount: Int,
+        primaryDimension: String?,
+        primaryTag: String?,
+        favoriteLog: PersonaLogInput?,
+        averageRatingText: String
+    ) -> String {
+        let signal = primaryDimension ?? primaryTag ?? favoriteLog?.albumTitle ?? "your strongest logs"
+        let albumText = favoriteLog.map { "\($0.albumTitle) by \($0.artistName)" } ?? "the albums you rate highest"
+
+        return "Across \(totalLogCount) logs, your taste is currently anchored by \(signal) and by records like \(albumText). With a \(averageRatingText) average, you seem more interested in albums with a spine than pleasant background wallpaper."
+    }
+
+    static func isValidPersona(_ text: String, concreteSignals: [String]) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard trimmed.count >= 80 else {
+            return false
+        }
+
+        let normalizedText = trimmed.normalizedSoundPrintText
+
+        guard !bannedPersonaPhrases.contains(where: { normalizedText.contains($0) }) else {
+            return false
+        }
+
+        return concreteSignals.contains { signal in
+            let normalizedSignal = signal.normalizedSoundPrintText.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !normalizedSignal.isEmpty && normalizedText.contains(normalizedSignal)
+        }
+    }
+
+    private static func concreteSignals(
+        dimensions: [TasteDimension],
+        topTags: [String],
+        logs: [PersonaLogInput]
+    ) -> [String] {
+        let dimensionLabels = dimensions.map(\.label)
+        let albumTitles = logs.map(\.albumTitle)
+        let artists = logs.map(\.artistName)
+        let reviewSnippets = logs.compactMap(\.reviewSnippet.firstSoundPrintPhrase)
+
+        return dimensionLabels + topTags + albumTitles + artists + reviewSnippets
+    }
+
+    private static func joinedSignals(_ signals: [String?]) -> String? {
+        let values = signals.compactMap { $0 }.filter { !$0.isEmpty }
+
+        if values.isEmpty {
+            return nil
+        }
+
+        if values.count == 1 {
+            return values[0].lowercased()
+        }
+
+        return values.prefix(2).map { $0.lowercased() }.joined(separator: " and ")
+    }
+
     private static let positiveKeywords: Set<String> = [
         "love",
         "loved",
@@ -103,6 +248,14 @@ struct MockSoundPrintProvider: SoundPrintProvider {
         "annoying",
         "forgettable",
         "disappointing"
+    ]
+
+    private static let bannedPersonaPhrases = [
+        "eclectic taste",
+        "wide range of genres",
+        "something for everyone",
+        "diverse taste",
+        "varied taste"
     ]
 
     private static let tasteRules: [TasteRule] = [
@@ -160,5 +313,26 @@ private extension String {
     func containsNormalizedSoundPrintPhrase(_ phrase: String) -> Bool {
         let normalizedPhrase = phrase.normalizedSoundPrintText
         return contains(normalizedPhrase)
+    }
+
+    var firstSoundPrintPhrase: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+
+        let separators = CharacterSet(charactersIn: ".!?")
+        let firstSentence = trimmed
+            .components(separatedBy: separators)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty } ?? trimmed
+
+        guard firstSentence.count > 64 else {
+            return firstSentence
+        }
+
+        let endIndex = firstSentence.index(firstSentence.startIndex, offsetBy: 64)
+        return String(firstSentence[..<endIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

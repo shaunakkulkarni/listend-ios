@@ -229,16 +229,185 @@ struct ListendTests {
         #expect(evidence.isEmpty)
     }
 
+    @Test func personaGenerationReferencesConcreteSignalsAndAvoidsBannedPhrases() async throws {
+        let provider = MockSoundPrintProvider()
+        let input = personaInput()
+
+        let result = try await provider.generatePersona(input: input)
+        let normalizedText = result.text.lowercased()
+
+        #expect(result.text.count >= 80)
+        #expect(normalizedText.contains("vocal focus") || normalizedText.contains("vocals"))
+        #expect(normalizedText.contains("blonde") || normalizedText.contains("frank ocean"))
+        #expect(!normalizedText.contains("eclectic taste"))
+        #expect(!normalizedText.contains("wide range of genres"))
+    }
+
+    @Test func personaQualityFilterRejectsVagueOrGenericText() {
+        let concreteSignals = ["Vocal Focus", "Blonde", "vocals"]
+
+        #expect(!MockSoundPrintProvider.isValidPersona("", concreteSignals: concreteSignals))
+        #expect(!MockSoundPrintProvider.isValidPersona("Too short.", concreteSignals: concreteSignals))
+        #expect(!MockSoundPrintProvider.isValidPersona("You have eclectic taste and a wide range of genres, especially around Vocal Focus and Blonde.", concreteSignals: concreteSignals))
+        #expect(!MockSoundPrintProvider.isValidPersona("Across five logs, the profile is long enough to seem substantial, but it carefully avoids naming any actual signal from the input data.", concreteSignals: concreteSignals))
+    }
+
+    @Test func personaGenerationFallsBackToSpecificSparseInput() async throws {
+        let provider = MockSoundPrintProvider()
+        let result = try await provider.generatePersona(
+            input: PersonaInput(
+                dimensions: [],
+                recentLogs: [
+                    PersonaLogInput(
+                        albumTitle: "Titanic Rising",
+                        artistName: "Weyes Blood",
+                        rating: 4.5,
+                        reviewSnippet: "",
+                        tags: [],
+                        isPositiveSignal: true
+                    )
+                ],
+                totalLogCount: 5,
+                topTags: [],
+                averageRating: 4.1
+            )
+        )
+
+        #expect(result.text.count >= 80)
+        #expect(result.text.lowercased().contains("titanic rising"))
+    }
+
+    @MainActor
+    @Test func soundPrintProfileRebuildPersistsOneCurrentPersonaAtFiveLogs() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+
+        insertPersonaReadyLogs(in: modelContext, count: 5)
+        modelContext.insert(SoundPrintPersona(personaText: "Old persona one", logCountAtGeneration: 5))
+        modelContext.insert(SoundPrintPersona(personaText: "Old persona two", logCountAtGeneration: 5))
+        try modelContext.save()
+
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+
+        let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
+
+        #expect(personas.count == 1)
+        #expect(personas[0].logCountAtGeneration == 5)
+        #expect(personas[0].personaText.count >= 80)
+        #expect(!personas[0].personaText.contains("Old persona"))
+    }
+
+    @MainActor
+    @Test func soundPrintProfileRebuildDeletesPersonaBelowFiveLogs() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+
+        insertPersonaReadyLogs(in: modelContext, count: 4)
+        modelContext.insert(SoundPrintPersona(personaText: "Stale persona", logCountAtGeneration: 5))
+        try modelContext.save()
+
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+
+        let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
+
+        #expect(personas.isEmpty)
+    }
+
     @MainActor
     private func makeInMemoryContainer() throws -> ModelContainer {
         let schema = Schema([
             Album.self,
             LogEntry.self,
             TasteDimension.self,
-            TasteEvidence.self
+            TasteEvidence.self,
+            SoundPrintPersona.self
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [configuration])
+    }
+
+    private func personaInput() -> PersonaInput {
+        PersonaInput(
+            dimensions: [
+                TasteDimension(
+                    name: "vocalFocus",
+                    label: "Vocal Focus",
+                    weight: 0.9,
+                    confidence: 0.8,
+                    summary: "Leans into vocal focus."
+                ),
+                TasteDimension(
+                    name: "productionStyle",
+                    label: "Production Style",
+                    weight: 0.75,
+                    confidence: 0.75,
+                    summary: "Leans into production style."
+                )
+            ],
+            recentLogs: [
+                PersonaLogInput(
+                    albumTitle: "Blonde",
+                    artistName: "Frank Ocean",
+                    rating: 5.0,
+                    reviewSnippet: "Sparse intimate vocals that still feel huge.",
+                    tags: ["vocals", "late night"],
+                    isPositiveSignal: true
+                ),
+                PersonaLogInput(
+                    albumTitle: "Titanic Rising",
+                    artistName: "Weyes Blood",
+                    rating: 4.5,
+                    reviewSnippet: "Lush production with replay value.",
+                    tags: ["lush"],
+                    isPositiveSignal: true
+                )
+            ],
+            totalLogCount: 5,
+            topTags: ["vocals", "late night"],
+            averageRating: 4.4
+        )
+    }
+
+    @MainActor
+    private func insertPersonaReadyLogs(in modelContext: ModelContext, count: Int) {
+        let albums = [
+            Album(title: "Blonde", artistName: "Frank Ocean"),
+            Album(title: "Titanic Rising", artistName: "Weyes Blood"),
+            Album(title: "Madvillainy", artistName: "Madvillain"),
+            Album(title: "Vespertine", artistName: "Bjork"),
+            Album(title: "Sometimes I Might Be Introvert", artistName: "Little Simz")
+        ]
+        let reviews = [
+            "Sparse intimate vocals with polished replay value.",
+            "Lush layered production that feels beautiful.",
+            "Dense energetic samples with repeat value.",
+            "Experimental vocals with weird beautiful details.",
+            "Polished storytelling and intense momentum."
+        ]
+        let tags = [
+            ["vocals", "polished"],
+            ["lush", "layered"],
+            ["dense", "repeat"],
+            ["experimental", "beautiful"],
+            ["storytelling", "intense"]
+        ]
+
+        for index in 0..<count {
+            let album = albums[index]
+            modelContext.insert(album)
+            modelContext.insert(
+                LogEntry(
+                    album: album,
+                    rating: index == 2 ? 4.0 : 4.5,
+                    reviewText: reviews[index],
+                    tags: tags[index],
+                    sentimentScore: 0.75,
+                    sentimentConfidence: 0.8,
+                    loggedAt: Date().addingTimeInterval(TimeInterval(-index * 86_400)),
+                    updatedAt: Date().addingTimeInterval(TimeInterval(-index * 86_400))
+                )
+            )
+        }
     }
 
 }

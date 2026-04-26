@@ -152,5 +152,5 @@ private extension Double {
     NavigationStack {
         SoundPrintProfileView()
     }
-    .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self], inMemory: true)
+    .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self, SoundPrintPersona.self], inMemory: true)
 }

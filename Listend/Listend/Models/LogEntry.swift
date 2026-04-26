@@ -15,6 +15,8 @@ final class LogEntry {
     var rating: Double
     var reviewText: String
     var tagsRawValue: String
+    var sentimentScore: Double?
+    var sentimentConfidence: Double?
     var loggedAt: Date
     var updatedAt: Date
 
@@ -30,12 +32,30 @@ final class LogEntry {
         }
     }
 
+    var isPositiveSignal: Bool {
+        (sentimentScore ?? ratingDerivedSentimentScore) >= 0.0
+    }
+
+    var isNegativeSignal: Bool {
+        (sentimentScore ?? ratingDerivedSentimentScore) < -0.2
+    }
+
+    var canAnchorRecommendation: Bool {
+        !isNegativeSignal
+    }
+
+    private var ratingDerivedSentimentScore: Double {
+        MockSoundPrintProvider.baseScore(for: rating)
+    }
+
     init(
         id: UUID = UUID(),
         album: Album?,
         rating: Double,
         reviewText: String = "",
         tags: [String] = [],
+        sentimentScore: Double? = nil,
+        sentimentConfidence: Double? = nil,
         loggedAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -44,6 +64,8 @@ final class LogEntry {
         self.rating = rating
         self.reviewText = reviewText
         self.tagsRawValue = tags.joined(separator: ",")
+        self.sentimentScore = sentimentScore
+        self.sentimentConfidence = sentimentConfidence
         self.loggedAt = loggedAt
         self.updatedAt = updatedAt
     }

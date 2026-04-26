@@ -9,7 +9,10 @@ import SwiftUI
 import SwiftData
 
 struct ProfileView: View {
+    @Environment(\.modelContext) private var modelContext
     @Query private var logs: [LogEntry]
+    @Query(sort: \TasteDimension.weight, order: .reverse) private var dimensions: [TasteDimension]
+    @State private var didRefreshSoundPrintProfile = false
 
     var body: some View {
         List {
@@ -20,17 +23,40 @@ struct ProfileView: View {
             }
 
             Section("SoundPrint") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Taste profile pending")
-                        .font(.headline)
-                    Text("SoundPrint starts after the local logging foundation is in place.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                if canShowSoundPrintProfile {
+                    NavigationLink {
+                        SoundPrintProfileView()
+                    } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("SoundPrint Profile")
+                                .font(.headline)
+                            Text("\(dimensions.count) taste dimensions from your logs")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Taste profile pending")
+                            .font(.headline)
+                        Text("Log a few positive albums to start building your SoundPrint.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
                 }
-                .padding(.vertical, 4)
             }
         }
         .navigationTitle("Profile")
+        .task {
+            guard !didRefreshSoundPrintProfile else {
+                return
+            }
+
+            didRefreshSoundPrintProfile = true
+            try? await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+        }
     }
 
     private var averageRatingText: String {
@@ -62,6 +88,14 @@ struct ProfileView: View {
 
         return topTags.isEmpty ? "No tags yet" : topTags.joined(separator: ", ")
     }
+
+    private var canShowSoundPrintProfile: Bool {
+        positiveLogCount >= 2 && !dimensions.isEmpty
+    }
+
+    private var positiveLogCount: Int {
+        logs.filter(\.isPositiveSignal).count
+    }
 }
 
 private struct StatRow: View {
@@ -82,5 +116,5 @@ private struct StatRow: View {
     NavigationStack {
         ProfileView()
     }
-    .modelContainer(for: [Album.self, LogEntry.self], inMemory: true)
+    .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self], inMemory: true)
 }

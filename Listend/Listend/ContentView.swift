@@ -48,5 +48,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [Album.self, LogEntry.self], inMemory: true)
+        .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self], inMemory: true)
 }

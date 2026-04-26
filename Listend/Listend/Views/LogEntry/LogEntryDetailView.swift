@@ -107,9 +107,19 @@ struct LogEntryDetailView: View {
         do {
             modelContext.delete(log)
             try modelContext.save()
+            rebuildSoundPrintProfile()
             dismiss()
         } catch {
             errorMessage = "Could not delete log."
+        }
+    }
+
+    @MainActor
+    private func rebuildSoundPrintProfile() {
+        let modelContext = modelContext
+
+        Task { @MainActor in
+            try? await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
         }
     }
 }
@@ -139,5 +149,5 @@ private struct DetailRow: View {
             )
         )
     }
-    .modelContainer(for: [Album.self, LogEntry.self], inMemory: true)
+    .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self], inMemory: true)
 }

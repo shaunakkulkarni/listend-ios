@@ -31,7 +31,7 @@ enum SeedData {
             }
 
             let logs = [
-                LogEntry(
+                seededLog(
                     album: albums[0],
                     rating: 4.5,
                     reviewText: "Warm, strange, and generous. Keeps finding new corners.",
@@ -39,7 +39,7 @@ enum SeedData {
                     loggedAt: now.addingTimeInterval(-60 * 60 * 6),
                     updatedAt: now.addingTimeInterval(-60 * 60 * 6)
                 ),
-                LogEntry(
+                seededLog(
                     album: albums[1],
                     rating: 5.0,
                     reviewText: "Sparse in the right places, huge when it needs to be.",
@@ -47,7 +47,7 @@ enum SeedData {
                     loggedAt: now.addingTimeInterval(-60 * 60 * 26),
                     updatedAt: now.addingTimeInterval(-60 * 60 * 26)
                 ),
-                LogEntry(
+                seededLog(
                     album: albums[2],
                     rating: 4.0,
                     reviewText: "Dense, funny, dusty, still ridiculous.",
@@ -65,5 +65,33 @@ enum SeedData {
         } catch {
             assertionFailure("Failed to seed Listend data: \(error)")
         }
+    }
+
+    private static func seededLog(
+        album: Album,
+        rating: Double,
+        reviewText: String,
+        tags: [String],
+        loggedAt: Date,
+        updatedAt: Date
+    ) -> LogEntry {
+        let sentiment = MockSoundPrintProvider.analyzeSentiment(
+            input: SentimentInput(
+                rating: rating,
+                reviewText: reviewText,
+                tags: tags
+            )
+        )
+
+        return LogEntry(
+            album: album,
+            rating: rating,
+            reviewText: reviewText,
+            tags: tags,
+            sentimentScore: sentiment.score,
+            sentimentConfidence: sentiment.confidence,
+            loggedAt: loggedAt,
+            updatedAt: updatedAt
+        )
     }
 }

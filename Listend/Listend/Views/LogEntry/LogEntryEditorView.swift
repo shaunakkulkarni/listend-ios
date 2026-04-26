@@ -14,16 +14,23 @@ struct LogEntryEditorView: View {
     @Query(sort: \Album.title) private var albums: [Album]
 
     private let log: LogEntry?
+    private let soundPrintProvider: SoundPrintProvider
 
     @State private var selectedAlbumID: UUID?
     @State private var rating: Double?
     @State private var reviewText: String
     @State private var tagsText: String
     @State private var errorMessage: String?
+    @State private var isSaving = false
 
-    init(log: LogEntry? = nil) {
+    init(
+        log: LogEntry? = nil,
+        preselectedAlbum: Album? = nil,
+        soundPrintProvider: SoundPrintProvider = MockSoundPrintProvider()
+    ) {
         self.log = log
-        _selectedAlbumID = State(initialValue: log?.album?.id)
+        self.soundPrintProvider = soundPrintProvider
+        _selectedAlbumID = State(initialValue: log?.album?.id ?? preselectedAlbum?.id)
         _rating = State(initialValue: log?.rating)
         _reviewText = State(initialValue: log?.reviewText ?? "")
         _tagsText = State(initialValue: log?.tags.joined(separator: ", ") ?? "")
@@ -77,9 +84,11 @@ struct LogEntryEditorView: View {
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        saveLog()
+                        Task {
+                            await saveLog()
+                        }
                     }
-                    .disabled(!canSave)
+                    .disabled(!canSave || isSaving)
                 }
             }
         }
@@ -97,7 +106,8 @@ struct LogEntryEditorView: View {
         return "\(album.title) - \(album.artistName)"
     }
 
-    private func saveLog() {
+    @MainActor
+    private func saveLog() async {
         guard let selectedAlbumID, let album = albums.first(where: { $0.id == selectedAlbumID }) else {
             errorMessage = "Choose an album."
             return
@@ -108,6 +118,11 @@ struct LogEntryEditorView: View {
             return
         }
 
+        isSaving = true
+        defer {
+            isSaving = false
+        }
+
         let trimmedReview = reviewText.trimmingCharacters(in: .whitespacesAndNewlines)
         let parsedTags = tagsText
             .split(separator: ",")
@@ -115,12 +130,15 @@ struct LogEntryEditorView: View {
             .filter { !$0.isEmpty }
 
         do {
+            let savedLog: LogEntry
+
             if let log {
                 log.album = album
                 log.rating = rating
                 log.reviewText = trimmedReview
                 log.tags = parsedTags
                 log.updatedAt = Date()
+                savedLog = log
             } else {
                 let now = Date()
                 let newLog = LogEntry(
@@ -132,17 +150,49 @@ struct LogEntryEditorView: View {
                     updatedAt: now
                 )
                 modelContext.insert(newLog)
+                savedLog = newLog
             }
 
             try modelContext.save()
+            await updateSentiment(for: savedLog)
+            rebuildSoundPrintProfile()
             dismiss()
         } catch {
             errorMessage = "Could not save log."
+        }
+    }
+
+    @MainActor
+    private func updateSentiment(for log: LogEntry) async {
+        do {
+            let sentiment = try await soundPrintProvider.analyzeSentiment(
+                input: SentimentInput(
+                    rating: log.rating,
+                    reviewText: log.reviewText,
+                    tags: log.tags
+                )
+            )
+
+            log.sentimentScore = sentiment.score
+            log.sentimentConfidence = sentiment.confidence
+            try modelContext.save()
+        } catch {
+            return
+        }
+    }
+
+    @MainActor
+    private func rebuildSoundPrintProfile() {
+        let modelContext = modelContext
+        let soundPrintProvider = soundPrintProvider
+
+        Task { @MainActor in
+            try? await SoundPrintProfileBuilder(provider: soundPrintProvider).rebuildProfile(in: modelContext)
         }
     }
 }
 
 #Preview {
     LogEntryEditorView()
-        .modelContainer(for: [Album.self, LogEntry.self], inMemory: true)
+        .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self], inMemory: true)
 }

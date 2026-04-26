@@ -43,6 +43,7 @@ struct HomeView: View {
                         }
                         .padding(.vertical, 4)
                     }
+                    .accessibilityIdentifier("tonightPickLink")
                 }
             }
 
@@ -72,6 +73,7 @@ struct HomeView: View {
                 } label: {
                     Label("Add Log", systemImage: "plus")
                 }
+                .accessibilityIdentifier("addLogButton")
             }
         }
         .sheet(isPresented: $isShowingNewLog) {
@@ -111,4 +113,5 @@ struct HomeView: View {
         HomeView()
     }
     .modelContainer(PreviewData.activeRecommendationContainer)
+    .environment(SoundPrintProfileRefreshCoordinator())
 }

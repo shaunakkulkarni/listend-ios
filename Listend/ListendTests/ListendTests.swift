@@ -108,6 +108,23 @@ struct ListendTests {
         #expect(!negativeFallback.canAnchorRecommendation)
     }
 
+    @MainActor
+    @Test func throwingSentimentProviderPersistsRatingFallback() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let album = Album(title: "Fallback Album", artistName: "Fallback Artist")
+        let log = LogEntry(album: album, rating: 4.0, reviewText: "Provider should fail.", tags: ["fallback"])
+
+        modelContext.insert(album)
+        modelContext.insert(log)
+        try modelContext.save()
+
+        try await LogSentimentUpdater(provider: ThrowingSoundPrintProvider(failingOperation: .sentiment)).updateSentiment(for: log, in: modelContext)
+
+        #expect(log.sentimentScore == MockSoundPrintProvider.baseScore(for: 4.0))
+        #expect(log.sentimentConfidence == 0.6)
+    }
+
     @Test func positiveInputProducesTasteDimensions() async throws {
         let provider = MockSoundPrintProvider()
 
@@ -229,6 +246,55 @@ struct ListendTests {
         #expect(evidence.isEmpty)
     }
 
+    @MainActor
+    @Test func soundPrintExtractionFailurePreservesExistingProfileData() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let album = Album(title: "Positive Album", artistName: "Positive Artist")
+        let log = LogEntry(
+            album: album,
+            rating: 4.5,
+            reviewText: "Energetic vocals with polished replay value.",
+            tags: ["repeat"],
+            sentimentScore: 0.8
+        )
+        let existingDimension = TasteDimension(
+            name: "vocalFocus",
+            label: "Vocal Focus",
+            weight: 0.8,
+            confidence: 0.7,
+            summary: "Existing profile."
+        )
+        let existingEvidence = TasteEvidence(
+            dimensionName: "vocalFocus",
+            logEntryID: log.id,
+            snippet: "Existing evidence.",
+            evidenceType: "reviewOrTag",
+            strength: 0.8,
+            confidence: 0.7,
+            isPositiveEvidence: true
+        )
+
+        modelContext.insert(album)
+        modelContext.insert(log)
+        modelContext.insert(existingDimension)
+        modelContext.insert(existingEvidence)
+        try modelContext.save()
+
+        do {
+            try await SoundPrintProfileBuilder(provider: ThrowingSoundPrintProvider(failingOperation: .tasteExtraction)).rebuildProfile(in: modelContext)
+            Issue.record("Profile rebuild should throw when extraction fails.")
+        } catch {
+            let dimensions = try modelContext.fetch(FetchDescriptor<TasteDimension>())
+            let evidence = try modelContext.fetch(FetchDescriptor<TasteEvidence>())
+
+            #expect(dimensions.count == 1)
+            #expect(dimensions[0].summary == "Existing profile.")
+            #expect(evidence.count == 1)
+            #expect(evidence[0].snippet == "Existing evidence.")
+        }
+    }
+
     @Test func personaGenerationReferencesConcreteSignalsAndAvoidsBannedPhrases() async throws {
         let provider = MockSoundPrintProvider()
         let input = personaInput()
@@ -295,6 +361,30 @@ struct ListendTests {
         #expect(personas[0].logCountAtGeneration == 5)
         #expect(personas[0].personaText.count >= 80)
         #expect(!personas[0].personaText.contains("Old persona"))
+    }
+
+    @MainActor
+    @Test func personaGenerationFailurePreservesLastValidPersona() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+
+        insertPersonaReadyLogs(in: modelContext, count: 5)
+        modelContext.insert(
+            SoundPrintPersona(
+                personaText: "Existing persona should survive generation failure.",
+                logCountAtGeneration: 5
+            )
+        )
+        try modelContext.save()
+
+        try await SoundPrintProfileBuilder(provider: ThrowingSoundPrintProvider(failingOperation: .persona)).rebuildProfile(in: modelContext)
+
+        let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
+        let dimensions = try modelContext.fetch(FetchDescriptor<TasteDimension>())
+
+        #expect(!dimensions.isEmpty)
+        #expect(personas.count == 1)
+        #expect(personas[0].personaText == "Existing persona should survive generation failure.")
     }
 
     @MainActor
@@ -469,6 +559,40 @@ struct ListendTests {
     }
 
     @MainActor
+    @Test func dismissedOnlyRecommendationPoolReturnsNoCandidates() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let dismissedCandidate = Album(appleMusicID: "mock.a.dismissed", title: "Dismissed Pick", artistName: "Artist A", genreName: "Art Pop")
+        let anchorAlbum = Album(title: "Anchor", artistName: "Anchor Artist", genreName: "Art Pop")
+        let anchorLog = LogEntry(album: anchorAlbum, rating: 4.5, tags: ["art"], sentimentScore: 0.8)
+        let dismissedRecommendation = Recommendation(
+            album: dismissedCandidate,
+            score: 0.9,
+            confidence: 0.9,
+            status: RecommendationStatus.dismissed.rawValue,
+            explanationText: "Dismissed."
+        )
+        let service = LocalRecommendationService(
+            catalogAlbums: [
+                AlbumSearchResult(id: "mock.a.dismissed", title: "Dismissed Pick", artistName: "Artist A", releaseYear: nil, genreName: "Art Pop")
+            ]
+        )
+
+        modelContext.insert(dismissedCandidate)
+        modelContext.insert(anchorAlbum)
+        modelContext.insert(anchorLog)
+        modelContext.insert(dismissedRecommendation)
+        try modelContext.save()
+
+        do {
+            _ = try await service.currentOrGenerateRecommendation(in: modelContext)
+            Issue.record("Dismissed albums should not be immediately recycled.")
+        } catch let error as LocalRecommendationError {
+            #expect(error == .noCandidates)
+        }
+    }
+
+    @MainActor
     @Test func receiptSnapshotSurvivesSourceLogDeletion() async throws {
         let container = try makeInMemoryContainer()
         let modelContext = container.mainContext
@@ -590,4 +714,42 @@ struct ListendTests {
         }
     }
 
+}
+
+private enum ThrowingSoundPrintOperation {
+    case sentiment
+    case tasteExtraction
+    case persona
+}
+
+private enum ThrowingSoundPrintError: Error {
+    case failed
+}
+
+private struct ThrowingSoundPrintProvider: SoundPrintProvider {
+    let failingOperation: ThrowingSoundPrintOperation
+
+    func analyzeSentiment(input: SentimentInput) async throws -> SentimentResult {
+        if failingOperation == .sentiment {
+            throw ThrowingSoundPrintError.failed
+        }
+
+        return try await MockSoundPrintProvider().analyzeSentiment(input: input)
+    }
+
+    func extractTasteSignals(input: TasteExtractionInput) async throws -> TasteExtractionResult {
+        if failingOperation == .tasteExtraction {
+            throw ThrowingSoundPrintError.failed
+        }
+
+        return try await MockSoundPrintProvider().extractTasteSignals(input: input)
+    }
+
+    func generatePersona(input: PersonaInput) async throws -> PersonaResult {
+        if failingOperation == .persona {
+            throw ThrowingSoundPrintError.failed
+        }
+
+        return try await MockSoundPrintProvider().generatePersona(input: input)
+    }
 }

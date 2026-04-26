@@ -11,6 +11,7 @@ import SwiftData
 struct LogEntryEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(SoundPrintProfileRefreshCoordinator.self) private var soundPrintRefreshCoordinator
     @Query(sort: \Album.title) private var albums: [Album]
 
     private let log: LogEntry?
@@ -50,6 +51,7 @@ struct LogEntryEditorView: View {
                         }
                     }
                     .disabled(log != nil)
+                    .accessibilityIdentifier("albumPicker")
                 }
 
                 Section("Rating") {
@@ -59,12 +61,14 @@ struct LogEntryEditorView: View {
                 Section("Review") {
                     TextEditor(text: $reviewText)
                         .frame(minHeight: 120)
+                        .accessibilityIdentifier("reviewTextEditor")
                 }
 
                 Section("Tags") {
                     TextField("warm, late night, repeat", text: $tagsText)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .accessibilityIdentifier("tagsTextField")
                 }
 
                 if let errorMessage {
@@ -89,6 +93,7 @@ struct LogEntryEditorView: View {
                         }
                     }
                     .disabled(!canSave || isSaving)
+                    .accessibilityIdentifier("saveLogButton")
                 }
             }
         }
@@ -154,40 +159,11 @@ struct LogEntryEditorView: View {
             }
 
             try modelContext.save()
-            await updateSentiment(for: savedLog)
-            rebuildSoundPrintProfile()
+            try await LogSentimentUpdater(provider: soundPrintProvider).updateSentiment(for: savedLog, in: modelContext)
+            await soundPrintRefreshCoordinator.refreshProfile(in: modelContext, provider: soundPrintProvider)
             dismiss()
         } catch {
             errorMessage = "Could not save log."
-        }
-    }
-
-    @MainActor
-    private func updateSentiment(for log: LogEntry) async {
-        do {
-            let sentiment = try await soundPrintProvider.analyzeSentiment(
-                input: SentimentInput(
-                    rating: log.rating,
-                    reviewText: log.reviewText,
-                    tags: log.tags
-                )
-            )
-
-            log.sentimentScore = sentiment.score
-            log.sentimentConfidence = sentiment.confidence
-            try modelContext.save()
-        } catch {
-            return
-        }
-    }
-
-    @MainActor
-    private func rebuildSoundPrintProfile() {
-        let modelContext = modelContext
-        let soundPrintProvider = soundPrintProvider
-
-        Task { @MainActor in
-            try? await SoundPrintProfileBuilder(provider: soundPrintProvider).rebuildProfile(in: modelContext)
         }
     }
 }
@@ -195,4 +171,5 @@ struct LogEntryEditorView: View {
 #Preview {
     LogEntryEditorView()
         .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self, SoundPrintPersona.self, Recommendation.self, RecommendationReceipt.self, RecommendationFeedback.self], inMemory: true)
+        .environment(SoundPrintProfileRefreshCoordinator())
 }

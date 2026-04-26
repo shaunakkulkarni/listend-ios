@@ -17,65 +17,54 @@ struct SoundPrintProfileBuilder {
 
     @MainActor
     func rebuildProfile(in modelContext: ModelContext) async throws {
-        let existingEvidence = try modelContext.fetch(FetchDescriptor<TasteEvidence>())
-        let existingDimensions = try modelContext.fetch(FetchDescriptor<TasteDimension>())
-
-        for evidence in existingEvidence {
-            modelContext.delete(evidence)
-        }
-
-        for dimension in existingDimensions {
-            modelContext.delete(dimension)
-        }
-
         let logs = try modelContext.fetch(FetchDescriptor<LogEntry>())
+        let logInputs = logs.compactMap(SoundPrintLogInput.init(log:))
         var signalsByDimension: [String: [TasteSignal]] = [:]
+        var pendingEvidence: [PendingTasteEvidence] = []
 
-        for log in logs where log.isPositiveSignal {
-            guard let album = log.album else {
-                continue
-            }
-
+        for logInput in logInputs where logInput.isPositiveSignal {
             let extraction = try await provider.extractTasteSignals(
                 input: TasteExtractionInput(
-                    logID: log.id,
-                    albumTitle: album.title,
-                    artistName: album.artistName,
-                    genreName: album.genreName,
-                    releaseYear: album.releaseYear,
-                    rating: log.rating,
-                    reviewText: log.reviewText,
-                    tags: log.tags,
-                    sentimentScore: log.sentimentScore
+                    logID: logInput.logID,
+                    albumTitle: logInput.albumTitle,
+                    artistName: logInput.artistName,
+                    genreName: logInput.genreName,
+                    releaseYear: logInput.releaseYear,
+                    rating: logInput.rating,
+                    reviewText: logInput.reviewText,
+                    tags: logInput.tags,
+                    sentimentScore: logInput.sentimentScore
                 )
             )
 
             for signal in extraction.signals where signal.isPositiveEvidence {
                 signalsByDimension[signal.dimensionName, default: []].append(signal)
-                modelContext.insert(
-                    TasteEvidence(
+                pendingEvidence.append(
+                    PendingTasteEvidence(
                         dimensionName: signal.dimensionName,
-                        logEntryID: log.id,
+                        logEntryID: logInput.logID,
                         snippet: signal.evidenceSnippet,
-                        evidenceType: "reviewOrTag",
                         strength: signal.weight,
-                        confidence: signal.confidence,
-                        isPositiveEvidence: true
+                        confidence: signal.confidence
                     )
                 )
             }
         }
 
-        insertDimensions(from: signalsByDimension, in: modelContext)
+        let pendingDimensions = makeDimensions(from: signalsByDimension)
+        try replaceProfileData(
+            dimensions: pendingDimensions,
+            evidence: pendingEvidence,
+            in: modelContext
+        )
         try modelContext.save()
-        await refreshPersona(in: modelContext)
+        await refreshPersona(in: modelContext, logs: logs, dimensions: pendingDimensions)
     }
 
-    @MainActor
-    private func insertDimensions(from signalsByDimension: [String: [TasteSignal]], in modelContext: ModelContext) {
-        for (dimensionName, signals) in signalsByDimension {
+    private func makeDimensions(from signalsByDimension: [String: [TasteSignal]]) -> [PendingTasteDimension] {
+        signalsByDimension.compactMap { dimensionName, signals in
             guard !signals.isEmpty else {
-                continue
+                return nil
             }
 
             let weight = signals.map(\.weight).average.clamped(to: 0.0...1.0)
@@ -88,23 +77,79 @@ struct SoundPrintProfileBuilder {
                 return $0.weight > $1.weight
             }[0]
 
+            return PendingTasteDimension(
+                name: dimensionName,
+                label: representative.label,
+                weight: weight,
+                confidence: confidence,
+                summary: representative.summary
+            )
+        }
+        .sorted {
+            if $0.weight == $1.weight {
+                return $0.label < $1.label
+            }
+
+            return $0.weight > $1.weight
+        }
+    }
+
+    @MainActor
+    private func replaceProfileData(
+        dimensions: [PendingTasteDimension],
+        evidence: [PendingTasteEvidence],
+        in modelContext: ModelContext
+    ) throws {
+        let existingEvidence = try modelContext.fetch(FetchDescriptor<TasteEvidence>())
+        let existingDimensions = try modelContext.fetch(FetchDescriptor<TasteDimension>())
+
+        for evidence in existingEvidence {
+            modelContext.delete(evidence)
+        }
+
+        for dimension in existingDimensions {
+            modelContext.delete(dimension)
+        }
+
+        for dimension in dimensions {
             modelContext.insert(
                 TasteDimension(
-                    name: dimensionName,
-                    label: representative.label,
-                    weight: weight,
-                    confidence: confidence,
-                    summary: representative.summary
+                    name: dimension.name,
+                    label: dimension.label,
+                    weight: dimension.weight,
+                    confidence: dimension.confidence,
+                    summary: dimension.summary
+                )
+            )
+        }
+
+        for evidence in evidence {
+            modelContext.insert(
+                TasteEvidence(
+                    dimensionName: evidence.dimensionName,
+                    logEntryID: evidence.logEntryID,
+                    snippet: evidence.snippet,
+                    evidenceType: "reviewOrTag",
+                    strength: evidence.strength,
+                    confidence: evidence.confidence,
+                    isPositiveEvidence: true
                 )
             )
         }
     }
 
     @MainActor
-    private func refreshPersona(in modelContext: ModelContext) async {
+    private func refreshPersona(
+        in modelContext: ModelContext,
+        logs: [LogEntry],
+        dimensions pendingDimensions: [PendingTasteDimension]
+    ) async {
         do {
-            let logs = try modelContext.fetch(FetchDescriptor<LogEntry>())
-            let existingPersonas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
+            let existingPersonas = try modelContext.fetch(
+                FetchDescriptor<SoundPrintPersona>(
+                    sortBy: [SortDescriptor(\.generatedAt, order: .reverse)]
+                )
+            )
 
             guard logs.count >= 5 else {
                 for persona in existingPersonas {
@@ -115,11 +160,6 @@ struct SoundPrintProfileBuilder {
                 return
             }
 
-            let dimensions = try modelContext.fetch(
-                FetchDescriptor<TasteDimension>(
-                    sortBy: [SortDescriptor(\.weight, order: .reverse)]
-                )
-            )
             let recentLogs = logs
                 .sorted { $0.loggedAt > $1.loggedAt }
                 .prefix(10)
@@ -128,7 +168,7 @@ struct SoundPrintProfileBuilder {
             let averageRating = logs.isEmpty ? nil : logs.map(\.rating).average
             let result = try await provider.generatePersona(
                 input: PersonaInput(
-                    dimensions: dimensions,
+                    dimensions: pendingDimensions.map(\.tasteDimension),
                     recentLogs: Array(recentLogs),
                     totalLogCount: logs.count,
                     topTags: topTags,
@@ -175,6 +215,62 @@ struct SoundPrintProfileBuilder {
             .prefix(3)
             .map(\.key)
     }
+}
+
+private struct SoundPrintLogInput {
+    let logID: UUID
+    let albumTitle: String
+    let artistName: String
+    let genreName: String?
+    let releaseYear: Int?
+    let rating: Double
+    let reviewText: String
+    let tags: [String]
+    let sentimentScore: Double?
+    let isPositiveSignal: Bool
+
+    init?(log: LogEntry) {
+        guard let album = log.album else {
+            return nil
+        }
+
+        logID = log.id
+        albumTitle = album.title
+        artistName = album.artistName
+        genreName = album.genreName
+        releaseYear = album.releaseYear
+        rating = log.rating
+        reviewText = log.reviewText
+        tags = log.tags
+        sentimentScore = log.sentimentScore
+        isPositiveSignal = log.isPositiveSignal
+    }
+}
+
+private struct PendingTasteDimension {
+    let name: String
+    let label: String
+    let weight: Double
+    let confidence: Double
+    let summary: String
+
+    var tasteDimension: TasteDimension {
+        TasteDimension(
+            name: name,
+            label: label,
+            weight: weight,
+            confidence: confidence,
+            summary: summary
+        )
+    }
+}
+
+private struct PendingTasteEvidence {
+    let dimensionName: String
+    let logEntryID: UUID
+    let snippet: String
+    let strength: Double
+    let confidence: Double
 }
 
 private extension PersonaLogInput {

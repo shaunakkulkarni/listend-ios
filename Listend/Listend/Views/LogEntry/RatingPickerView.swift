@@ -22,5 +22,6 @@ struct RatingPickerView: View {
                     .tag(Double?.some(rating))
             }
         }
+        .accessibilityIdentifier("ratingPicker")
     }
 }

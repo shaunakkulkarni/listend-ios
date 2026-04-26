@@ -20,6 +20,7 @@ struct ContentView: View {
             .tabItem {
                 Label("Home", systemImage: "house")
             }
+            .accessibilityIdentifier("homeTab")
 
             NavigationStack {
                 SearchView()
@@ -27,6 +28,7 @@ struct ContentView: View {
             .tabItem {
                 Label("Search", systemImage: "magnifyingglass")
             }
+            .accessibilityIdentifier("searchTab")
 
             NavigationStack {
                 ProfileView()
@@ -34,6 +36,7 @@ struct ContentView: View {
             .tabItem {
                 Label("Profile", systemImage: "person.crop.circle")
             }
+            .accessibilityIdentifier("profileTab")
         }
         .task {
             guard !didSeedData else {
@@ -49,4 +52,5 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self, SoundPrintPersona.self, Recommendation.self, RecommendationReceipt.self, RecommendationFeedback.self], inMemory: true)
+        .environment(SoundPrintProfileRefreshCoordinator())
 }

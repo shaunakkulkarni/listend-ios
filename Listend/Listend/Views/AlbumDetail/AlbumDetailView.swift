@@ -47,6 +47,7 @@ struct AlbumDetailView: View {
                         startLog()
                     }
                     .fontWeight(.semibold)
+                    .accessibilityIdentifier("logThisAlbumButton")
                 }
             }
 

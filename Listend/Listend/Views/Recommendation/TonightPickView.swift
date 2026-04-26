@@ -85,6 +85,7 @@ struct TonightPickView: View {
                 Label("Like", systemImage: "hand.thumbsup")
             }
             .disabled(isWorking)
+            .accessibilityIdentifier("likeRecommendationButton")
 
             Button {
                 Task {
@@ -94,6 +95,7 @@ struct TonightPickView: View {
                 Label("Dismiss", systemImage: "xmark")
             }
             .disabled(isWorking)
+            .accessibilityIdentifier("dismissRecommendationButton")
 
             Button {
                 Task {
@@ -103,6 +105,7 @@ struct TonightPickView: View {
                 Label("Save for Later", systemImage: "bookmark")
             }
             .disabled(isWorking)
+            .accessibilityIdentifier("saveRecommendationButton")
 
             Button {
                 Task {
@@ -112,6 +115,7 @@ struct TonightPickView: View {
                 Label("Listened", systemImage: "checkmark.circle")
             }
             .disabled(isWorking)
+            .accessibilityIdentifier("listenedRecommendationButton")
         }
     }
 
@@ -131,6 +135,7 @@ struct TonightPickView: View {
                 Label("Find Tonight's Pick", systemImage: "sparkles")
             }
             .disabled(isWorking || !hasPositiveAnchor)
+            .accessibilityIdentifier("findTonightPickButton")
 
             if let message {
                 Text(message)

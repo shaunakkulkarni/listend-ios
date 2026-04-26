@@ -48,13 +48,14 @@ struct SearchView: View {
                     } label: {
                         AlbumSearchResultRow(album: album)
                     }
+                    .accessibilityIdentifier("albumSearchResult-\(album.catalogID)")
                 }
             }
         }
         .navigationTitle("Search")
         .searchable(text: $query, prompt: "Album, artist, or genre")
         .task(id: trimmedQuery) {
-            await searchAlbums()
+            await searchAlbums(for: trimmedQuery)
         }
     }
 
@@ -63,8 +64,8 @@ struct SearchView: View {
     }
 
     @MainActor
-    private func searchAlbums() async {
-        guard !trimmedQuery.isEmpty else {
+    private func searchAlbums(for query: String) async {
+        guard !query.isEmpty else {
             results = []
             isSearching = false
             errorMessage = nil
@@ -75,13 +76,23 @@ struct SearchView: View {
         errorMessage = nil
 
         do {
-            let searchResults = try await catalogService.searchAlbums(query: trimmedQuery)
+            let searchResults = try await catalogService.searchAlbums(query: query)
             try Task.checkCancellation()
+            guard query == trimmedQuery else {
+                return
+            }
+
             results = searchResults
             isSearching = false
         } catch is CancellationError {
-            isSearching = false
+            if query == trimmedQuery {
+                isSearching = false
+            }
         } catch {
+            guard query == trimmedQuery else {
+                return
+            }
+
             results = []
             isSearching = false
             errorMessage = "Could not search the mock catalog."

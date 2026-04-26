@@ -52,13 +52,6 @@ struct LocalRecommendationService {
             recommendations: recommendations,
             anchors: anchors,
             allowDismissed: false
-        ) ?? bestCandidate(
-            logs: logs,
-            localAlbums: albums,
-            evidence: evidence,
-            recommendations: recommendations,
-            anchors: anchors,
-            allowDismissed: true
         ) else {
             throw LocalRecommendationError.noCandidates
         }

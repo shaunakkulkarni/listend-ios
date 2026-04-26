@@ -11,6 +11,7 @@ import SwiftData
 struct LogEntryDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(SoundPrintProfileRefreshCoordinator.self) private var soundPrintRefreshCoordinator
 
     let log: LogEntry
 
@@ -39,7 +40,8 @@ struct LogEntryDetailView: View {
             }
 
             Section("Log") {
-                DetailRow(title: "Rating", value: ratingText)
+                DetailRow(title: "Rating", value: ratingText, valueIdentifier: "ratingValueText")
+                    .accessibilityIdentifier("ratingDetailRow")
                 DetailRow(title: "Logged", value: log.loggedAt.formatted(date: .abbreviated, time: .omitted))
 
                 if log.updatedAt > log.loggedAt {
@@ -50,6 +52,7 @@ struct LogEntryDetailView: View {
             if !log.reviewText.isEmpty {
                 Section("Review") {
                     Text(log.reviewText)
+                        .accessibilityIdentifier("reviewValueText")
                 }
             }
 
@@ -57,6 +60,7 @@ struct LogEntryDetailView: View {
                 Section("Tags") {
                     Text(log.tags.joined(separator: ", "))
                         .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("tagsValueText")
                 }
             }
 
@@ -71,6 +75,7 @@ struct LogEntryDetailView: View {
                 Button("Delete Log", role: .destructive) {
                     isShowingDeleteConfirmation = true
                 }
+                .accessibilityIdentifier("deleteLogButton")
             }
         }
         .navigationTitle("Log")
@@ -90,8 +95,11 @@ struct LogEntryDetailView: View {
             titleVisibility: .visible
         ) {
             Button("Delete Log", role: .destructive) {
-                deleteLog()
+                Task {
+                    await deleteLog()
+                }
             }
+            .accessibilityIdentifier("confirmDeleteLogButton")
 
             Button("Cancel", role: .cancel) { }
         } message: {
@@ -103,23 +111,15 @@ struct LogEntryDetailView: View {
         log.rating.formatted(.number.precision(.fractionLength(1)))
     }
 
-    private func deleteLog() {
+    @MainActor
+    private func deleteLog() async {
         do {
             modelContext.delete(log)
             try modelContext.save()
-            rebuildSoundPrintProfile()
+            await soundPrintRefreshCoordinator.refreshProfile(in: modelContext)
             dismiss()
         } catch {
             errorMessage = "Could not delete log."
-        }
-    }
-
-    @MainActor
-    private func rebuildSoundPrintProfile() {
-        let modelContext = modelContext
-
-        Task { @MainActor in
-            try? await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
         }
     }
 }
@@ -127,13 +127,26 @@ struct LogEntryDetailView: View {
 private struct DetailRow: View {
     let title: String
     let value: String
+    var valueIdentifier: String?
 
     var body: some View {
         HStack {
             Text(title)
             Spacer()
-            Text(value)
-                .foregroundStyle(.secondary)
+            valueText
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private var valueText: some View {
+        let text = Text(value)
+            .foregroundStyle(.secondary)
+
+        if let valueIdentifier {
+            text.accessibilityIdentifier(valueIdentifier)
+        } else {
+            text
         }
     }
 }
@@ -150,4 +163,5 @@ private struct DetailRow: View {
         )
     }
     .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self, SoundPrintPersona.self, Recommendation.self, RecommendationReceipt.self, RecommendationFeedback.self], inMemory: true)
+    .environment(SoundPrintProfileRefreshCoordinator())
 }

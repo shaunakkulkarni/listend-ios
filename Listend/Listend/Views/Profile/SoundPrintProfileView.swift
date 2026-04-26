@@ -14,6 +14,9 @@ struct SoundPrintProfileView: View {
     @Query private var logs: [LogEntry]
 
     var body: some View {
+        let evidenceByDimension = evidenceGroupedByDimension
+        let logsByID = logsKeyedByID
+
         List {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
@@ -37,10 +40,9 @@ struct SoundPrintProfileView: View {
                     ForEach(dimensions) { dimension in
                         DimensionCard(
                             dimension: dimension,
-                            evidence: evidenceItems(for: dimension)
-                        ) { logID in
-                            log(for: logID)
-                        }
+                            evidence: evidenceByDimension[dimension.name, default: []],
+                            logsByID: logsByID
+                        )
                     }
                 }
             }
@@ -48,27 +50,28 @@ struct SoundPrintProfileView: View {
         .navigationTitle("SoundPrint")
     }
 
-    private func evidenceItems(for dimension: TasteDimension) -> [TasteEvidence] {
-        evidence
-            .filter { $0.dimensionName == dimension.name && $0.isPositiveEvidence }
-            .sorted {
-                if $0.strength == $1.strength {
-                    return $0.snippet < $1.snippet
-                }
+    private var evidenceGroupedByDimension: [String: [TasteEvidence]] {
+        Dictionary(grouping: evidence.filter(\.isPositiveEvidence), by: \.dimensionName)
+            .mapValues { evidence in
+                evidence.sorted {
+                    if $0.strength == $1.strength {
+                        return $0.snippet < $1.snippet
+                    }
 
-                return $0.strength > $1.strength
+                    return $0.strength > $1.strength
+                }
             }
     }
 
-    private func log(for id: UUID) -> LogEntry? {
-        logs.first { $0.id == id }
+    private var logsKeyedByID: [UUID: LogEntry] {
+        Dictionary(uniqueKeysWithValues: logs.map { ($0.id, $0) })
     }
 }
 
 private struct DimensionCard: View {
     let dimension: TasteDimension
     let evidence: [TasteEvidence]
-    let log: (UUID) -> LogEntry?
+    let logsByID: [UUID: LogEntry]
 
     @State private var isExpanded = false
 
@@ -76,7 +79,7 @@ private struct DimensionCard: View {
         DisclosureGroup(isExpanded: $isExpanded) {
             VStack(alignment: .leading, spacing: 12) {
                 ForEach(evidence) { item in
-                    ReceiptRow(evidence: item, log: log(item.logEntryID))
+                    ReceiptRow(evidence: item, log: logsByID[item.logEntryID])
                 }
             }
             .padding(.top, 8)

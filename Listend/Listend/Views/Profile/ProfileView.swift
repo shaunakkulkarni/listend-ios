@@ -9,22 +9,33 @@ import SwiftUI
 import SwiftData
 
 struct ProfileView: View {
-    @Environment(\.modelContext) private var modelContext
+    @Environment(SoundPrintProfileRefreshCoordinator.self) private var soundPrintRefreshCoordinator
     @Query private var logs: [LogEntry]
     @Query(sort: \TasteDimension.weight, order: .reverse) private var dimensions: [TasteDimension]
     @Query(sort: \SoundPrintPersona.generatedAt, order: .reverse) private var personas: [SoundPrintPersona]
-    @State private var didRefreshSoundPrintProfile = false
 
     var body: some View {
         List {
             Section("Stats") {
-                StatRow(title: "Total Logs", value: logs.count.formatted())
-                StatRow(title: "Average Rating", value: averageRatingText)
-                StatRow(title: "Top Tags", value: topTagsText)
+                StatRow(title: "Total Logs", value: logs.count.formatted(), valueIdentifier: "totalLogsValueText")
+                    .accessibilityIdentifier("totalLogsStat")
+                StatRow(title: "Average Rating", value: averageRatingText, valueIdentifier: "averageRatingValueText")
+                    .accessibilityIdentifier("averageRatingStat")
+                StatRow(title: "Top Tags", value: topTagsText, valueIdentifier: "topTagsValueText")
+                    .accessibilityIdentifier("topTagsStat")
             }
 
             Section("SoundPrint") {
                 PersonaCard(logCount: logs.count, persona: currentPersona)
+                if soundPrintRefreshCoordinator.isRebuilding {
+                    Label("Refreshing SoundPrint", systemImage: "arrow.triangle.2.circlepath")
+                        .foregroundStyle(.secondary)
+                }
+
+                if let lastError = soundPrintRefreshCoordinator.lastError {
+                    Label(lastError, systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.red)
+                }
 
                 if canShowSoundPrintProfile {
                     NavigationLink {
@@ -52,14 +63,6 @@ struct ProfileView: View {
             }
         }
         .navigationTitle("Profile")
-        .task {
-            guard !didRefreshSoundPrintProfile else {
-                return
-            }
-
-            didRefreshSoundPrintProfile = true
-            try? await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
-        }
     }
 
     private var averageRatingText: String {
@@ -131,13 +134,26 @@ private struct PersonaCard: View {
 private struct StatRow: View {
     let title: String
     let value: String
+    var valueIdentifier: String?
 
     var body: some View {
         HStack {
             Text(title)
             Spacer()
-            Text(value)
-                .foregroundStyle(.secondary)
+            valueText
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private var valueText: some View {
+        let text = Text(value)
+            .foregroundStyle(.secondary)
+
+        if let valueIdentifier {
+            text.accessibilityIdentifier(valueIdentifier)
+        } else {
+            text
         }
     }
 }
@@ -147,6 +163,7 @@ private struct StatRow: View {
         ProfileView()
     }
     .modelContainer(PreviewData.lockedPersonaContainer)
+    .environment(SoundPrintProfileRefreshCoordinator())
 }
 
 #Preview("Unlocked Persona") {
@@ -154,4 +171,5 @@ private struct StatRow: View {
         ProfileView()
     }
     .modelContainer(PreviewData.unlockedPersonaContainer)
+    .environment(SoundPrintProfileRefreshCoordinator())
 }

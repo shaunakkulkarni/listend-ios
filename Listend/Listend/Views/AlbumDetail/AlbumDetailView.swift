@@ -102,6 +102,7 @@ struct AlbumDetailView: View {
             artistName: album.artistName,
             releaseYear: album.releaseYear,
             genreName: album.genreName,
+            artworkURL: album.artworkURL,
             cachedAt: Date()
         )
         modelContext.insert(cachedAlbum)
@@ -118,6 +119,7 @@ struct AlbumDetailView: View {
         cachedAlbum.artistName = album.artistName
         cachedAlbum.releaseYear = album.releaseYear
         cachedAlbum.genreName = album.genreName
+        cachedAlbum.artworkURL = album.artworkURL
         cachedAlbum.cachedAt = Date()
     }
 

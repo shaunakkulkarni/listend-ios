@@ -25,7 +25,7 @@ struct SearchView: View {
                 ContentUnavailableView(
                     "Search Albums",
                     systemImage: "magnifyingglass",
-                    description: Text("Search the mock catalog by album, artist, or genre.")
+                    description: Text("Search by album, artist, or genre.")
                 )
             } else if isSearching {
                 ProgressView("Searching")
@@ -95,7 +95,7 @@ struct SearchView: View {
 
             results = []
             isSearching = false
-            errorMessage = "Could not search the mock catalog."
+            errorMessage = "Could not search albums right now. Try another search."
         }
     }
 }

@@ -12,12 +12,16 @@ struct TonightPickView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \LogEntry.loggedAt, order: .reverse) private var logs: [LogEntry]
 
-    private let recommendationService = LocalRecommendationService()
+    private let recommendationService: LocalRecommendationService
 
     @State private var recommendation: Recommendation?
     @State private var receipts: [RecommendationReceipt] = []
     @State private var message: String?
     @State private var isWorking = false
+
+    init(catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService()) {
+        recommendationService = LocalRecommendationService(catalogService: catalogService)
+    }
 
     var body: some View {
         List {
@@ -158,7 +162,7 @@ struct TonightPickView: View {
     }
 
     private var emptyDescription: String {
-        hasPositiveAnchor ? "Generate one local recommendation backed by your own logs." : "A 4-star positive log unlocks Tonight's Pick."
+        hasPositiveAnchor ? "Generate one pick backed by your own logs." : "A 4-star positive log unlocks Tonight's Pick."
     }
 
     @ViewBuilder
@@ -209,7 +213,7 @@ struct TonightPickView: View {
         } catch LocalRecommendationError.needsMoreLogs {
             message = "Log more albums first."
         } catch LocalRecommendationError.noCandidates {
-            message = "No local picks left."
+            message = "No picks left."
         } catch {
             message = "Could not generate Tonight's Pick."
         }

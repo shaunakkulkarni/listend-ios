@@ -15,9 +15,22 @@ enum LocalRecommendationError: Error, Equatable {
 
 struct LocalRecommendationService {
     private let catalogAlbums: [AlbumSearchResult]
+    private let candidateProvider: CatalogRecommendationCandidateProvider?
 
     init(catalogAlbums: [AlbumSearchResult] = MockAlbumCatalogService.defaultAlbums) {
         self.catalogAlbums = catalogAlbums
+        candidateProvider = nil
+    }
+
+    init(
+        catalogService: AlbumCatalogServiceProtocol,
+        fallbackCandidates: [AlbumSearchResult] = MockAlbumCatalogService.defaultAlbums
+    ) {
+        catalogAlbums = fallbackCandidates
+        candidateProvider = CatalogRecommendationCandidateProvider(
+            catalogService: catalogService,
+            fallbackCandidates: fallbackCandidates
+        )
     }
 
     @MainActor
@@ -45,7 +58,15 @@ struct LocalRecommendationService {
             throw LocalRecommendationError.needsMoreLogs
         }
 
+        let candidates = await recommendationCandidates(
+            logs: logs,
+            albums: albums,
+            evidence: evidence,
+            anchors: anchors
+        )
+
         guard let scoredCandidate = bestCandidate(
+            candidates: candidates,
             logs: logs,
             localAlbums: albums,
             evidence: evidence,
@@ -131,6 +152,7 @@ struct LocalRecommendationService {
 
     @MainActor
     func bestCandidate(
+        candidates: [AlbumSearchResult]? = nil,
         logs: [LogEntry],
         localAlbums: [Album],
         evidence: [TasteEvidence],
@@ -153,7 +175,7 @@ struct LocalRecommendationService {
         )
         let negativeLogs = logs.filter(\.isNegativeSignal)
 
-        return catalogAlbums
+        return (candidates ?? catalogAlbums)
             .filter { candidate in
                 !loggedAlbums.contains { Self.matches($0, candidate) }
             }
@@ -183,6 +205,30 @@ struct LocalRecommendationService {
                 return lhsName < rhsName
             }
             .first
+    }
+
+    @MainActor
+    private func recommendationCandidates(
+        logs: [LogEntry],
+        albums: [Album],
+        evidence: [TasteEvidence],
+        anchors: [LogEntry]
+    ) async -> [AlbumSearchResult] {
+        guard let candidateProvider else {
+            return catalogAlbums
+        }
+
+        let anchorInputs = anchors.compactMap(Self.anchorInput)
+        let loggedAlbumInputs = logs
+            .compactMap(\.album)
+            .map(Self.loggedAlbumInput)
+        let evidenceInputs = evidence.map(Self.evidenceInput)
+
+        return await candidateProvider.candidates(
+            anchors: anchorInputs,
+            evidence: evidenceInputs,
+            loggedAlbums: loggedAlbumInputs
+        )
     }
 
     @MainActor
@@ -321,7 +367,8 @@ struct LocalRecommendationService {
             title: candidate.title,
             artistName: candidate.artistName,
             releaseYear: candidate.releaseYear,
-            genreName: candidate.genreName
+            genreName: candidate.genreName,
+            artworkURL: candidate.artworkURL
         )
         modelContext.insert(album)
         try modelContext.save()
@@ -334,6 +381,7 @@ struct LocalRecommendationService {
         album.artistName = candidate.artistName
         album.releaseYear = candidate.releaseYear
         album.genreName = candidate.genreName
+        album.artworkURL = candidate.artworkURL
         album.cachedAt = Date()
     }
 
@@ -358,6 +406,40 @@ struct LocalRecommendationService {
 
     private static func albumKey(_ album: AlbumSearchResult) -> String {
         album.catalogID
+    }
+
+    @MainActor
+    private static func anchorInput(from log: LogEntry) -> RecommendationAnchorInput? {
+        guard let album = log.album else {
+            return nil
+        }
+
+        return RecommendationAnchorInput(
+            logID: log.id,
+            albumCatalogID: album.appleMusicID,
+            albumTitle: album.title,
+            artistName: album.artistName,
+            genreName: album.genreName,
+            tags: log.tags
+        )
+    }
+
+    @MainActor
+    private static func loggedAlbumInput(from album: Album) -> RecommendationLoggedAlbumInput {
+        RecommendationLoggedAlbumInput(
+            catalogID: album.appleMusicID,
+            title: album.title,
+            artistName: album.artistName
+        )
+    }
+
+    private static func evidenceInput(from evidence: TasteEvidence) -> RecommendationEvidenceInput {
+        RecommendationEvidenceInput(
+            logEntryID: evidence.logEntryID,
+            dimensionName: evidence.dimensionName,
+            strength: evidence.strength,
+            isPositiveEvidence: evidence.isPositiveEvidence
+        )
     }
 }
 

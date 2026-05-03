@@ -11,11 +11,12 @@ import SwiftData
 struct LogEntryEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.soundPrintProvider) private var environmentSoundPrintProvider
     @Environment(SoundPrintProfileRefreshCoordinator.self) private var soundPrintRefreshCoordinator
     @Query(sort: \Album.title) private var albums: [Album]
 
     private let log: LogEntry?
-    private let soundPrintProvider: SoundPrintProvider
+    private let injectedSoundPrintProvider: SoundPrintProvider?
 
     @State private var selectedAlbumID: UUID?
     @State private var rating: Double?
@@ -27,10 +28,10 @@ struct LogEntryEditorView: View {
     init(
         log: LogEntry? = nil,
         preselectedAlbum: Album? = nil,
-        soundPrintProvider: SoundPrintProvider = MockSoundPrintProvider()
+        soundPrintProvider: SoundPrintProvider? = nil
     ) {
         self.log = log
-        self.soundPrintProvider = soundPrintProvider
+        injectedSoundPrintProvider = soundPrintProvider
         _selectedAlbumID = State(initialValue: log?.album?.id ?? preselectedAlbum?.id)
         _rating = State(initialValue: log?.rating)
         _reviewText = State(initialValue: log?.reviewText ?? "")
@@ -101,6 +102,10 @@ struct LogEntryEditorView: View {
 
     private var canSave: Bool {
         selectedAlbumID != nil && rating != nil
+    }
+
+    private var soundPrintProvider: SoundPrintProvider {
+        injectedSoundPrintProvider ?? environmentSoundPrintProvider
     }
 
     private func albumLabel(for album: Album) -> String {

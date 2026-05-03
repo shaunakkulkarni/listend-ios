@@ -10,12 +10,17 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    private let catalogService: AlbumCatalogServiceProtocol
     @State private var didSeedData = false
+
+    init(catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService()) {
+        self.catalogService = catalogService
+    }
 
     var body: some View {
         TabView {
             NavigationStack {
-                HomeView()
+                HomeView(catalogService: catalogService)
             }
             .tabItem {
                 Label("Home", systemImage: "house")
@@ -23,7 +28,7 @@ struct ContentView: View {
             .accessibilityIdentifier("homeTab")
 
             NavigationStack {
-                SearchView()
+                SearchView(catalogService: catalogService)
             }
             .tabItem {
                 Label("Search", systemImage: "magnifyingglass")

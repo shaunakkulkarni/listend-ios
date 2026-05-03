@@ -9,10 +9,16 @@ import SwiftUI
 import SwiftData
 
 struct HomeView: View {
+    private let catalogService: AlbumCatalogServiceProtocol
+
     @Query(sort: \LogEntry.loggedAt, order: .reverse) private var logs: [LogEntry]
     @Query(sort: \SoundPrintPersona.generatedAt, order: .reverse) private var personas: [SoundPrintPersona]
     @Query(sort: \Recommendation.createdAt, order: .reverse) private var recommendations: [Recommendation]
     @State private var isShowingNewLog = false
+
+    init(catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService()) {
+        self.catalogService = catalogService
+    }
 
     var body: some View {
         List {
@@ -32,7 +38,7 @@ struct HomeView: View {
             if canShowTonightPick {
                 Section("Tonight's Pick") {
                     NavigationLink {
-                        TonightPickView()
+                        TonightPickView(catalogService: catalogService)
                     } label: {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(tonightPickTitle)
@@ -104,7 +110,7 @@ struct HomeView: View {
             return "\(album.artistName) is ready when you are."
         }
 
-        return "Generate one local pick with receipts."
+        return "Generate one pick with receipts."
     }
 }
 

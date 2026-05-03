@@ -11,6 +11,8 @@ import SwiftData
 @main
 struct ListendApp: App {
     @State private var soundPrintRefreshCoordinator = SoundPrintProfileRefreshCoordinator()
+    private let catalogService: AlbumCatalogServiceProtocol
+    private let soundPrintProvider: SoundPrintProvider
 
     var sharedModelContainer: ModelContainer = {
         let arguments = ProcessInfo.processInfo.arguments
@@ -48,12 +50,45 @@ struct ListendApp: App {
         }
     }()
 
+    init() {
+        catalogService = Self.makeCatalogService()
+        soundPrintProvider = Self.makeSoundPrintProvider()
+    }
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(catalogService: catalogService)
                 .environment(soundPrintRefreshCoordinator)
+                .environment(\.soundPrintProvider, soundPrintProvider)
         }
         .modelContainer(sharedModelContainer)
+    }
+
+    private static func makeCatalogService() -> AlbumCatalogServiceProtocol {
+        let arguments = ProcessInfo.processInfo.arguments
+
+        if arguments.contains("-ui-testing") {
+            return MockAlbumCatalogService()
+        }
+
+        return FallbackAlbumCatalogService(primary: MusicKitAlbumCatalogService())
+    }
+
+    private static func makeSoundPrintProvider() -> SoundPrintProvider {
+        let arguments = ProcessInfo.processInfo.arguments
+
+        if arguments.contains("-ui-testing") {
+            return MockSoundPrintProvider()
+        }
+
+        #if DEBUG || targetEnvironment(simulator)
+        return MockSoundPrintProvider()
+        #else
+        return FallbackSoundPrintProvider(
+            primary: FoundationModelsSoundPrintProvider(),
+            fallback: MockSoundPrintProvider()
+        )
+        #endif
     }
 
     private static func uiTestingStoreURL(storeID: String?) -> URL {

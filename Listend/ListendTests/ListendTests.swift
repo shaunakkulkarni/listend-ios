@@ -80,6 +80,113 @@ struct ListendTests {
         #expect(negativeResult.score == -1.0)
     }
 
+    @Test func fallbackSoundPrintProviderUsesPrimaryWhenPrimarySucceeds() async throws {
+        let provider = FallbackSoundPrintProvider(
+            primary: SuccessfulSoundPrintProvider(),
+            fallback: MockSoundPrintProvider()
+        )
+
+        let result = try await provider.analyzeSentiment(
+            input: SentimentInput(rating: 2.0, reviewText: "Primary should win.", tags: [])
+        )
+
+        #expect(result.score == 0.42)
+        #expect(result.confidence == 0.91)
+    }
+
+    @Test func fallbackSoundPrintProviderUsesMockWhenPrimaryThrows() async throws {
+        let provider = FallbackSoundPrintProvider(
+            primary: ThrowingSoundPrintProvider(failingOperation: .sentiment),
+            fallback: MockSoundPrintProvider()
+        )
+
+        let result = try await provider.analyzeSentiment(
+            input: SentimentInput(rating: 4.0, reviewText: "", tags: [])
+        )
+
+        #expect(result.score == MockSoundPrintProvider.baseScore(for: 4.0))
+        #expect(result.confidence == 0.6)
+    }
+
+    @Test func fallbackSoundPrintProviderDoesNotCreateMockOutputForCancellation() async {
+        let provider = FallbackSoundPrintProvider(
+            primary: CancellingSoundPrintProvider(),
+            fallback: SuccessfulSoundPrintProvider()
+        )
+
+        do {
+            _ = try await provider.analyzeSentiment(
+                input: SentimentInput(rating: 5.0, reviewText: "Cancel this.", tags: [])
+            )
+            Issue.record("Cancellation should propagate instead of falling back.")
+        } catch is CancellationError {
+            #expect(true)
+        } catch {
+            Issue.record("Expected CancellationError, got \(error).")
+        }
+    }
+
+    @Test func foundationModelsSentimentValidationClampsValues() {
+        let result = FoundationModelsSoundPrintValidator.validatedSentiment(
+            score: 2.5,
+            confidence: -0.5
+        )
+
+        #expect(result.score == 1.0)
+        #expect(result.confidence == 0.0)
+    }
+
+    @Test func foundationModelsTasteValidationRejectsUnknownDimensions() throws {
+        let input = tasteExtractionInput(sentimentScore: 0.8)
+
+        do {
+            _ = try FoundationModelsSoundPrintValidator.validatedTasteExtraction(
+                payloadSignals: [
+                    FoundationModelsTasteSignalPayload(
+                        dimensionName: "inventedDimension",
+                        summary: "Invented.",
+                        weight: 0.8,
+                        confidence: 0.8,
+                        evidenceSnippet: "Invented evidence."
+                    )
+                ],
+                input: input
+            )
+            Issue.record("Unknown dimensions should be rejected.")
+        } catch let error as FoundationModelsSoundPrintProviderError {
+            #expect(error == .validationFailed)
+        }
+    }
+
+    @Test func foundationModelsTasteValidationCreatesNoPositiveEvidenceFromNegativeSentiment() throws {
+        let result = try FoundationModelsSoundPrintValidator.validatedTasteExtraction(
+            payloadSignals: [
+                FoundationModelsTasteSignalPayload(
+                    dimensionName: "energy",
+                    summary: "Energetic.",
+                    weight: 0.8,
+                    confidence: 0.8,
+                    evidenceSnippet: "Intense momentum."
+                )
+            ],
+            input: tasteExtractionInput(sentimentScore: -0.4)
+        )
+
+        #expect(result.signals.isEmpty)
+    }
+
+    @Test func foundationModelsPersonaValidationUsesExistingQualityGuard() throws {
+        do {
+            _ = try FoundationModelsSoundPrintValidator.validatedPersona(
+                text: "You have eclectic taste and a wide range of genres, especially around Vocal Focus and Blonde.",
+                input: personaInput()
+            )
+            Issue.record("Generic persona text should be rejected.")
+        } catch let error as FoundationModelsSoundPrintProviderError {
+            #expect(error == .validationFailed)
+        }
+    }
+
     @MainActor
     @Test func logEntrySignalHelpersUseStoredSentiment() {
         let positiveLog = LogEntry(album: nil, rating: 1.0, sentimentScore: 0.4)
@@ -455,6 +562,269 @@ struct ListendTests {
         }
     }
 
+    @Test func musicKitAlbumMapperBuildsSearchResultFromMetadata() throws {
+        let releaseDate = try #require(Calendar(identifier: .gregorian).date(from: DateComponents(year: 2023, month: 7, day: 14)))
+        let result = try #require(
+            MusicKitAlbumMapper.albumSearchResult(
+                from: MusicKitAlbumMetadata(
+                    id: "123456789",
+                    title: "  Real Album  ",
+                    artistName: "  Real Artist  ",
+                    releaseDate: releaseDate,
+                    genreNames: ["Alternative", "Rock"],
+                    artworkURL: URL(string: "https://example.com/artwork.jpg")
+                )
+            )
+        )
+
+        #expect(result.catalogID == "123456789")
+        #expect(result.title == "Real Album")
+        #expect(result.artistName == "Real Artist")
+        #expect(result.releaseYear == 2023)
+        #expect(result.genreName == "Alternative")
+        #expect(result.artworkURL == "https://example.com/artwork.jpg")
+    }
+
+    @Test func fallbackCatalogReturnsMockResultsWhenPrimaryThrows() async throws {
+        let service = FallbackAlbumCatalogService(
+            primary: ThrowingAlbumCatalogService(),
+            fallback: MockAlbumCatalogService()
+        )
+
+        let results = try await service.searchAlbums(query: "SOS")
+
+        #expect(results.map(\.catalogID).contains("mock.sza.sos"))
+    }
+
+    @Test func mockCatalogKeepsSOSIdentifierStable() async throws {
+        let results = try await MockAlbumCatalogService().searchAlbums(query: "SOS")
+
+        #expect(results.first?.catalogID == "mock.sza.sos")
+    }
+
+    @MainActor
+    @Test func recommendationUpsertStoresAndRefreshesArtworkMetadata() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let anchorAlbum = Album(title: "Anchor", artistName: "Anchor Artist", releaseYear: 2021, genreName: "Art Pop")
+        let existingCandidateAlbum = Album(
+            title: "Artwork Pick",
+            artistName: "Artwork Artist",
+            releaseYear: 2020,
+            genreName: "Art Pop",
+            artworkURL: "https://example.com/old.jpg"
+        )
+        let anchorLog = LogEntry(album: anchorAlbum, rating: 4.5, tags: ["art"], sentimentScore: 0.8)
+        let service = LocalRecommendationService(
+            catalogAlbums: [
+                AlbumSearchResult(
+                    id: "music.real-artwork-pick",
+                    title: "Artwork Pick",
+                    artistName: "Artwork Artist",
+                    releaseYear: 2020,
+                    genreName: "Art Pop",
+                    artworkURL: "https://example.com/new.jpg"
+                )
+            ]
+        )
+
+        modelContext.insert(anchorAlbum)
+        modelContext.insert(existingCandidateAlbum)
+        modelContext.insert(anchorLog)
+        try modelContext.save()
+
+        let recommendation = try await service.currentOrGenerateRecommendation(in: modelContext)
+
+        #expect(recommendation.album?.id == existingCandidateAlbum.id)
+        #expect(existingCandidateAlbum.appleMusicID == "music.real-artwork-pick")
+        #expect(existingCandidateAlbum.artworkURL == "https://example.com/new.jpg")
+    }
+
+    @Test func recommendationCandidateProviderBuildsDeterministicQueries() {
+        let logID = UUID()
+        let queries = CatalogRecommendationCandidateProvider.searchQueries(
+            anchors: [
+                RecommendationAnchorInput(
+                    logID: logID,
+                    albumCatalogID: "mock.weyes-blood.titanic-rising",
+                    albumTitle: "Titanic Rising",
+                    artistName: "Weyes Blood",
+                    genreName: "Art Pop",
+                    tags: ["lush", "layered"]
+                )
+            ],
+            evidence: [
+                RecommendationEvidenceInput(
+                    logEntryID: logID,
+                    dimensionName: "vocalFocus",
+                    strength: 0.9,
+                    isPositiveEvidence: true
+                )
+            ]
+        )
+
+        #expect(queries == ["Art Pop", "Weyes Blood", "layered", "vocalFocus", "lush"])
+    }
+
+    @Test func recommendationCandidateProviderDedupesAndCapsCatalogResults() async {
+        let service = RecordingAlbumCatalogService(
+            resultsByQuery: [
+                "Art Pop": [
+                    AlbumSearchResult(id: "music.duplicate", title: "First", artistName: "Artist", releaseYear: 2022, genreName: "Art Pop"),
+                    AlbumSearchResult(id: "music.duplicate", title: "Duplicate", artistName: "Artist", releaseYear: 2022, genreName: "Art Pop"),
+                    AlbumSearchResult(id: "music.second", title: "Second", artistName: "Artist", releaseYear: 2021, genreName: "Art Pop")
+                ]
+            ]
+        )
+        let provider = CatalogRecommendationCandidateProvider(
+            catalogService: service,
+            fallbackCandidates: [],
+            candidateLimit: 2
+        )
+
+        let candidates = await provider.candidates(
+            anchors: [
+                RecommendationAnchorInput(
+                    logID: UUID(),
+                    albumCatalogID: nil,
+                    albumTitle: "Anchor",
+                    artistName: "Anchor Artist",
+                    genreName: "Art Pop",
+                    tags: []
+                )
+            ],
+            evidence: [],
+            loggedAlbums: []
+        )
+
+        #expect(candidates.map(\.catalogID) == ["music.duplicate", "music.second"])
+    }
+
+    @Test func recommendationCandidateProviderFallsBackWhenCatalogThrowsOrReturnsEmpty() async {
+        let fallback = [
+            AlbumSearchResult(id: "mock.fallback", title: "Fallback", artistName: "Fallback Artist", releaseYear: nil, genreName: "Art Pop")
+        ]
+        let throwingProvider = CatalogRecommendationCandidateProvider(
+            catalogService: RecordingAlbumCatalogService(error: ThrowingAlbumCatalogError.failed),
+            fallbackCandidates: fallback
+        )
+        let emptyProvider = CatalogRecommendationCandidateProvider(
+            catalogService: RecordingAlbumCatalogService(resultsByQuery: [:]),
+            fallbackCandidates: fallback
+        )
+        let anchors = [
+            RecommendationAnchorInput(
+                logID: UUID(),
+                albumCatalogID: nil,
+                albumTitle: "Anchor",
+                artistName: "Anchor Artist",
+                genreName: "Art Pop",
+                tags: []
+            )
+        ]
+
+        let throwingCandidates = await throwingProvider.candidates(anchors: anchors, evidence: [], loggedAlbums: [])
+        let emptyCandidates = await emptyProvider.candidates(anchors: anchors, evidence: [], loggedAlbums: [])
+
+        #expect(throwingCandidates.map(\.catalogID) == ["mock.fallback"])
+        #expect(emptyCandidates.map(\.catalogID) == ["mock.fallback"])
+    }
+
+    @Test func recommendationCandidateProviderExcludesLoggedCatalogResults() async {
+        let service = RecordingAlbumCatalogService(
+            resultsByQuery: [
+                "Art Pop": [
+                    AlbumSearchResult(id: "music.logged", title: "Logged", artistName: "Logged Artist", releaseYear: 2020, genreName: "Art Pop"),
+                    AlbumSearchResult(id: "music.new", title: "New", artistName: "New Artist", releaseYear: 2021, genreName: "Art Pop")
+                ]
+            ]
+        )
+        let provider = CatalogRecommendationCandidateProvider(catalogService: service, fallbackCandidates: [])
+
+        let candidates = await provider.candidates(
+            anchors: [
+                RecommendationAnchorInput(
+                    logID: UUID(),
+                    albumCatalogID: nil,
+                    albumTitle: "Anchor",
+                    artistName: "Anchor Artist",
+                    genreName: "Art Pop",
+                    tags: []
+                )
+            ],
+            evidence: [],
+            loggedAlbums: [
+                RecommendationLoggedAlbumInput(catalogID: "music.logged", title: "Logged", artistName: "Logged Artist")
+            ]
+        )
+
+        #expect(candidates.map(\.catalogID) == ["music.new"])
+    }
+
+    @MainActor
+    @Test func recommendationGenerationUsesLiveCatalogCandidatesAndReceipts() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let anchorAlbum = Album(title: "Titanic Rising", artistName: "Weyes Blood", releaseYear: 2019, genreName: "Art Pop")
+        let anchorLog = LogEntry(album: anchorAlbum, rating: 4.5, tags: ["lush"], sentimentScore: 0.8)
+        let catalogService = RecordingAlbumCatalogService(
+            resultsByQuery: [
+                "Art Pop": [
+                    AlbumSearchResult(id: "music.live-pick", title: "Live Pick", artistName: "Live Artist", releaseYear: 2024, genreName: "Art Pop")
+                ]
+            ]
+        )
+
+        modelContext.insert(anchorAlbum)
+        modelContext.insert(anchorLog)
+        try modelContext.save()
+
+        let recommendation = try await LocalRecommendationService(
+            catalogService: catalogService,
+            fallbackCandidates: []
+        ).currentOrGenerateRecommendation(in: modelContext)
+        let receipts = try modelContext.fetch(FetchDescriptor<RecommendationReceipt>())
+
+        #expect(recommendation.album?.appleMusicID == "music.live-pick")
+        #expect(recommendation.explanationText.contains("Titanic Rising"))
+        #expect(receipts.first?.sourceAlbumTitle == "Titanic Rising")
+    }
+
+    @MainActor
+    @Test func recommendationGenerationDoesNotUseNegativeLogsAsLiveCatalogQueries() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let positiveAlbum = Album(title: "Positive Album", artistName: "Positive Artist", genreName: "Art Pop")
+        let negativeAlbum = Album(title: "Negative Album", artistName: "Negative Artist", genreName: "Metal")
+        let positiveLog = LogEntry(album: positiveAlbum, rating: 4.5, tags: ["lush"], sentimentScore: 0.8)
+        let negativeLog = LogEntry(album: negativeAlbum, rating: 4.5, tags: ["heavy"], sentimentScore: -0.7)
+        let catalogService = RecordingAlbumCatalogService(
+            resultsByQuery: [
+                "Art Pop": [
+                    AlbumSearchResult(id: "music.live-pick", title: "Live Pick", artistName: "Live Artist", releaseYear: nil, genreName: "Art Pop")
+                ],
+                "Metal": [
+                    AlbumSearchResult(id: "music.negative-pick", title: "Negative Pick", artistName: "Negative Artist", releaseYear: nil, genreName: "Metal")
+                ]
+            ]
+        )
+
+        modelContext.insert(positiveAlbum)
+        modelContext.insert(negativeAlbum)
+        modelContext.insert(positiveLog)
+        modelContext.insert(negativeLog)
+        try modelContext.save()
+
+        _ = try await LocalRecommendationService(
+            catalogService: catalogService,
+            fallbackCandidates: []
+        ).currentOrGenerateRecommendation(in: modelContext)
+
+        #expect(catalogService.queries.contains("Art Pop"))
+        #expect(!catalogService.queries.contains("Metal"))
+        #expect(!catalogService.queries.contains("heavy"))
+    }
+
     @MainActor
     @Test func recommendationScoringPrefersGenreAndTagMatchesDeterministically() throws {
         let service = LocalRecommendationService(
@@ -672,6 +1042,20 @@ struct ListendTests {
         )
     }
 
+    private func tasteExtractionInput(sentimentScore: Double?) -> TasteExtractionInput {
+        TasteExtractionInput(
+            logID: UUID(),
+            albumTitle: "Blonde",
+            artistName: "Frank Ocean",
+            genreName: "Alternative R&B",
+            releaseYear: 2016,
+            rating: 4.5,
+            reviewText: "Sparse intimate vocals with replay value.",
+            tags: ["vocals"],
+            sentimentScore: sentimentScore
+        )
+    }
+
     @MainActor
     private func insertPersonaReadyLogs(in modelContext: ModelContext, count: Int) {
         let albums = [
@@ -726,6 +1110,49 @@ private enum ThrowingSoundPrintError: Error {
     case failed
 }
 
+private enum ThrowingAlbumCatalogError: Error {
+    case failed
+}
+
+private struct ThrowingAlbumCatalogService: AlbumCatalogServiceProtocol {
+    func searchAlbums(query: String) async throws -> [AlbumSearchResult] {
+        throw ThrowingAlbumCatalogError.failed
+    }
+
+    func albumDetails(id: String) async throws -> AlbumSearchResult? {
+        throw ThrowingAlbumCatalogError.failed
+    }
+}
+
+private final class RecordingAlbumCatalogService: AlbumCatalogServiceProtocol {
+    private let resultsByQuery: [String: [AlbumSearchResult]]
+    private let error: Error?
+    private(set) var queries: [String] = []
+
+    init(resultsByQuery: [String: [AlbumSearchResult]] = [:], error: Error? = nil) {
+        self.resultsByQuery = resultsByQuery
+        self.error = error
+    }
+
+    func searchAlbums(query: String) async throws -> [AlbumSearchResult] {
+        queries.append(query)
+
+        if let error {
+            throw error
+        }
+
+        return resultsByQuery[query] ?? []
+    }
+
+    func albumDetails(id: String) async throws -> AlbumSearchResult? {
+        if let error {
+            throw error
+        }
+
+        return resultsByQuery.values.flatMap { $0 }.first { $0.catalogID == id }
+    }
+}
+
 private struct ThrowingSoundPrintProvider: SoundPrintProvider {
     let failingOperation: ThrowingSoundPrintOperation
 
@@ -751,5 +1178,45 @@ private struct ThrowingSoundPrintProvider: SoundPrintProvider {
         }
 
         return try await MockSoundPrintProvider().generatePersona(input: input)
+    }
+}
+
+private struct SuccessfulSoundPrintProvider: SoundPrintProvider {
+    func analyzeSentiment(input: SentimentInput) async throws -> SentimentResult {
+        SentimentResult(score: 0.42, confidence: 0.91)
+    }
+
+    func extractTasteSignals(input: TasteExtractionInput) async throws -> TasteExtractionResult {
+        TasteExtractionResult(
+            signals: [
+                TasteSignal(
+                    dimensionName: "energy",
+                    label: "Energy",
+                    summary: "Primary energy signal.",
+                    weight: 0.7,
+                    confidence: 0.8,
+                    evidenceSnippet: "Primary evidence.",
+                    isPositiveEvidence: true
+                )
+            ]
+        )
+    }
+
+    func generatePersona(input: PersonaInput) async throws -> PersonaResult {
+        PersonaResult(text: "Across five logs, Blonde by Frank Ocean anchors a vocal focus profile with enough concrete detail to pass the existing quality guard.")
+    }
+}
+
+private struct CancellingSoundPrintProvider: SoundPrintProvider {
+    func analyzeSentiment(input: SentimentInput) async throws -> SentimentResult {
+        throw CancellationError()
+    }
+
+    func extractTasteSignals(input: TasteExtractionInput) async throws -> TasteExtractionResult {
+        throw CancellationError()
+    }
+
+    func generatePersona(input: PersonaInput) async throws -> PersonaResult {
+        throw CancellationError()
     }
 }

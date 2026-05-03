@@ -11,6 +11,7 @@ import SwiftData
 struct LogEntryDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.soundPrintProvider) private var soundPrintProvider
     @Environment(SoundPrintProfileRefreshCoordinator.self) private var soundPrintRefreshCoordinator
 
     let log: LogEntry
@@ -116,7 +117,7 @@ struct LogEntryDetailView: View {
         do {
             modelContext.delete(log)
             try modelContext.save()
-            await soundPrintRefreshCoordinator.refreshProfile(in: modelContext)
+            await soundPrintRefreshCoordinator.refreshProfile(in: modelContext, provider: soundPrintProvider)
             dismiss()
         } catch {
             errorMessage = "Could not delete log."

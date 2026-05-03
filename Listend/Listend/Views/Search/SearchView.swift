@@ -105,7 +105,7 @@ private struct AlbumSearchResultRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            ArtworkThumbnail()
+            ArtworkThumbnail(artworkURL: album.artworkURL)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(album.title)
@@ -138,17 +138,61 @@ private struct AlbumSearchResultRow: View {
 }
 
 private struct ArtworkThumbnail: View {
+    let artworkURL: String?
+
     var body: some View {
+        AlbumArtworkView(artworkURL: artworkURL, size: 56)
+        .frame(width: 56, height: 56)
+    }
+}
+
+struct AlbumArtworkView: View {
+    let artworkURL: String?
+    let size: CGFloat
+
+    var body: some View {
+        Group {
+            if let url {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .empty:
+                        placeholder
+                            .overlay {
+                                ProgressView()
+                                    .controlSize(.mini)
+                            }
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    case .failure:
+                        placeholder
+                    @unknown default:
+                        placeholder
+                    }
+                }
+            } else {
+                placeholder
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .accessibilityLabel("Album artwork")
+    }
+
+    private var url: URL? {
+        artworkURL.flatMap(URL.init(string:))
+    }
+
+    private var placeholder: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 8)
                 .fill(.secondary.opacity(0.14))
 
             Image(systemName: "record.circle")
-                .font(.title2)
+                .font(.system(size: size * 0.42))
                 .foregroundStyle(.secondary)
         }
-        .frame(width: 56, height: 56)
-        .accessibilityLabel("Album artwork placeholder")
     }
 }
 

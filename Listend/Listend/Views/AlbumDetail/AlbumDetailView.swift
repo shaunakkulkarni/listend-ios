@@ -22,7 +22,7 @@ struct AlbumDetailView: View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: 16) {
-                    ArtworkPlaceholder(size: 120)
+                    AlbumArtworkView(artworkURL: album.artworkURL, size: 120)
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text(album.title)
@@ -130,23 +130,6 @@ struct AlbumDetailView: View {
     private func matchesTitleAndArtist(_ cachedAlbum: Album) -> Bool {
         cachedAlbum.title.normalizedAlbumMatchText == album.title.normalizedAlbumMatchText
             && cachedAlbum.artistName.normalizedAlbumMatchText == album.artistName.normalizedAlbumMatchText
-    }
-}
-
-private struct ArtworkPlaceholder: View {
-    let size: CGFloat
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(.secondary.opacity(0.14))
-
-            Image(systemName: "record.circle")
-                .font(.system(size: size * 0.42))
-                .foregroundStyle(.secondary)
-        }
-        .frame(width: size, height: size)
-        .accessibilityLabel("Album artwork placeholder")
     }
 }
 

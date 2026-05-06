@@ -50,6 +50,7 @@ struct ProfileView: View {
                         }
                         .padding(.vertical, 4)
                     }
+                    .accessibilityIdentifier("soundPrintProfileLink")
                 } else {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Taste profile pending")

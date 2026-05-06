@@ -55,12 +55,39 @@ struct SearchView: View {
         .navigationTitle("Search")
         .searchable(text: $query, prompt: "Album, artist, or genre")
         .task(id: trimmedQuery) {
-            await searchAlbums(for: trimmedQuery)
+            let query = trimmedQuery
+
+            guard !query.isEmpty else {
+                await searchAlbums(for: query)
+                return
+            }
+
+            prepareForDebouncedSearch()
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else {
+                clearCancelledSearchState(for: query)
+                return
+            }
+
+            await searchAlbums(for: query)
         }
     }
 
     private var trimmedQuery: String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    @MainActor
+    private func prepareForDebouncedSearch() {
+        isSearching = false
+        errorMessage = nil
+    }
+
+    @MainActor
+    private func clearCancelledSearchState(for query: String) {
+        if query == trimmedQuery {
+            isSearching = false
+        }
     }
 
     @MainActor
@@ -76,6 +103,7 @@ struct SearchView: View {
         errorMessage = nil
 
         do {
+            try Task.checkCancellation()
             let searchResults = try await catalogService.searchAlbums(query: query)
             try Task.checkCancellation()
             guard query == trimmedQuery else {
@@ -143,56 +171,6 @@ private struct ArtworkThumbnail: View {
     var body: some View {
         AlbumArtworkView(artworkURL: artworkURL, size: 56)
         .frame(width: 56, height: 56)
-    }
-}
-
-struct AlbumArtworkView: View {
-    let artworkURL: String?
-    let size: CGFloat
-
-    var body: some View {
-        Group {
-            if let url {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .empty:
-                        placeholder
-                            .overlay {
-                                ProgressView()
-                                    .controlSize(.mini)
-                            }
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    case .failure:
-                        placeholder
-                    @unknown default:
-                        placeholder
-                    }
-                }
-            } else {
-                placeholder
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .accessibilityLabel("Album artwork")
-    }
-
-    private var url: URL? {
-        artworkURL.flatMap(URL.init(string:))
-    }
-
-    private var placeholder: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(.secondary.opacity(0.14))
-
-            Image(systemName: "record.circle")
-                .font(.system(size: size * 0.42))
-                .foregroundStyle(.secondary)
-        }
     }
 }
 

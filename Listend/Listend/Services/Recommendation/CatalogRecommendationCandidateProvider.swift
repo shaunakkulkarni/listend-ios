@@ -63,7 +63,9 @@ struct CatalogRecommendationCandidateProvider {
 
         for query in queries {
             do {
+                try Task.checkCancellation()
                 let results = try await catalogService.searchAlbums(query: query)
+                try Task.checkCancellation()
 
                 for result in results where isUsable(result) && !isLogged(result, loggedAlbums: loggedAlbums) {
                     guard seenCatalogIDs.insert(result.catalogID).inserted else {
@@ -76,6 +78,8 @@ struct CatalogRecommendationCandidateProvider {
                         return candidates
                     }
                 }
+            } catch is CancellationError {
+                return candidates
             } catch {
                 continue
             }

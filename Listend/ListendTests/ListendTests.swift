@@ -585,6 +585,94 @@ struct ListendTests {
         #expect(result.artworkURL == "https://example.com/artwork.jpg")
     }
 
+    @Test func musicKitPreviewMapperSelectsFirstValidTrackPreviewURL() throws {
+        let preview = try #require(
+            MusicKitAlbumPreviewMapper.preview(
+                albumCatalogID: "music.album",
+                tracks: [
+                    MusicKitPreviewTrackMetadata(title: "No Preview", previewAssetURLs: []),
+                    MusicKitPreviewTrackMetadata(
+                        title: "First Preview",
+                        previewAssetURLs: [
+                            URL(string: "not-a-valid-url")!,
+                            URL(string: "https://example.com/preview.m4a")!
+                        ]
+                    ),
+                    MusicKitPreviewTrackMetadata(
+                        title: "Second Preview",
+                        previewAssetURLs: [URL(string: "https://example.com/second.m4a")!]
+                    )
+                ]
+            )
+        )
+
+        #expect(preview.albumCatalogID == "music.album")
+        #expect(preview.trackTitle == "First Preview")
+        #expect(preview.previewURL.absoluteString == "https://example.com/preview.m4a")
+    }
+
+    @Test func musicKitPreviewMapperReturnsNilWhenNoTrackHasPreviewURL() {
+        let preview = MusicKitAlbumPreviewMapper.preview(
+            albumCatalogID: "music.album",
+            tracks: [
+                MusicKitPreviewTrackMetadata(title: "No Preview", previewAssetURLs: []),
+                MusicKitPreviewTrackMetadata(title: "Also No Preview", previewAssetURLs: [])
+            ]
+        )
+
+        #expect(preview == nil)
+    }
+
+    @Test func fallbackPreviewServiceReturnsNilWhenPrimaryThrowsOrReturnsNil() async throws {
+        let throwingService = FallbackAlbumPreviewService(
+            primary: ThrowingAlbumPreviewService(),
+            fallback: MockAlbumPreviewService()
+        )
+        let emptyService = FallbackAlbumPreviewService(
+            primary: EmptyAlbumPreviewService(),
+            fallback: MockAlbumPreviewService()
+        )
+        let lookup = AlbumPreviewLookup(albumCatalogID: "music.album", title: "Album", artistName: "Artist")
+
+        let throwingPreview = try await throwingService.preview(for: lookup)
+        let emptyPreview = try await emptyService.preview(for: lookup)
+
+        #expect(throwingPreview == nil)
+        #expect(emptyPreview == nil)
+    }
+
+    @Test func mockPreviewServiceReturnsNilWithoutThrowing() async throws {
+        let lookup = AlbumPreviewLookup(albumCatalogID: "music.album", title: "Album", artistName: "Artist")
+        let preview = try await MockAlbumPreviewService().preview(for: lookup)
+
+        #expect(preview == nil)
+    }
+
+    @Test func previewLookupBuildsFromSearchResultAndStoredAlbum() {
+        let searchResult = AlbumSearchResult(
+            id: "music.search",
+            title: "Search Album",
+            artistName: "Search Artist",
+            releaseYear: nil,
+            genreName: nil
+        )
+        let storedAlbum = Album(
+            appleMusicID: "music.stored",
+            title: "Stored Album",
+            artistName: "Stored Artist"
+        )
+
+        let searchLookup = AlbumPreviewLookup(album: searchResult)
+        let storedLookup = AlbumPreviewLookup(album: storedAlbum)
+
+        #expect(searchLookup.albumCatalogID == "music.search")
+        #expect(searchLookup.title == "Search Album")
+        #expect(searchLookup.artistName == "Search Artist")
+        #expect(storedLookup.albumCatalogID == "music.stored")
+        #expect(storedLookup.title == "Stored Album")
+        #expect(storedLookup.artistName == "Stored Artist")
+    }
+
     @Test func fallbackCatalogReturnsMockResultsWhenPrimaryThrows() async throws {
         let service = FallbackAlbumCatalogService(
             primary: ThrowingAlbumCatalogService(),
@@ -728,6 +816,35 @@ struct ListendTests {
 
         #expect(throwingCandidates.map(\.catalogID) == ["mock.fallback"])
         #expect(emptyCandidates.map(\.catalogID) == ["mock.fallback"])
+    }
+
+    @Test func recommendationCandidateProviderStopsQueryingAfterCancellation() async {
+        let service = RecordingAlbumCatalogService(error: CancellationError())
+        let fallback = [
+            AlbumSearchResult(id: "mock.fallback", title: "Fallback", artistName: "Fallback Artist", releaseYear: nil, genreName: "Art Pop")
+        ]
+        let provider = CatalogRecommendationCandidateProvider(
+            catalogService: service,
+            fallbackCandidates: fallback
+        )
+
+        let candidates = await provider.candidates(
+            anchors: [
+                RecommendationAnchorInput(
+                    logID: UUID(),
+                    albumCatalogID: nil,
+                    albumTitle: "Anchor",
+                    artistName: "Anchor Artist",
+                    genreName: "Art Pop",
+                    tags: ["lush"]
+                )
+            ],
+            evidence: [],
+            loggedAlbums: []
+        )
+
+        #expect(service.queries == ["Art Pop"])
+        #expect(candidates.isEmpty)
     }
 
     @Test func recommendationCandidateProviderExcludesLoggedCatalogResults() async {
@@ -1114,6 +1231,10 @@ private enum ThrowingAlbumCatalogError: Error {
     case failed
 }
 
+private enum ThrowingAlbumPreviewError: Error {
+    case failed
+}
+
 private struct ThrowingAlbumCatalogService: AlbumCatalogServiceProtocol {
     func searchAlbums(query: String) async throws -> [AlbumSearchResult] {
         throw ThrowingAlbumCatalogError.failed
@@ -1121,6 +1242,18 @@ private struct ThrowingAlbumCatalogService: AlbumCatalogServiceProtocol {
 
     func albumDetails(id: String) async throws -> AlbumSearchResult? {
         throw ThrowingAlbumCatalogError.failed
+    }
+}
+
+private struct ThrowingAlbumPreviewService: AlbumPreviewServiceProtocol {
+    func preview(for lookup: AlbumPreviewLookup) async throws -> AlbumPreview? {
+        throw ThrowingAlbumPreviewError.failed
+    }
+}
+
+private struct EmptyAlbumPreviewService: AlbumPreviewServiceProtocol {
+    func preview(for lookup: AlbumPreviewLookup) async throws -> AlbumPreview? {
+        nil
     }
 }
 

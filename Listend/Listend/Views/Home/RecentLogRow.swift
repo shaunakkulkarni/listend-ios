@@ -11,37 +11,48 @@ struct RecentLogRow: View {
     let log: LogEntry
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(log.album?.title ?? "Unknown Album")
-                    .font(.headline)
-                Text(log.album?.artistName ?? "Unknown Artist")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+        EditorialSurface(isInteractive: true) {
+            HStack(alignment: .top, spacing: 12) {
+                AlbumArtworkView(artworkURL: log.album?.artworkURL, size: 64)
 
-            HStack(spacing: 8) {
-                Label(ratingText, systemImage: "star.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.yellow)
+                VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(log.album?.title ?? "Unknown Album")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                            .lineLimit(2)
 
-                Text(log.loggedAt, format: .dateTime.month(.abbreviated).day().year())
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+                        Text(log.album?.artistName ?? "Unknown Artist")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
 
-            if !log.reviewText.isEmpty {
-                Text(log.reviewText)
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-            }
+                    HStack(spacing: 10) {
+                        Label(ratingText, systemImage: "star.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.yellow)
 
-            if !log.tags.isEmpty {
-                TagsView(tags: log.tags)
+                        Text(log.loggedAt, format: .dateTime.month(.abbreviated).day().year())
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    if !log.reviewText.isEmpty {
+                        Text(log.reviewText)
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    if !log.tags.isEmpty {
+                        TagStrip(tags: log.tags)
+                    }
+                }
             }
         }
-        .padding(.vertical, 6)
     }
 
     private var ratingText: String {
@@ -49,19 +60,31 @@ struct RecentLogRow: View {
     }
 }
 
-private struct TagsView: View {
+private struct TagStrip: View {
     let tags: [String]
 
     var body: some View {
-        HStack(spacing: 6) {
-            ForEach(tags, id: \.self) { tag in
-                Text(tag)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.secondary.opacity(0.12), in: Capsule())
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(tags, id: \.self) { tag in
+                    TagChip(title: tag)
+                }
             }
         }
+        .scrollClipDisabled()
+    }
+}
+
+private struct TagChip: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(.secondary.opacity(0.12), in: Capsule())
     }
 }

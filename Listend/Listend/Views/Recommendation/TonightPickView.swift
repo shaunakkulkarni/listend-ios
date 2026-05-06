@@ -44,6 +44,7 @@ struct TonightPickView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(recommendation.album?.title ?? "Unknown Album")
                         .font(.title2.weight(.bold))
+                        .accessibilityIdentifier("tonightPickStateText")
                     Text(recommendation.album?.artistName ?? "Unknown Artist")
                         .font(.headline)
                         .foregroundStyle(.secondary)
@@ -56,6 +57,10 @@ struct TonightPickView: View {
 
                 Text(recommendation.explanationText)
                     .font(.subheadline)
+
+                if let album = recommendation.album {
+                    AlbumPreviewControl(lookup: AlbumPreviewLookup(album: album))
+                }
             }
             .padding(.vertical, 6)
         } header: {
@@ -82,9 +87,7 @@ struct TonightPickView: View {
             }
 
             Button {
-                Task {
-                    await submit(.liked, for: recommendation)
-                }
+                submit(.liked, for: recommendation)
             } label: {
                 Label("Like", systemImage: "hand.thumbsup")
             }
@@ -92,9 +95,7 @@ struct TonightPickView: View {
             .accessibilityIdentifier("likeRecommendationButton")
 
             Button {
-                Task {
-                    await submit(.dismissed, for: recommendation)
-                }
+                submit(.dismissed, for: recommendation)
             } label: {
                 Label("Dismiss", systemImage: "xmark")
             }
@@ -102,9 +103,7 @@ struct TonightPickView: View {
             .accessibilityIdentifier("dismissRecommendationButton")
 
             Button {
-                Task {
-                    await submit(.savedForLater, for: recommendation)
-                }
+                submit(.savedForLater, for: recommendation)
             } label: {
                 Label("Save for Later", systemImage: "bookmark")
             }
@@ -112,9 +111,7 @@ struct TonightPickView: View {
             .accessibilityIdentifier("saveRecommendationButton")
 
             Button {
-                Task {
-                    await submit(.listened, for: recommendation)
-                }
+                submit(.listened, for: recommendation)
             } label: {
                 Label("Listened", systemImage: "checkmark.circle")
             }
@@ -132,9 +129,7 @@ struct TonightPickView: View {
             )
 
             Button {
-                Task {
-                    await generateRecommendation()
-                }
+                generateRecommendation()
             } label: {
                 Label("Find Tonight's Pick", systemImage: "sparkles")
             }
@@ -145,6 +140,7 @@ struct TonightPickView: View {
                 Text(message)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("tonightPickMessageText")
             }
         }
     }
@@ -198,8 +194,22 @@ struct TonightPickView: View {
         }
     }
 
+    private func generateRecommendation() {
+        guard !isWorking else {
+            return
+        }
+
+        Task {
+            await generateRecommendationAsync()
+        }
+    }
+
     @MainActor
-    private func generateRecommendation() async {
+    private func generateRecommendationAsync() async {
+        guard !isWorking else {
+            return
+        }
+
         isWorking = true
         defer {
             isWorking = false
@@ -219,8 +229,22 @@ struct TonightPickView: View {
         }
     }
 
+    private func submit(_ feedbackType: RecommendationFeedbackType, for recommendation: Recommendation) {
+        guard !isWorking else {
+            return
+        }
+
+        Task {
+            await submitAsync(feedbackType, for: recommendation)
+        }
+    }
+
     @MainActor
-    private func submit(_ feedbackType: RecommendationFeedbackType, for recommendation: Recommendation) async {
+    private func submitAsync(_ feedbackType: RecommendationFeedbackType, for recommendation: Recommendation) async {
+        guard !isWorking else {
+            return
+        }
+
         isWorking = true
         defer {
             isWorking = false

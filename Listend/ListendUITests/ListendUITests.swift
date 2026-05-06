@@ -78,6 +78,17 @@ final class ListendUITests: XCTestCase {
     }
 
     @MainActor
+    func testHomeDashboardShowsPrimarySurfaces() throws {
+        launchResetApp()
+
+        XCTAssertTrue(app.descendants(matching: .any)["homeHeader"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["addLogButton"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["tonightPickLink"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["recentLogsSection"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Blonde"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testTonightPickFeedbackClearsActiveRecommendation() throws {
         launchResetApp()
 
@@ -90,6 +101,26 @@ final class ListendUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["Feedback saved. You can generate the next eligible pick."].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["No Active Pick"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testAlbumDetailShowsPreviewUnavailableWithMockService() throws {
+        launchResetApp()
+
+        openAlbumDetailFromSearch()
+        assertPreviewUnavailableAfterTap()
+    }
+
+    @MainActor
+    func testTonightPickShowsPreviewUnavailableWithMockService() throws {
+        launchResetApp()
+
+        openTab("Home")
+        app.buttons["tonightPickLink"].tap()
+        app.buttons["findTonightPickButton"].tap()
+
+        XCTAssertTrue(app.buttons["likeRecommendationButton"].waitForExistence(timeout: 5))
+        assertPreviewUnavailableAfterTap()
     }
 
     private func launchResetApp() {
@@ -116,16 +147,7 @@ final class ListendUITests: XCTestCase {
     }
 
     private func createSOSLog(rating: String, review: String, tags: String) {
-        openTab("Search")
-
-        let searchField = app.searchFields["Album, artist, or genre"]
-        XCTAssertTrue(searchField.waitForExistence(timeout: 5))
-        searchField.tap()
-        searchField.typeText("SOS")
-
-        let result = app.buttons["albumSearchResult-mock.sza.sos"]
-        XCTAssertTrue(result.waitForExistence(timeout: 5))
-        result.tap()
+        openAlbumDetailFromSearch()
 
         app.buttons["logThisAlbumButton"].tap()
         selectRating(rating)
@@ -142,6 +164,28 @@ final class ListendUITests: XCTestCase {
         app.buttons["saveLogButton"].tap()
 
         openTab("Home")
+    }
+
+    private func openAlbumDetailFromSearch() {
+        openTab("Search")
+        let searchField = app.searchFields["Album, artist, or genre"]
+        XCTAssertTrue(searchField.waitForExistence(timeout: 5))
+        searchField.tap()
+        searchField.typeText("SOS")
+
+        let result = app.buttons["albumSearchResult-mock.sza.sos"]
+        XCTAssertTrue(result.waitForExistence(timeout: 5))
+        result.tap()
+    }
+
+    private func assertPreviewUnavailableAfterTap() {
+        let previewButton = app.buttons["albumPreviewButton"]
+        XCTAssertTrue(previewButton.waitForExistence(timeout: 5))
+        previewButton.tap()
+
+        let unavailablePredicate = NSPredicate(format: "label CONTAINS %@", "Preview unavailable")
+        let unavailableExpectation = XCTNSPredicateExpectation(predicate: unavailablePredicate, object: previewButton)
+        wait(for: [unavailableExpectation], timeout: 5)
     }
 
     private func openLog(title: String) {

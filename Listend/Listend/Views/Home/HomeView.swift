@@ -12,6 +12,7 @@ struct HomeView: View {
     private let catalogService: AlbumCatalogServiceProtocol
 
     @Query(sort: \LogEntry.loggedAt, order: .reverse) private var logs: [LogEntry]
+    @Query(sort: \TasteDimension.weight, order: .reverse) private var dimensions: [TasteDimension]
     @Query(sort: \SoundPrintPersona.generatedAt, order: .reverse) private var personas: [SoundPrintPersona]
     @Query(sort: \Recommendation.createdAt, order: .reverse) private var recommendations: [Recommendation]
     @State private var isShowingNewLog = false
@@ -21,67 +22,44 @@ struct HomeView: View {
     }
 
     var body: some View {
-        List {
-            if let currentPersona {
-                Section("SoundPrint Persona") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Current read")
-                            .font(.headline)
-                        Text(currentPersona.personaText)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 4)
-                }
-            }
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 20) {
+                HomeHeader(
+                    logCount: logs.count,
+                    averageRatingText: averageRatingText,
+                    latestLogDate: logs.first?.loggedAt,
+                    addLog: showNewLog
+                )
 
-            if canShowTonightPick {
-                Section("Tonight's Pick") {
+                if canShowTonightPick {
                     NavigationLink {
                         TonightPickView(catalogService: catalogService)
                     } label: {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(tonightPickTitle)
-                                .font(.headline)
-                            Text(tonightPickSubtitle)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.vertical, 4)
+                        TonightPickModule(
+                            title: tonightPickTitle,
+                            subtitle: tonightPickSubtitle,
+                            isActive: activeRecommendation != nil
+                        )
                     }
+                    .buttonStyle(.plain)
                     .accessibilityIdentifier("tonightPickLink")
                 }
-            }
 
-            if logs.isEmpty {
-                ContentUnavailableView(
-                    "No Logs Yet",
-                    systemImage: "music.note.list",
-                    description: Text("Recent album logs will appear here.")
-                )
-            } else {
-                Section("Recent Logs") {
-                    ForEach(logs) { log in
-                        NavigationLink {
-                            LogEntryDetailView(log: log)
-                        } label: {
-                            RecentLogRow(log: log)
-                        }
-                    }
+                if let currentPersona {
+                    SoundPrintSummaryModule(
+                        persona: currentPersona,
+                        topDimension: dimensions.first
+                    )
                 }
+
+                RecentLogsSection(logs: logs)
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 20)
         }
+        .background(Color(.systemGroupedBackground))
         .navigationTitle("Listend")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    isShowingNewLog = true
-                } label: {
-                    Label("Add Log", systemImage: "plus")
-                }
-                .accessibilityIdentifier("addLogButton")
-            }
-        }
+        .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $isShowingNewLog) {
             LogEntryEditorView()
         }
@@ -112,12 +90,218 @@ struct HomeView: View {
 
         return "Generate one pick with receipts."
     }
+
+    private var averageRatingText: String {
+        guard !logs.isEmpty else {
+            return "No ratings"
+        }
+
+        let average = logs.reduce(0) { $0 + $1.rating } / Double(logs.count)
+        return average.formatted(.number.precision(.fractionLength(1)))
+    }
+
+    private func showNewLog() {
+        isShowingNewLog = true
+    }
 }
 
-#Preview {
+private struct HomeHeader: View {
+    let logCount: Int
+    let averageRatingText: String
+    let latestLogDate: Date?
+    let addLog: () -> Void
+
+    var body: some View {
+        EditorialSurface {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Listend")
+                        .font(.system(.largeTitle, design: .serif).weight(.bold))
+                    Text("A quiet place for the albums that stayed with you.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 10) {
+                        HomeStatPill(title: "Logs", value: logCount.formatted(), systemImage: "music.note.list")
+                        HomeStatPill(title: "Average", value: averageRatingText, systemImage: "star.fill")
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        HomeStatPill(title: "Logs", value: logCount.formatted(), systemImage: "music.note.list")
+                        HomeStatPill(title: "Average", value: averageRatingText, systemImage: "star.fill")
+                    }
+                }
+
+                HStack(alignment: .center, spacing: 12) {
+                    Button(action: addLog) {
+                        Label("Add Log", systemImage: "plus")
+                    }
+                    .listendProminentButtonStyle()
+                    .accessibilityIdentifier("addLogButton")
+
+                    if let latestLogDate {
+                        Text("Last logged \(latestLogDate, format: .relative(presentation: .named))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier("homeHeader")
+    }
+}
+
+private struct HomeStatPill: View {
+    let title: String
+    let value: String
+    let systemImage: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(.secondary.opacity(0.10), in: Capsule())
+    }
+}
+
+private struct TonightPickModule: View {
+    let title: String
+    let subtitle: String
+    let isActive: Bool
+
+    var body: some View {
+        EditorialSurface(isInteractive: true) {
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: isActive ? "sparkles" : "moon.stars")
+                    .font(.title2)
+                    .frame(width: 36, height: 36)
+                    .foregroundStyle(Color.accentColor)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Tonight's Pick")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(title)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+}
+
+private struct SoundPrintSummaryModule: View {
+    let persona: SoundPrintPersona
+    let topDimension: TasteDimension?
+
+    var body: some View {
+        EditorialSurface {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "waveform.path")
+                        .foregroundStyle(Color.accentColor)
+                    Text("SoundPrint")
+                        .font(.headline)
+                }
+
+                Text(persona.personaText)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(4)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let topDimension {
+                    Text("Current thread: \(topDimension.label)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .accessibilityIdentifier("homeSoundPrintModule")
+    }
+}
+
+private struct RecentLogsSection: View {
+    let logs: [LogEntry]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Recent Logs")
+                    .font(.title3.weight(.bold))
+                Spacer()
+                if !logs.isEmpty {
+                    Text(logs.count.formatted())
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if logs.isEmpty {
+                ContentUnavailableView(
+                    "No Logs Yet",
+                    systemImage: "music.note.list",
+                    description: Text("Recent album logs will appear here.")
+                )
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+            } else {
+                LazyVStack(spacing: 12) {
+                    ForEach(logs) { log in
+                        NavigationLink {
+                            LogEntryDetailView(log: log)
+                        } label: {
+                            RecentLogRow(log: log)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("recentLogRow-\(log.id.uuidString)")
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier("recentLogsSection")
+    }
+}
+
+#Preview("Active Dashboard") {
     NavigationStack {
         HomeView()
     }
     .modelContainer(PreviewData.activeRecommendationContainer)
+    .environment(SoundPrintProfileRefreshCoordinator())
+}
+
+#Preview("Cold Start") {
+    NavigationStack {
+        HomeView()
+    }
+    .modelContainer(PreviewData.coldStartRecommendationContainer)
     .environment(SoundPrintProfileRefreshCoordinator())
 }

@@ -13,6 +13,7 @@ struct ListendApp: App {
     @State private var soundPrintRefreshCoordinator = SoundPrintProfileRefreshCoordinator()
     private let catalogService: AlbumCatalogServiceProtocol
     private let soundPrintProvider: SoundPrintProvider
+    private let albumPreviewService: AlbumPreviewServiceProtocol
 
     var sharedModelContainer: ModelContainer = {
         let arguments = ProcessInfo.processInfo.arguments
@@ -53,6 +54,7 @@ struct ListendApp: App {
     init() {
         catalogService = Self.makeCatalogService()
         soundPrintProvider = Self.makeSoundPrintProvider()
+        albumPreviewService = Self.makeAlbumPreviewService()
     }
 
     var body: some Scene {
@@ -60,6 +62,7 @@ struct ListendApp: App {
             ContentView(catalogService: catalogService)
                 .environment(soundPrintRefreshCoordinator)
                 .environment(\.soundPrintProvider, soundPrintProvider)
+                .environment(\.albumPreviewService, albumPreviewService)
         }
         .modelContainer(sharedModelContainer)
     }
@@ -89,6 +92,19 @@ struct ListendApp: App {
             fallback: MockSoundPrintProvider()
         )
         #endif
+    }
+
+    private static func makeAlbumPreviewService() -> AlbumPreviewServiceProtocol {
+        let arguments = ProcessInfo.processInfo.arguments
+
+        if arguments.contains("-ui-testing") {
+            return MockAlbumPreviewService()
+        }
+
+        return FallbackAlbumPreviewService(
+            primary: MusicKitAlbumPreviewService(),
+            fallback: MockAlbumPreviewService()
+        )
     }
 
     private static func uiTestingStoreURL(storeID: String?) -> URL {

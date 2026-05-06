@@ -38,6 +38,10 @@ struct AlbumDetailView: View {
                 .padding(.vertical, 8)
             }
 
+            Section("Preview") {
+                AlbumPreviewControl(lookup: AlbumPreviewLookup(album: album))
+            }
+
             Section {
                 if isAlreadyLogged {
                     Label("Already logged", systemImage: "checkmark.circle.fill")

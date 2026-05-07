@@ -11,16 +11,24 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     private let catalogService: AlbumCatalogServiceProtocol
+    private let recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol
     @State private var didSeedData = false
 
-    init(catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService()) {
+    init(
+        catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService(),
+        recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol = MockRecentlyPlayedAlbumService()
+    ) {
         self.catalogService = catalogService
+        self.recentlyPlayedAlbumService = recentlyPlayedAlbumService
     }
 
     var body: some View {
         TabView {
             NavigationStack {
-                HomeView(catalogService: catalogService)
+                HomeView(
+                    catalogService: catalogService,
+                    recentlyPlayedAlbumService: recentlyPlayedAlbumService
+                )
             }
             .tabItem {
                 Label("Home", systemImage: "house")

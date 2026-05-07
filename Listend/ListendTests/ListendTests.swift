@@ -585,6 +585,148 @@ struct ListendTests {
         #expect(result.artworkURL == "https://example.com/artwork.jpg")
     }
 
+    @Test func musicKitRecentlyPlayedAlbumMapperBuildsSearchResultFromMetadata() throws {
+        let releaseDate = try #require(Calendar(identifier: .gregorian).date(from: DateComponents(year: 2024, month: 2, day: 9)))
+        let result = try #require(
+            MusicKitRecentlyPlayedAlbumMapper.albumSearchResult(
+                from: MusicKitRecentlyPlayedAlbumMetadata(
+                    id: "recent.album",
+                    title: "  Recent Album  ",
+                    artistName: "  Recent Artist  ",
+                    releaseDate: releaseDate,
+                    genreNames: ["", "Electronic"],
+                    artworkURL: URL(string: "https://example.com/recent.jpg")
+                )
+            )
+        )
+
+        #expect(result.catalogID == "recent.album")
+        #expect(result.title == "Recent Album")
+        #expect(result.artistName == "Recent Artist")
+        #expect(result.releaseYear == 2024)
+        #expect(result.genreName == "Electronic")
+        #expect(result.artworkURL == "https://example.com/recent.jpg")
+    }
+
+    @Test func musicKitRecentlyPlayedAlbumMapperRejectsInvalidMetadata() {
+        let missingID = MusicKitRecentlyPlayedAlbumMapper.albumSearchResult(
+            from: MusicKitRecentlyPlayedAlbumMetadata(
+                id: "",
+                title: "Album",
+                artistName: "Artist",
+                releaseDate: nil,
+                genreNames: [],
+                artworkURL: nil
+            )
+        )
+        let missingTitle = MusicKitRecentlyPlayedAlbumMapper.albumSearchResult(
+            from: MusicKitRecentlyPlayedAlbumMetadata(
+                id: "recent.album",
+                title: "  ",
+                artistName: "Artist",
+                releaseDate: nil,
+                genreNames: [],
+                artworkURL: nil
+            )
+        )
+        let missingArtist = MusicKitRecentlyPlayedAlbumMapper.albumSearchResult(
+            from: MusicKitRecentlyPlayedAlbumMetadata(
+                id: "recent.album",
+                title: "Album",
+                artistName: "  ",
+                releaseDate: nil,
+                genreNames: [],
+                artworkURL: nil
+            )
+        )
+
+        #expect(missingID == nil)
+        #expect(missingTitle == nil)
+        #expect(missingArtist == nil)
+    }
+
+    @MainActor
+    @Test func albumCacheUpserterDedupesByAppleMusicIDAndRefreshesMetadata() throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let existingAlbum = Album(
+            appleMusicID: "music.existing",
+            title: "Old Title",
+            artistName: "Old Artist",
+            releaseYear: 1999,
+            genreName: "Old Genre",
+            artworkURL: "https://example.com/old.jpg"
+        )
+        modelContext.insert(existingAlbum)
+        try modelContext.save()
+
+        let upsertedAlbum = try AlbumCacheUpserter.upsertAlbum(
+            from: AlbumSearchResult(
+                id: "music.existing",
+                title: "Fresh Title",
+                artistName: "Fresh Artist",
+                releaseYear: 2025,
+                genreName: "Fresh Genre",
+                artworkURL: "https://example.com/fresh.jpg"
+            ),
+            cachedAlbums: [existingAlbum],
+            in: modelContext
+        )
+        let albums = try modelContext.fetch(FetchDescriptor<Album>())
+
+        #expect(upsertedAlbum.id == existingAlbum.id)
+        #expect(albums.count == 1)
+        #expect(existingAlbum.title == "Fresh Title")
+        #expect(existingAlbum.artistName == "Fresh Artist")
+        #expect(existingAlbum.releaseYear == 2025)
+        #expect(existingAlbum.genreName == "Fresh Genre")
+        #expect(existingAlbum.artworkURL == "https://example.com/fresh.jpg")
+    }
+
+    @MainActor
+    @Test func albumCacheUpserterFallsBackToNormalizedTitleAndArtist() throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let existingAlbum = Album(
+            title: "Cafe Bleu",
+            artistName: "The Style Council",
+            releaseYear: 1984
+        )
+        modelContext.insert(existingAlbum)
+        try modelContext.save()
+
+        let upsertedAlbum = try AlbumCacheUpserter.upsertAlbum(
+            from: AlbumSearchResult(
+                id: "music.cafe-bleu",
+                title: "Café Bleu",
+                artistName: "the style council",
+                releaseYear: 1984,
+                genreName: "Pop",
+                artworkURL: nil
+            ),
+            cachedAlbums: [existingAlbum],
+            in: modelContext
+        )
+        let albums = try modelContext.fetch(FetchDescriptor<Album>())
+
+        #expect(upsertedAlbum.id == existingAlbum.id)
+        #expect(albums.count == 1)
+        #expect(existingAlbum.appleMusicID == "music.cafe-bleu")
+        #expect(existingAlbum.title == "Café Bleu")
+        #expect(existingAlbum.genreName == "Pop")
+    }
+
+    @Test func mockRecentlyPlayedAlbumServiceReturnsDeterministicAlbums() async throws {
+        let albums = try await MockRecentlyPlayedAlbumService().recentlyPlayedAlbums()
+
+        #expect(albums.map(\.catalogID) == [
+            "mock.frank-ocean.blonde",
+            "mock.sza.sos",
+            "mock.radiohead.in-rainbows",
+            "mock.fiona-apple.fetch-the-bolt-cutters"
+        ])
+    }
+
     @Test func musicKitPreviewMapperSelectsFirstValidTrackPreviewURL() throws {
         let preview = try #require(
             MusicKitAlbumPreviewMapper.preview(

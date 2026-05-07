@@ -81,11 +81,28 @@ final class ListendUITests: XCTestCase {
     func testHomeDashboardShowsPrimarySurfaces() throws {
         launchResetApp()
 
-        XCTAssertTrue(app.descendants(matching: .any)["homeHeader"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Listend"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["addLogButton"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["tonightPickLink"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Recently Played"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["recentLogsSection"].waitForExistence(timeout: 5))
+        app.swipeUp()
         XCTAssertTrue(app.staticTexts["Blonde"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testHomeRecentlyPlayedAlbumOpensPreselectedLogEditor() throws {
+        launchResetApp()
+
+        app.buttons["loadRecentlyPlayedAlbumsButton"].tap()
+
+        let recentAlbum = app.buttons["recentlyPlayedAlbum-mock.frank-ocean.blonde"]
+        XCTAssertTrue(recentAlbum.waitForExistence(timeout: 5))
+        recentAlbum.tap()
+
+        XCTAssertTrue(app.navigationBars["New Log"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["albumPicker"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Blonde - Frank Ocean (2016)"].waitForExistence(timeout: 5))
     }
 
     @MainActor

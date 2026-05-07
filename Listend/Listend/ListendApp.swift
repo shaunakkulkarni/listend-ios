@@ -12,6 +12,7 @@ import SwiftData
 struct ListendApp: App {
     @State private var soundPrintRefreshCoordinator = SoundPrintProfileRefreshCoordinator()
     private let catalogService: AlbumCatalogServiceProtocol
+    private let recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol
     private let soundPrintProvider: SoundPrintProvider
     private let albumPreviewService: AlbumPreviewServiceProtocol
 
@@ -53,13 +54,17 @@ struct ListendApp: App {
 
     init() {
         catalogService = Self.makeCatalogService()
+        recentlyPlayedAlbumService = Self.makeRecentlyPlayedAlbumService()
         soundPrintProvider = Self.makeSoundPrintProvider()
         albumPreviewService = Self.makeAlbumPreviewService()
     }
 
     var body: some Scene {
         WindowGroup {
-            ContentView(catalogService: catalogService)
+            ContentView(
+                catalogService: catalogService,
+                recentlyPlayedAlbumService: recentlyPlayedAlbumService
+            )
                 .environment(soundPrintRefreshCoordinator)
                 .environment(\.soundPrintProvider, soundPrintProvider)
                 .environment(\.albumPreviewService, albumPreviewService)
@@ -77,6 +82,16 @@ struct ListendApp: App {
         return FallbackAlbumCatalogService(primary: MusicKitAlbumCatalogService())
     }
 
+    private static func makeRecentlyPlayedAlbumService() -> RecentlyPlayedAlbumServiceProtocol {
+        let arguments = ProcessInfo.processInfo.arguments
+
+        if arguments.contains("-ui-testing") {
+            return MockRecentlyPlayedAlbumService()
+        }
+
+        return MusicKitRecentlyPlayedAlbumService()
+    }
+
     private static func makeSoundPrintProvider() -> SoundPrintProvider {
         let arguments = ProcessInfo.processInfo.arguments
 
@@ -84,7 +99,7 @@ struct ListendApp: App {
             return MockSoundPrintProvider()
         }
 
-        #if DEBUG || targetEnvironment(simulator)
+        #if targetEnvironment(simulator)
         return MockSoundPrintProvider()
         #else
         return FallbackSoundPrintProvider(

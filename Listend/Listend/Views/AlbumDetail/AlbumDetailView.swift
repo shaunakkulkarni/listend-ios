@@ -81,50 +81,14 @@ struct AlbumDetailView: View {
 
     private func startLog() {
         do {
-            albumForLog = try upsertAlbum()
+            albumForLog = try AlbumCacheUpserter.upsertAlbum(
+                from: album,
+                cachedAlbums: albums,
+                in: modelContext
+            )
         } catch {
             errorMessage = "Could not prepare this album for logging."
         }
-    }
-
-    private func upsertAlbum() throws -> Album {
-        if let catalogMatch = albums.first(where: matchesCatalogID) {
-            updateCachedAlbum(catalogMatch)
-            try modelContext.save()
-            return catalogMatch
-        }
-
-        if let titleMatch = albums.first(where: matchesTitleAndArtist) {
-            updateCachedAlbum(titleMatch)
-            try modelContext.save()
-            return titleMatch
-        }
-
-        let cachedAlbum = Album(
-            appleMusicID: album.catalogID,
-            title: album.title,
-            artistName: album.artistName,
-            releaseYear: album.releaseYear,
-            genreName: album.genreName,
-            artworkURL: album.artworkURL,
-            cachedAt: Date()
-        )
-        modelContext.insert(cachedAlbum)
-        try modelContext.save()
-        return cachedAlbum
-    }
-
-    private func updateCachedAlbum(_ cachedAlbum: Album) {
-        if cachedAlbum.appleMusicID == nil {
-            cachedAlbum.appleMusicID = album.catalogID
-        }
-
-        cachedAlbum.title = album.title
-        cachedAlbum.artistName = album.artistName
-        cachedAlbum.releaseYear = album.releaseYear
-        cachedAlbum.genreName = album.genreName
-        cachedAlbum.artworkURL = album.artworkURL
-        cachedAlbum.cachedAt = Date()
     }
 
     private func matchesCatalogID(_ cachedAlbum: Album) -> Bool {
@@ -152,13 +116,6 @@ private struct AlbumMetadataView: View {
         }
         .font(.subheadline)
         .foregroundStyle(.secondary)
-    }
-}
-
-private extension String {
-    var normalizedAlbumMatchText: String {
-        folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
-            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

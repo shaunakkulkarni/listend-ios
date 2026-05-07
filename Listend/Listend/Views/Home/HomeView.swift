@@ -9,16 +9,29 @@ import SwiftUI
 import SwiftData
 
 struct HomeView: View {
-    private let catalogService: AlbumCatalogServiceProtocol
+    @Environment(\.modelContext) private var modelContext
 
+    private let catalogService: AlbumCatalogServiceProtocol
+    private let recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol
+
+    @Query(sort: \Album.title) private var albums: [Album]
     @Query(sort: \LogEntry.loggedAt, order: .reverse) private var logs: [LogEntry]
     @Query(sort: \TasteDimension.weight, order: .reverse) private var dimensions: [TasteDimension]
     @Query(sort: \SoundPrintPersona.generatedAt, order: .reverse) private var personas: [SoundPrintPersona]
     @Query(sort: \Recommendation.createdAt, order: .reverse) private var recommendations: [Recommendation]
     @State private var isShowingNewLog = false
+    @State private var recentlyPlayedAlbums: [AlbumSearchResult] = []
+    @State private var isLoadingRecentlyPlayed = false
+    @State private var didLoadRecentlyPlayed = false
+    @State private var recentlyPlayedErrorMessage: String?
+    @State private var albumForRecentLog: Album?
 
-    init(catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService()) {
+    init(
+        catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService(),
+        recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol = MockRecentlyPlayedAlbumService()
+    ) {
         self.catalogService = catalogService
+        self.recentlyPlayedAlbumService = recentlyPlayedAlbumService
     }
 
     var body: some View {
@@ -45,6 +58,15 @@ struct HomeView: View {
                     .accessibilityIdentifier("tonightPickLink")
                 }
 
+                RecentlyPlayedAlbumsSection(
+                    albums: recentlyPlayedAlbums,
+                    isLoading: isLoadingRecentlyPlayed,
+                    didLoad: didLoadRecentlyPlayed,
+                    errorMessage: recentlyPlayedErrorMessage,
+                    loadAlbums: requestRecentlyPlayedAlbums,
+                    selectAlbum: startRecentLog
+                )
+
                 if let currentPersona {
                     SoundPrintSummaryModule(
                         persona: currentPersona,
@@ -62,6 +84,9 @@ struct HomeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $isShowingNewLog) {
             LogEntryEditorView()
+        }
+        .sheet(item: $albumForRecentLog) { album in
+            LogEntryEditorView(preselectedAlbum: album)
         }
     }
 
@@ -102,6 +127,46 @@ struct HomeView: View {
 
     private func showNewLog() {
         isShowingNewLog = true
+    }
+
+    private func requestRecentlyPlayedAlbums() {
+        Task {
+            await loadRecentlyPlayedAlbums()
+        }
+    }
+
+    @MainActor
+    private func loadRecentlyPlayedAlbums() async {
+        guard !isLoadingRecentlyPlayed else {
+            return
+        }
+
+        isLoadingRecentlyPlayed = true
+        recentlyPlayedErrorMessage = nil
+
+        do {
+            let albums = try await recentlyPlayedAlbumService.recentlyPlayedAlbums()
+            recentlyPlayedAlbums = albums
+            didLoadRecentlyPlayed = true
+        } catch {
+            recentlyPlayedAlbums = []
+            didLoadRecentlyPlayed = true
+            recentlyPlayedErrorMessage = "Could not load recently played albums. Check Apple Music access and try again."
+        }
+
+        isLoadingRecentlyPlayed = false
+    }
+
+    private func startRecentLog(_ album: AlbumSearchResult) {
+        do {
+            albumForRecentLog = try AlbumCacheUpserter.upsertAlbum(
+                from: album,
+                cachedAlbums: albums,
+                in: modelContext
+            )
+        } catch {
+            recentlyPlayedErrorMessage = "Could not prepare this album for logging."
+        }
     }
 }
 
@@ -151,7 +216,6 @@ private struct HomeHeader: View {
                 }
             }
         }
-        .accessibilityIdentifier("homeHeader")
     }
 }
 
@@ -245,6 +309,178 @@ private struct SoundPrintSummaryModule: View {
             }
         }
         .accessibilityIdentifier("homeSoundPrintModule")
+    }
+}
+
+private struct RecentlyPlayedAlbumsSection: View {
+    let albums: [AlbumSearchResult]
+    let isLoading: Bool
+    let didLoad: Bool
+    let errorMessage: String?
+    let loadAlbums: () -> Void
+    let selectAlbum: (AlbumSearchResult) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                Text("Recently Played")
+                    .font(.title3.weight(.bold))
+
+                Spacer()
+
+                Button(action: loadAlbums) {
+                    Label(buttonTitle, systemImage: buttonSystemImage)
+                }
+                .font(.subheadline.weight(.semibold))
+                .disabled(isLoading)
+                .accessibilityIdentifier("loadRecentlyPlayedAlbumsButton")
+            }
+
+            if albums.isEmpty {
+                RecentlyPlayedEmptyState(
+                    isLoading: isLoading,
+                    didLoad: didLoad,
+                    errorMessage: errorMessage,
+                    loadAlbums: loadAlbums
+                )
+            } else {
+                LazyVStack(spacing: 12) {
+                    ForEach(albums) { album in
+                        Button {
+                            selectAlbum(album)
+                        } label: {
+                            RecentlyPlayedAlbumRow(album: album)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("recentlyPlayedAlbum-\(album.catalogID)")
+                    }
+                }
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+        }
+    }
+
+    private var buttonTitle: String {
+        didLoad ? "Refresh" : "Load"
+    }
+
+    private var buttonSystemImage: String {
+        isLoading ? "hourglass" : "arrow.clockwise"
+    }
+}
+
+private struct RecentlyPlayedEmptyState: View {
+    let isLoading: Bool
+    let didLoad: Bool
+    let errorMessage: String?
+    let loadAlbums: () -> Void
+
+    var body: some View {
+        EditorialSurface {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: iconName)
+                        .font(.title2)
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: 32, height: 32)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(title)
+                            .font(.headline)
+                        Text(message)
+                            .font(.subheadline)
+                            .foregroundStyle(errorMessage == nil ? Color.secondary : Color.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                Button(action: loadAlbums) {
+                    Label(isLoading ? "Loading" : "Load Recently Played", systemImage: isLoading ? "hourglass" : "music.note")
+                }
+                .listendProminentButtonStyle()
+                .disabled(isLoading)
+                .accessibilityIdentifier("recentlyPlayedEmptyStateLoadButton")
+            }
+        }
+    }
+
+    private var iconName: String {
+        errorMessage == nil ? "music.note" : "exclamationmark.triangle"
+    }
+
+    private var title: String {
+        if errorMessage != nil {
+            return "Apple Music unavailable"
+        }
+
+        if didLoad {
+            return "No recent albums"
+        }
+
+        return "Log from Apple Music"
+    }
+
+    private var message: String {
+        if let errorMessage {
+            return errorMessage
+        }
+
+        if didLoad {
+            return "Albums you recently played in Apple Music will appear here."
+        }
+
+        return "Load your recently played albums when you want a faster way to start a log."
+    }
+}
+
+private struct RecentlyPlayedAlbumRow: View {
+    let album: AlbumSearchResult
+
+    var body: some View {
+        EditorialSurface(isInteractive: true) {
+            HStack(alignment: .center, spacing: 12) {
+                AlbumArtworkView(artworkURL: album.artworkURL, size: 56)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(album.title)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+
+                    Text(album.artistName)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+
+                    metadata
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "plus.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+    }
+
+    private var metadata: some View {
+        HStack(spacing: 8) {
+            if let releaseYear = album.releaseYear {
+                Text(String(releaseYear))
+            }
+
+            if let genreName = album.genreName {
+                Text(genreName)
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
 }
 

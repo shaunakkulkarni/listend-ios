@@ -29,7 +29,6 @@ struct AlbumPreviewControl: View {
             .accessibilityIdentifier("albumPreviewButton")
             .accessibilityValue(accessibilityValue)
         }
-        .accessibilityIdentifier("albumPreviewState-\(accessibilityValue)")
         .onChange(of: lookup) { _, _ in
             resetForNewLookup()
         }

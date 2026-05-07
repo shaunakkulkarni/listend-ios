@@ -57,6 +57,19 @@ struct ContentView: View {
             }
 
             didSeedData = true
+            #if DEBUG
+            let isDebugBuild = true
+            #else
+            let isDebugBuild = false
+            #endif
+
+            guard SeedData.shouldSeedDemoData(
+                arguments: ProcessInfo.processInfo.arguments,
+                isDebugBuild: isDebugBuild
+            ) else {
+                return
+            }
+
             SeedData.seedIfNeeded(in: modelContext)
         }
     }

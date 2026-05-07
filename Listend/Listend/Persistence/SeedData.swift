@@ -9,6 +9,10 @@ import Foundation
 import SwiftData
 
 enum SeedData {
+    static func shouldSeedDemoData(arguments: [String], isDebugBuild: Bool) -> Bool {
+        isDebugBuild
+    }
+
     static func seedIfNeeded(in modelContext: ModelContext) {
         do {
             let albumCount = try modelContext.fetchCount(FetchDescriptor<Album>())

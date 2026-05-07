@@ -101,8 +101,116 @@ final class ListendUITests: XCTestCase {
         recentAlbum.tap()
 
         XCTAssertTrue(app.navigationBars["New Log"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.descendants(matching: .any)["albumPicker"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Blonde - Frank Ocean (2016)"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["selectedAlbumSummary"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Blonde"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Frank Ocean"].waitForExistence(timeout: 5))
+
+        selectRating("4.5")
+        XCTAssertTrue(app.buttons["saveLogButton"].isEnabled)
+    }
+
+    @MainActor
+    func testAddLogChooserAutoLoadsRecentAlbumAndOpensEditor() throws {
+        launchResetApp()
+
+        app.buttons["addLogButton"].tap()
+
+        XCTAssertTrue(app.navigationBars["Choose Album"].waitForExistence(timeout: 5))
+        let recentAlbum = app.buttons["albumSelectionRecent-mock.frank-ocean.blonde"]
+        XCTAssertTrue(recentAlbum.waitForExistence(timeout: 5))
+        recentAlbum.tap()
+
+        XCTAssertTrue(app.navigationBars["New Log"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["selectedAlbumSummary"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Blonde"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["saveLogButton"].isEnabled)
+
+        selectRating("4.5")
+        XCTAssertTrue(app.buttons["saveLogButton"].isEnabled)
+    }
+
+    @MainActor
+    func testAddLogChooserSearchResultOpensEditor() throws {
+        launchResetApp()
+
+        app.buttons["addLogButton"].tap()
+        XCTAssertTrue(app.navigationBars["Choose Album"].waitForExistence(timeout: 5))
+
+        let searchField = app.searchFields["Album, artist, or genre"]
+        XCTAssertTrue(searchField.waitForExistence(timeout: 5))
+        searchField.tap()
+        searchField.typeText("SOS")
+
+        let result = app.buttons["albumSelectionSearchResult-mock.sza.sos"]
+        XCTAssertTrue(result.waitForExistence(timeout: 5))
+        result.tap()
+
+        XCTAssertTrue(app.navigationBars["New Log"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["SOS"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["SZA"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testNewLogRequiresStarRatingAndSavesSelectedRating() throws {
+        launchResetApp()
+        openAlbumDetailFromSearch()
+
+        app.buttons["logThisAlbumButton"].tap()
+        XCTAssertFalse(app.buttons["saveLogButton"].isEnabled)
+
+        selectRating("4.5")
+        XCTAssertTrue(app.buttons["saveLogButton"].isEnabled)
+        app.buttons["saveLogButton"].tap()
+
+        openTab("Home")
+        openLog(title: "SOS")
+
+        let ratingValue = app.descendants(matching: .any)["ratingValueText"]
+        XCTAssertTrue(ratingValue.waitForExistence(timeout: 5))
+        XCTAssertEqual(ratingValue.label, "4.5")
+    }
+
+    @MainActor
+    func testLogEditorSuggestedTagChipAppendsTag() throws {
+        launchResetApp()
+        openAlbumDetailFromSearch()
+
+        app.buttons["logThisAlbumButton"].tap()
+        selectRating("4.5")
+
+        let reviewTextEditor = app.textViews["reviewTextEditor"]
+        XCTAssertTrue(reviewTextEditor.waitForExistence(timeout: 5))
+        reviewTextEditor.tap()
+        reviewTextEditor.typeText("Late night vocals.")
+
+        let tagsTextField = app.textFields["tagsTextField"]
+        XCTAssertTrue(tagsTextField.waitForExistence(timeout: 5))
+        tagsTextField.tap()
+
+        let lateNightTag = app.buttons["suggestedTag-late-night"]
+        XCTAssertTrue(lateNightTag.waitForExistence(timeout: 5))
+        lateNightTag.tap()
+
+        XCTAssertTrue((tagsTextField.value as? String)?.contains("late night") == true)
+    }
+
+    @MainActor
+    func testNewLogSaveDismissesImmediatelyAfterLocalSave() throws {
+        launchResetApp()
+        openAlbumDetailFromSearch()
+
+        app.buttons["logThisAlbumButton"].tap()
+        selectRating("4.5")
+
+        let reviewTextEditor = app.textViews["reviewTextEditor"]
+        XCTAssertTrue(reviewTextEditor.waitForExistence(timeout: 5))
+        reviewTextEditor.tap()
+        reviewTextEditor.typeText("Fast save review.")
+
+        app.buttons["saveLogButton"].tap()
+
+        XCTAssertTrue(app.staticTexts["Already logged"].waitForExistence(timeout: 1))
+        XCTAssertFalse(app.navigationBars["New Log"].exists)
     }
 
     @MainActor
@@ -212,29 +320,39 @@ final class ListendUITests: XCTestCase {
     }
 
     private func selectRating(_ rating: String) {
-        let picker = app.pickers["ratingPicker"]
-        if picker.waitForExistence(timeout: 2) {
-            picker.tap()
-        } else {
-            app.buttons["ratingPicker"].tap()
-        }
-
-        let buttonOption = app.buttons[rating].firstMatch
-        if buttonOption.waitForExistence(timeout: 2) {
-            buttonOption.tap()
+        guard let ratingValue = Double(rating) else {
+            XCTFail("Invalid rating value: \(rating)")
             return
         }
 
-        let staticTextOption = app.staticTexts[rating].firstMatch
-        if staticTextOption.waitForExistence(timeout: 2) {
-            staticTextOption.tap()
+        let control = app.descendants(matching: .any)["starRatingControl"]
+        XCTAssertTrue(control.waitForExistence(timeout: 5))
+
+        let stepButton = app.buttons["starRatingStep-\(rating)"]
+        if stepButton.waitForExistence(timeout: 1) {
+            stepButton.tap()
             return
         }
 
-        let wheel = app.pickerWheels.firstMatch
-        XCTAssertTrue(wheel.waitForExistence(timeout: 2))
-        wheel.adjust(toPickerWheelValue: rating)
-        app.buttons["Done"].firstMatch.tap()
+        let currentRating = currentRatingValue(from: control) ?? 0
+        let halfStepDelta = Int(((ratingValue - currentRating) * 2.0).rounded())
+        let stepCount = abs(halfStepDelta)
+
+        for _ in 0..<stepCount {
+            if halfStepDelta >= 0 {
+                control.swipeUp()
+            } else {
+                control.swipeDown()
+            }
+        }
+    }
+
+    private func currentRatingValue(from control: XCUIElement) -> Double? {
+        guard let value = control.value as? String else {
+            return nil
+        }
+
+        return Double(value.components(separatedBy: " ").first ?? "")
     }
 
     private func appendText(in element: XCUIElement, text: String) {

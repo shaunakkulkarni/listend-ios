@@ -215,6 +215,25 @@ struct ListendTests {
         #expect(!negativeFallback.canAnchorRecommendation)
     }
 
+    @Test func starRatingCalculatorClampsLeftEdgeToHalfStar() {
+        #expect(StarRatingCalculator.rating(atX: 0, width: 200) == 0.5)
+    }
+
+    @Test func starRatingCalculatorClampsRightEdgeToFiveStars() {
+        #expect(StarRatingCalculator.rating(atX: 200, width: 200) == 5.0)
+    }
+
+    @Test func starRatingCalculatorRoundsUpToHalfStep() {
+        #expect(StarRatingCalculator.rating(atX: 81, width: 200) == 2.5)
+        #expect(StarRatingCalculator.rating(atX: 180, width: 200) == 4.5)
+    }
+
+    @Test func starRatingCalculatorClampsOutOfBoundsPositions() {
+        #expect(StarRatingCalculator.rating(atX: -20, width: 200) == 0.5)
+        #expect(StarRatingCalculator.rating(atX: 260, width: 200) == 5.0)
+        #expect(StarRatingCalculator.rating(atX: 20, width: 0) == 0.5)
+    }
+
     @MainActor
     @Test func throwingSentimentProviderPersistsRatingFallback() async throws {
         let container = try makeInMemoryContainer()
@@ -230,6 +249,31 @@ struct ListendTests {
 
         #expect(log.sentimentScore == MockSoundPrintProvider.baseScore(for: 4.0))
         #expect(log.sentimentConfidence == 0.6)
+    }
+
+    @MainActor
+    @Test func coordinatorPostSaveProcessingUpdatesSentimentAndProfile() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let album = Album(title: "Post Save Album", artistName: "Post Save Artist")
+        let log = LogEntry(
+            album: album,
+            rating: 4.5,
+            reviewText: "Energetic vocals with polished replay value.",
+            tags: ["repeat"]
+        )
+
+        modelContext.insert(album)
+        modelContext.insert(log)
+        try modelContext.save()
+
+        await SoundPrintProfileRefreshCoordinator().processSavedLog(log, in: modelContext, provider: MockSoundPrintProvider())
+
+        let dimensions = try modelContext.fetch(FetchDescriptor<TasteDimension>())
+        #expect(log.sentimentScore != nil)
+        #expect(log.sentimentConfidence != nil)
+        #expect(dimensions.contains { $0.name == "energy" })
+        #expect(dimensions.contains { $0.name == "vocalFocus" })
     }
 
     @Test func positiveInputProducesTasteDimensions() async throws {
@@ -725,6 +769,116 @@ struct ListendTests {
             "mock.radiohead.in-rainbows",
             "mock.fiona-apple.fetch-the-bolt-cutters"
         ])
+    }
+
+    @MainActor
+    @Test func albumSelectionUpserterCachesSelectedAlbum() throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let selectedAlbum = try AlbumSelectionUpserter.cachedAlbum(
+            from: AlbumSearchResult(
+                id: "music.selected",
+                title: "Selected Album",
+                artistName: "Selected Artist",
+                releaseYear: 2026,
+                genreName: "Pop",
+                artworkURL: "https://example.com/selected.jpg"
+            ),
+            cachedAlbums: [],
+            in: modelContext
+        )
+        let albums = try modelContext.fetch(FetchDescriptor<Album>())
+
+        #expect(albums.count == 1)
+        #expect(selectedAlbum.appleMusicID == "music.selected")
+        #expect(selectedAlbum.title == "Selected Album")
+        #expect(selectedAlbum.artistName == "Selected Artist")
+    }
+
+    @Test func seedDataRunsOnlyForDebugBuilds() {
+        #expect(SeedData.shouldSeedDemoData(arguments: [], isDebugBuild: true))
+        #expect(!SeedData.shouldSeedDemoData(arguments: [], isDebugBuild: false))
+    }
+
+    @Test func localTagSuggestionsUseAlbumGenreAndReviewKeywords() {
+        let input = TagSuggestionInput(
+            albumTitle: "SOS",
+            artistName: "SZA",
+            genreName: "R&B",
+            releaseYear: 2022,
+            reviewText: "Late night vocals with repeat value.",
+            existingTags: []
+        )
+        let tags = LocalTagSuggestionProvider.suggestedTags(for: input)
+
+        #expect(tags.contains("r&b"))
+        #expect(tags.contains("late night"))
+        #expect(tags.contains("vocals"))
+        #expect(tags.contains("repeat"))
+    }
+
+    @Test func tagSuggestionValidationFiltersDuplicatesAndInvalidTags() {
+        let input = TagSuggestionInput(
+            albumTitle: "Blonde",
+            artistName: "Frank Ocean",
+            reviewText: "",
+            existingTags: ["Late Night"]
+        )
+        let tags = TagSuggestionValidator.validatedTags(
+            ["late night", "Vocals", "Blonde", "Frank Ocean", "two, tags", "this tag is far too long to keep"],
+            input: input
+        )
+
+        #expect(tags == ["vocals"])
+    }
+
+    @Test func foundationModelsTagValidationRejectsInvalidPayload() throws {
+        let input = TagSuggestionInput(
+            albumTitle: "Blonde",
+            artistName: "Frank Ocean",
+            reviewText: "",
+            existingTags: []
+        )
+
+        do {
+            _ = try FoundationModelsTagSuggestionValidator.validatedTags(
+                FoundationModelsTagSuggestionPayload(tags: ["Blonde", "Frank Ocean", "two, tags"]),
+                input: input
+            )
+            Issue.record("Invalid model tags should be rejected.")
+        } catch let error as TagSuggestionProviderError {
+            #expect(error == .validationFailed)
+        }
+    }
+
+    @Test func foundationModelsTagValidationAcceptsCleanTags() throws {
+        let input = TagSuggestionInput(
+            albumTitle: "Blonde",
+            artistName: "Frank Ocean",
+            reviewText: "Late night vocals.",
+            existingTags: ["vocals"]
+        )
+        let tags = try FoundationModelsTagSuggestionValidator.validatedTags(
+            FoundationModelsTagSuggestionPayload(tags: ["Late Night", "Vocals", "Warm"]),
+            input: input
+        )
+
+        #expect(tags == ["late night", "warm"])
+    }
+
+    @Test func mockTagSuggestionProviderReturnsDeterministicTags() async throws {
+        let tags = try await MockTagSuggestionProvider().suggestedTags(
+            for: TagSuggestionInput(
+                albumTitle: "SOS",
+                artistName: "SZA",
+                genreName: "R&B",
+                releaseYear: 2022,
+                reviewText: "Late night vocals.",
+                existingTags: []
+            )
+        )
+
+        #expect(tags == ["r&b", "late night", "vocals", "modern"])
     }
 
     @Test func musicKitPreviewMapperSelectsFirstValidTrackPreviewURL() throws {

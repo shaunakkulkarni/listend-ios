@@ -15,6 +15,7 @@ struct ListendApp: App {
     private let recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol
     private let soundPrintProvider: SoundPrintProvider
     private let albumPreviewService: AlbumPreviewServiceProtocol
+    private let tagSuggestionProvider: TagSuggestionProvider
 
     var sharedModelContainer: ModelContainer = {
         let arguments = ProcessInfo.processInfo.arguments
@@ -57,6 +58,7 @@ struct ListendApp: App {
         recentlyPlayedAlbumService = Self.makeRecentlyPlayedAlbumService()
         soundPrintProvider = Self.makeSoundPrintProvider()
         albumPreviewService = Self.makeAlbumPreviewService()
+        tagSuggestionProvider = Self.makeTagSuggestionProvider()
     }
 
     var body: some Scene {
@@ -68,6 +70,7 @@ struct ListendApp: App {
                 .environment(soundPrintRefreshCoordinator)
                 .environment(\.soundPrintProvider, soundPrintProvider)
                 .environment(\.albumPreviewService, albumPreviewService)
+                .environment(\.tagSuggestionProvider, tagSuggestionProvider)
         }
         .modelContainer(sharedModelContainer)
     }
@@ -120,6 +123,23 @@ struct ListendApp: App {
             primary: MusicKitAlbumPreviewService(),
             fallback: MockAlbumPreviewService()
         )
+    }
+
+    private static func makeTagSuggestionProvider() -> TagSuggestionProvider {
+        let arguments = ProcessInfo.processInfo.arguments
+
+        if arguments.contains("-ui-testing") {
+            return MockTagSuggestionProvider()
+        }
+
+        #if targetEnvironment(simulator)
+        return MockTagSuggestionProvider()
+        #else
+        return FallbackTagSuggestionProvider(
+            primary: FoundationModelsTagSuggestionProvider(),
+            fallback: LocalTagSuggestionProvider()
+        )
+        #endif
     }
 
     private static func uiTestingStoreURL(storeID: String?) -> URL {

@@ -20,6 +20,7 @@ struct HomeView: View {
     @Query(sort: \SoundPrintPersona.generatedAt, order: .reverse) private var personas: [SoundPrintPersona]
     @Query(sort: \Recommendation.createdAt, order: .reverse) private var recommendations: [Recommendation]
     @State private var isShowingNewLog = false
+    @State private var albumForNewLog: Album?
     @State private var recentlyPlayedAlbums: [AlbumSearchResult] = []
     @State private var isLoadingRecentlyPlayed = false
     @State private var didLoadRecentlyPlayed = false
@@ -82,8 +83,24 @@ struct HomeView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Listend")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $isShowingNewLog) {
-            LogEntryEditorView()
+        .sheet(
+            isPresented: $isShowingNewLog,
+            onDismiss: {
+                albumForNewLog = nil
+            }
+        ) {
+            if let albumForNewLog {
+                LogEntryEditorView(preselectedAlbum: albumForNewLog)
+            } else {
+                NavigationStack {
+                    AlbumSelectionView(
+                        catalogService: catalogService,
+                        recentlyPlayedAlbumService: recentlyPlayedAlbumService
+                    ) { album in
+                        albumForNewLog = album
+                    }
+                }
+            }
         }
         .sheet(item: $albumForRecentLog) { album in
             LogEntryEditorView(preselectedAlbum: album)
@@ -126,6 +143,7 @@ struct HomeView: View {
     }
 
     private func showNewLog() {
+        albumForNewLog = nil
         isShowingNewLog = true
     }
 
@@ -344,17 +362,21 @@ private struct RecentlyPlayedAlbumsSection: View {
                     loadAlbums: loadAlbums
                 )
             } else {
-                LazyVStack(spacing: 12) {
-                    ForEach(albums) { album in
-                        Button {
-                            selectAlbum(album)
-                        } label: {
-                            RecentlyPlayedAlbumRow(album: album)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(alignment: .top, spacing: 12) {
+                        ForEach(albums) { album in
+                            Button {
+                                selectAlbum(album)
+                            } label: {
+                                RecentlyPlayedAlbumRow(album: album)
+                                    .frame(width: 250)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("recentlyPlayedAlbum-\(album.catalogID)")
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("recentlyPlayedAlbum-\(album.catalogID)")
                     }
                 }
+                .scrollClipDisabled()
 
                 if let errorMessage {
                     Text(errorMessage)
@@ -443,7 +465,7 @@ private struct RecentlyPlayedAlbumRow: View {
 
     var body: some View {
         EditorialSurface(isInteractive: true) {
-            HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
                 AlbumArtworkView(artworkURL: album.artworkURL, size: 56)
 
                 VStack(alignment: .leading, spacing: 5) {
@@ -460,12 +482,14 @@ private struct RecentlyPlayedAlbumRow: View {
                     metadata
                 }
 
-                Spacer(minLength: 8)
-
-                Image(systemName: "plus.circle.fill")
-                    .font(.title3)
-                    .foregroundStyle(Color.accentColor)
+                HStack {
+                    Spacer()
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(Color.accentColor)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

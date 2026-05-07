@@ -21,6 +21,11 @@ final class SoundPrintProfileRefreshCoordinator {
         await refreshProfile(in: modelContext, provider: MockSoundPrintProvider())
     }
 
+    func processSavedLog(_ log: LogEntry, in modelContext: ModelContext, provider: SoundPrintProvider) async {
+        try? await LogSentimentUpdater(provider: provider).updateSentiment(for: log, in: modelContext)
+        await refreshProfile(in: modelContext, provider: provider)
+    }
+
     func refreshProfile(in modelContext: ModelContext, provider: SoundPrintProvider) async {
         if isRebuilding {
             needsAnotherRefresh = true

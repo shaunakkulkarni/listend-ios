@@ -90,21 +90,15 @@ struct LogEntryDetailView: View {
         .sheet(isPresented: $isShowingEditor) {
             LogEntryEditorView(log: log)
         }
-        .confirmationDialog(
-            "Delete this log?",
-            isPresented: $isShowingDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Delete Log", role: .destructive) {
+        .sheet(isPresented: $isShowingDeleteConfirmation) {
+            DeleteLogConfirmationSheet {
+                isShowingDeleteConfirmation = false
                 Task {
                     await deleteLog()
                 }
             }
-            .accessibilityIdentifier("confirmDeleteLogButton")
-
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("This removes the log from your local diary.")
+            .presentationDetents([.height(240)])
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -122,6 +116,50 @@ struct LogEntryDetailView: View {
         } catch {
             errorMessage = "Could not delete log."
         }
+    }
+}
+
+private struct DeleteLogConfirmationSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let confirmDelete: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Delete this log?")
+                    .font(.headline)
+                Text("This removes the log from your local diary.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            VStack(spacing: 10) {
+                Button(role: .destructive) {
+                    confirmDelete()
+                } label: {
+                    Text("Delete Log")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+                .accessibilityIdentifier("confirmDeleteLogButton")
+
+                Button {
+                    dismiss()
+                } label: {
+                    Text("Cancel")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("cancelDeleteLogButton")
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .padding(.bottom, 20)
+        .presentationCornerRadius(24)
     }
 }
 

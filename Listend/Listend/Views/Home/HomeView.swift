@@ -69,13 +69,19 @@ struct HomeView: View {
                 )
 
                 if let currentPersona {
-                    SoundPrintSummaryModule(
-                        persona: currentPersona,
-                        topDimension: dimensions.first
-                    )
+                    NavigationLink {
+                        SoundPrintProfileView()
+                    } label: {
+                        SoundPrintSummaryModule(
+                            persona: currentPersona,
+                            topDimension: dimensions.first
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("homeSoundPrintLink")
                 }
 
-                RecentLogsSection(logs: logs)
+                LatestLogPreviewSection(log: logs.first)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 20)
@@ -304,13 +310,19 @@ private struct SoundPrintSummaryModule: View {
     let topDimension: TasteDimension?
 
     var body: some View {
-        EditorialSurface {
+        EditorialSurface(isInteractive: true) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     Image(systemName: "waveform.path")
                         .foregroundStyle(Color.accentColor)
                     Text("SoundPrint")
                         .font(.headline)
+
+                    Spacer(minLength: 8)
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
                 }
 
                 Text(persona.personaText)
@@ -327,6 +339,77 @@ private struct SoundPrintSummaryModule: View {
             }
         }
         .accessibilityIdentifier("homeSoundPrintModule")
+    }
+}
+
+private struct LatestLogPreviewSection: View {
+    let log: LogEntry?
+
+    var body: some View {
+        if let log {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Latest Log")
+                        .font(.title3.weight(.bold))
+                    Spacer()
+                    Text("View all in Logs")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+
+                NavigationLink {
+                    LogEntryDetailView(log: log)
+                } label: {
+                    LatestLogPreviewRow(log: log)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("latestLogPreviewLink")
+            }
+        }
+    }
+}
+
+private struct LatestLogPreviewRow: View {
+    let log: LogEntry
+
+    var body: some View {
+        EditorialSurface(isInteractive: true) {
+            HStack(alignment: .center, spacing: 12) {
+                AlbumArtworkView(artworkURL: log.album?.artworkURL, size: 48)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(log.album?.title ?? "Unknown Album")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+
+                    Text(log.album?.artistName ?? "Unknown Artist")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+
+                    HStack(spacing: 10) {
+                        Label(ratingText, systemImage: "star.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.yellow)
+
+                        Text(log.loggedAt, format: .dateTime.month(.abbreviated).day().year())
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private var ratingText: String {
+        log.rating.formatted(.number.precision(.fractionLength(1)))
     }
 }
 
@@ -505,48 +588,6 @@ private struct RecentlyPlayedAlbumRow: View {
         }
         .font(.caption)
         .foregroundStyle(.secondary)
-    }
-}
-
-private struct RecentLogsSection: View {
-    let logs: [LogEntry]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Recent Logs")
-                    .font(.title3.weight(.bold))
-                Spacer()
-                if !logs.isEmpty {
-                    Text(logs.count.formatted())
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            if logs.isEmpty {
-                ContentUnavailableView(
-                    "No Logs Yet",
-                    systemImage: "music.note.list",
-                    description: Text("Recent album logs will appear here.")
-                )
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
-            } else {
-                LazyVStack(spacing: 12) {
-                    ForEach(logs) { log in
-                        NavigationLink {
-                            LogEntryDetailView(log: log)
-                        } label: {
-                            RecentLogRow(log: log)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("recentLogRow-\(log.id.uuidString)")
-                    }
-                }
-            }
-        }
-        .accessibilityIdentifier("recentLogsSection")
     }
 }
 

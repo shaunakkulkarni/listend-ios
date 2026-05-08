@@ -51,14 +51,18 @@ final class ListendUITests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         openTab("Profile")
         XCTAssertTrue(app.descendants(matching: .any)["totalLogsValueText"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.descendants(matching: .any)["totalLogsValueText"].label, "4")
+        XCTAssertEqual(app.descendants(matching: .any)["totalLogsValueText"].label, "1")
         XCTAssertTrue(app.descendants(matching: .any)["averageRatingValueText"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.descendants(matching: .any)["averageRatingValueText"].label, "4.6")
+        XCTAssertEqual(app.descendants(matching: .any)["averageRatingValueText"].label, "5.0")
         XCTAssertTrue(app.descendants(matching: .any)["topTagsValueText"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["topTagsValueText"].label.contains("edited"))
 
-        openTab("Home")
+        openTab("Logs")
         openLog(title: "SOS")
+        app.buttons["deleteLogButton"].tap()
+        XCTAssertTrue(app.buttons["cancelDeleteLogButton"].waitForExistence(timeout: 5))
+        app.buttons["cancelDeleteLogButton"].tap()
+        XCTAssertTrue(app.buttons["deleteLogButton"].waitForExistence(timeout: 5))
         app.buttons["deleteLogButton"].tap()
         app.buttons["confirmDeleteLogButton"].firstMatch.tap()
         XCTAssertFalse(app.staticTexts["SOS"].waitForExistence(timeout: 3))
@@ -73,6 +77,7 @@ final class ListendUITests: XCTestCase {
         app.terminate()
         launchAppPreservingData()
 
+        openTab("Logs")
         XCTAssertTrue(app.staticTexts["SOS"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Persistence review."].waitForExistence(timeout: 5))
     }
@@ -83,11 +88,35 @@ final class ListendUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["Listend"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["addLogButton"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["tonightPickLink"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Recently Played"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.descendants(matching: .any)["recentLogsSection"].waitForExistence(timeout: 5))
-        app.swipeUp()
-        XCTAssertTrue(app.staticTexts["Blonde"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.descendants(matching: .any)["recentLogsSection"].exists)
+        XCTAssertFalse(app.staticTexts["Blonde"].exists)
+    }
+
+    @MainActor
+    func testLogsTabStartsEmptyAndShowsCreatedLogs() throws {
+        launchResetApp()
+
+        openTab("Logs")
+        XCTAssertTrue(app.staticTexts["No Logs Yet"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Blonde"].exists)
+
+        createSOSLog(rating: "4.0", review: "Logs tab review.", tags: "history")
+
+        openTab("Logs")
+        XCTAssertTrue(app.staticTexts["SOS"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Logs tab review."].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testHomeShowsLatestLogPreviewOnly() throws {
+        launchResetApp()
+        createSOSLog(rating: "4.5", review: "Dashboard preview review.", tags: "dashboard")
+
+        openTab("Home")
+        XCTAssertTrue(app.descendants(matching: .any)["latestLogPreviewLink"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["SOS"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.descendants(matching: .any)["recentLogsSection"].exists)
     }
 
     @MainActor
@@ -162,7 +191,7 @@ final class ListendUITests: XCTestCase {
         XCTAssertTrue(app.buttons["saveLogButton"].isEnabled)
         app.buttons["saveLogButton"].tap()
 
-        openTab("Home")
+        openTab("Logs")
         openLog(title: "SOS")
 
         let ratingValue = app.descendants(matching: .any)["ratingValueText"]
@@ -216,6 +245,7 @@ final class ListendUITests: XCTestCase {
     @MainActor
     func testTonightPickFeedbackClearsActiveRecommendation() throws {
         launchResetApp()
+        createSOSLog(rating: "4.5", review: "Tonight pick anchor.", tags: "anchor")
 
         openTab("Home")
         app.buttons["tonightPickLink"].tap()
@@ -239,6 +269,7 @@ final class ListendUITests: XCTestCase {
     @MainActor
     func testTonightPickShowsPreviewUnavailableWithMockService() throws {
         launchResetApp()
+        createSOSLog(rating: "4.5", review: "Preview pick anchor.", tags: "anchor")
 
         openTab("Home")
         app.buttons["tonightPickLink"].tap()

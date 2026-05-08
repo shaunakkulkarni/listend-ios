@@ -9,10 +9,8 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
     private let catalogService: AlbumCatalogServiceProtocol
     private let recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol
-    @State private var didSeedData = false
 
     init(
         catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService(),
@@ -36,6 +34,14 @@ struct ContentView: View {
             .accessibilityIdentifier("homeTab")
 
             NavigationStack {
+                LogsView()
+            }
+            .tabItem {
+                Label("Logs", systemImage: "music.note.list")
+            }
+            .accessibilityIdentifier("logsTab")
+
+            NavigationStack {
                 SearchView(catalogService: catalogService)
             }
             .tabItem {
@@ -50,27 +56,6 @@ struct ContentView: View {
                 Label("Profile", systemImage: "person.crop.circle")
             }
             .accessibilityIdentifier("profileTab")
-        }
-        .task {
-            guard !didSeedData else {
-                return
-            }
-
-            didSeedData = true
-            #if DEBUG
-            let isDebugBuild = true
-            #else
-            let isDebugBuild = false
-            #endif
-
-            guard SeedData.shouldSeedDemoData(
-                arguments: ProcessInfo.processInfo.arguments,
-                isDebugBuild: isDebugBuild
-            ) else {
-                return
-            }
-
-            SeedData.seedIfNeeded(in: modelContext)
         }
     }
 }

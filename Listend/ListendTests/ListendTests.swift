@@ -795,11 +795,6 @@ struct ListendTests {
         #expect(selectedAlbum.artistName == "Selected Artist")
     }
 
-    @Test func seedDataRunsOnlyForDebugBuilds() {
-        #expect(SeedData.shouldSeedDemoData(arguments: [], isDebugBuild: true))
-        #expect(!SeedData.shouldSeedDemoData(arguments: [], isDebugBuild: false))
-    }
-
     @Test func localTagSuggestionsUseAlbumGenreAndReviewKeywords() {
         let input = TagSuggestionInput(
             albumTitle: "SOS",

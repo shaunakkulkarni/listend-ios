@@ -13,7 +13,7 @@
 		<key>CFBundleIdentifier</key>
 		<string>com.shaunakkulkarni.Listend</string>
 		<key>CFBundleShortVersionString</key>
-		<string>1.0</string>
+		<string>1.5</string>
 		<key>CFBundleVersion</key>
 		<string>1</string>
 		<key>SigningIdentity</key>
@@ -24,64 +24,7 @@
 	<key>ArchiveVersion</key>
 	<integer>2</integer>
 	<key>CreationDate</key>
-	<date>2026-05-07T23:08:31Z</date>
-	<key>Distributions</key>
-	<array>
-		<dict>
-			<key>adamId</key>
-			<string>6767377515</string>
-			<key>certificateSHA1</key>
-			<string>7E154CF456D5FEBFA59B83854426610D104CAE0B</string>
-			<key>destination</key>
-			<string>upload</string>
-			<key>identifier</key>
-			<string>ca32ed68-d035-47a7-862f-dc6bc0c8f878</string>
-			<key>preparationEvent</key>
-			<dict>
-				<key>date</key>
-				<string>2026-05-07T23:09:22Z</string>
-				<key>errors</key>
-				<array/>
-				<key>infoMessages</key>
-				<array/>
-				<key>shortTitle</key>
-				<string>Prepared</string>
-				<key>state</key>
-				<string>success</string>
-				<key>title</key>
-				<string>Prepared archive for uploading</string>
-				<key>warnings</key>
-				<array/>
-			</dict>
-			<key>providerId</key>
-			<string>b34023de-e6a8-4cd7-8817-c1f14caf050b</string>
-			<key>task</key>
-			<string>distribute</string>
-			<key>teamID</key>
-			<string>2X6GACKE9G</string>
-			<key>uploadDestination</key>
-			<string>App Store</string>
-			<key>uploadEvent</key>
-			<dict>
-				<key>date</key>
-				<string>2026-05-07T23:10:35Z</string>
-				<key>errors</key>
-				<array/>
-				<key>infoMessages</key>
-				<array/>
-				<key>shortTitle</key>
-				<string>Uploaded</string>
-				<key>state</key>
-				<string>success</string>
-				<key>title</key>
-				<string>Uploaded to Apple</string>
-				<key>warnings</key>
-				<array/>
-			</dict>
-			<key>uploadedBuildNumber</key>
-			<string>1</string>
-		</dict>
-	</array>
+	<date>2026-05-08T00:09:11Z</date>
 	<key>Name</key>
 	<string>Listend</string>
 	<key>SchemeName</key>

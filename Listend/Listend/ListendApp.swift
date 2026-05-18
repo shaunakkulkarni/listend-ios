@@ -16,6 +16,7 @@ struct ListendApp: App {
     private let soundPrintProvider: SoundPrintProvider
     private let albumPreviewService: AlbumPreviewServiceProtocol
     private let tagSuggestionProvider: TagSuggestionProvider
+    private let journalAssistService: JournalAssistServiceProtocol
 
     var sharedModelContainer: ModelContainer = {
         let arguments = ProcessInfo.processInfo.arguments
@@ -59,6 +60,7 @@ struct ListendApp: App {
         soundPrintProvider = Self.makeSoundPrintProvider()
         albumPreviewService = Self.makeAlbumPreviewService()
         tagSuggestionProvider = Self.makeTagSuggestionProvider()
+        journalAssistService = Self.makeJournalAssistService()
     }
 
     var body: some Scene {
@@ -71,6 +73,7 @@ struct ListendApp: App {
                 .environment(\.soundPrintProvider, soundPrintProvider)
                 .environment(\.albumPreviewService, albumPreviewService)
                 .environment(\.tagSuggestionProvider, tagSuggestionProvider)
+                .environment(\.journalAssistService, journalAssistService)
         }
         .modelContainer(sharedModelContainer)
     }
@@ -140,6 +143,19 @@ struct ListendApp: App {
             fallback: LocalTagSuggestionProvider()
         )
         #endif
+    }
+
+    private static func makeJournalAssistService() -> JournalAssistServiceProtocol {
+        let arguments = ProcessInfo.processInfo.arguments
+
+        if arguments.contains("-ui-testing") {
+            return MockJournalAssistService()
+        }
+
+        return FallbackJournalAssistService(
+            primary: FoundationModelsJournalAssistService(),
+            fallback: MockJournalAssistService()
+        )
     }
 
     private static func uiTestingStoreURL(storeID: String?) -> URL {

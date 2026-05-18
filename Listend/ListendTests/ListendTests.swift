@@ -876,6 +876,139 @@ struct ListendTests {
         #expect(tags == ["r&b", "late night", "vocals", "modern"])
     }
 
+    @Test func mockJournalAssistServiceReturnsDeterministicDraft() async throws {
+        let input = JournalAssistInput(
+            albumTitle: "SOS",
+            artistName: "SZA",
+            genreName: "R&B",
+            releaseYear: 2022,
+            rating: 4.5,
+            notes: "Late night vocals.",
+            existingTags: ["warm"]
+        )
+
+        let result = try await MockJournalAssistService().draftReview(for: input)
+
+        #expect(result.draftReview == "I rated SOS by SZA 4.5/5. My notes point to Late night vocals, warm.")
+        #expect(result.prompts.isEmpty)
+    }
+
+    @Test func journalAssistStaticPromptsDoNotRequireFoundationModels() {
+        let prompts = MockJournalAssistService().reflectionPrompts
+
+        #expect(prompts.count == 4)
+        #expect(prompts.map(\.question).contains("What stood out most?"))
+    }
+
+    @Test func emptyJournalAssistInputProducesPromptsInsteadOfDraft() async throws {
+        let input = JournalAssistInput(albumTitle: "Blonde", artistName: "Frank Ocean")
+
+        let result = try await MockJournalAssistService().draftReview(for: input)
+
+        #expect(result.draftReview == nil)
+        #expect(result.prompts == JournalAssistPrompt.defaults)
+    }
+
+    @Test func journalAssistDraftValidationRejectsInvalidDrafts() throws {
+        let input = JournalAssistInput(
+            albumTitle: "Blonde",
+            artistName: "Frank Ocean",
+            notes: "Sparse vocals."
+        )
+
+        #expect(throws: JournalAssistServiceError.emptyOutput) {
+            _ = try JournalAssistValidator.validatedDraft("", input: input)
+        }
+
+        #expect(throws: JournalAssistServiceError.validationFailed) {
+            _ = try JournalAssistValidator.validatedDraft("One. Two. Three. Four. Five.", input: input)
+        }
+
+        #expect(throws: JournalAssistServiceError.validationFailed) {
+            _ = try JournalAssistValidator.validatedDraft("This is a flawless masterpiece.", input: input)
+        }
+
+        #expect(throws: JournalAssistServiceError.validationFailed) {
+            _ = try JournalAssistValidator.validatedDraft("I loved the catchy hooks.", input: input)
+        }
+    }
+
+    @Test func journalAssistTagValidationFiltersDuplicatesAndInvalidTags() {
+        let input = JournalAssistInput(
+            albumTitle: "Blonde",
+            artistName: "Frank Ocean",
+            existingTags: ["Late Night"]
+        )
+        let tags = JournalAssistValidator.validatedTags(
+            ["late night", "Vocals", "two, tags", "this tag has way too many words"],
+            input: input
+        )
+
+        #expect(tags == ["vocals"])
+    }
+
+    @Test func mockJournalAssistTagSuggestionsAreManualServiceOutput() async throws {
+        let input = JournalAssistInput(
+            albumTitle: "SOS",
+            artistName: "SZA",
+            genreName: "R&B",
+            rating: 4.0,
+            notes: "Late night vocals.",
+            existingTags: ["vocals"]
+        )
+
+        let tags = try await MockJournalAssistService().suggestedTags(for: input)
+
+        #expect(tags == ["late night", "r&b", "repeat"])
+    }
+
+    @Test func acceptingJournalAssistDraftUpdatesReviewText() {
+        let updated = JournalAssistValidator.applyDraft("  I rated SOS by SZA 4.5/5.  ", to: "Original review.")
+
+        #expect(updated == "I rated SOS by SZA 4.5/5.")
+    }
+
+    @Test func dismissingJournalAssistDraftLeavesReviewTextUnchanged() {
+        let unchanged = JournalAssistValidator.dismissDraft(currentReviewText: "Original review.")
+
+        #expect(unchanged == "Original review.")
+    }
+
+    @Test func fallbackJournalAssistServiceUsesFallbackWhenPrimaryThrows() async throws {
+        let service = FallbackJournalAssistService(
+            primary: ThrowingJournalAssistService(),
+            fallback: MockJournalAssistService()
+        )
+        let input = JournalAssistInput(
+            albumTitle: "SOS",
+            artistName: "SZA",
+            rating: 4.5,
+            notes: "Late night vocals."
+        )
+
+        let result = try await service.draftReview(for: input)
+
+        #expect(result.draftReview == "I rated SOS by SZA 4.5/5. My notes point to Late night vocals.")
+    }
+
+    @Test func fallbackJournalAssistServicePropagatesCancellation() async {
+        let service = FallbackJournalAssistService(
+            primary: CancellingJournalAssistService(),
+            fallback: MockJournalAssistService()
+        )
+
+        do {
+            _ = try await service.draftReview(
+                for: JournalAssistInput(albumTitle: "SOS", artistName: "SZA", rating: 4.0)
+            )
+            Issue.record("Cancellation should propagate instead of falling back.")
+        } catch is CancellationError {
+            #expect(true)
+        } catch {
+            Issue.record("Expected CancellationError, got \(error).")
+        }
+    }
+
     @Test func musicKitPreviewMapperSelectsFirstValidTrackPreviewURL() throws {
         let preview = try #require(
             MusicKitAlbumPreviewMapper.preview(
@@ -1526,6 +1659,10 @@ private enum ThrowingAlbumPreviewError: Error {
     case failed
 }
 
+private enum ThrowingJournalAssistError: Error {
+    case failed
+}
+
 private struct ThrowingAlbumCatalogService: AlbumCatalogServiceProtocol {
     func searchAlbums(query: String) async throws -> [AlbumSearchResult] {
         throw ThrowingAlbumCatalogError.failed
@@ -1545,6 +1682,30 @@ private struct ThrowingAlbumPreviewService: AlbumPreviewServiceProtocol {
 private struct EmptyAlbumPreviewService: AlbumPreviewServiceProtocol {
     func preview(for lookup: AlbumPreviewLookup) async throws -> AlbumPreview? {
         nil
+    }
+}
+
+private struct ThrowingJournalAssistService: JournalAssistServiceProtocol {
+    let reflectionPrompts: [JournalAssistPrompt] = JournalAssistPrompt.defaults
+
+    func draftReview(for input: JournalAssistInput) async throws -> JournalAssistDraftResult {
+        throw ThrowingJournalAssistError.failed
+    }
+
+    func suggestedTags(for input: JournalAssistInput) async throws -> [String] {
+        throw ThrowingJournalAssistError.failed
+    }
+}
+
+private struct CancellingJournalAssistService: JournalAssistServiceProtocol {
+    let reflectionPrompts: [JournalAssistPrompt] = JournalAssistPrompt.defaults
+
+    func draftReview(for input: JournalAssistInput) async throws -> JournalAssistDraftResult {
+        throw CancellationError()
+    }
+
+    func suggestedTags(for input: JournalAssistInput) async throws -> [String] {
+        throw CancellationError()
     }
 }
 

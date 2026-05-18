@@ -12,14 +12,14 @@ struct LogEntryEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.soundPrintProvider) private var environmentSoundPrintProvider
-    @Environment(\.tagSuggestionProvider) private var environmentTagSuggestionProvider
+    @Environment(\.journalAssistService) private var environmentJournalAssistService
     @Environment(SoundPrintProfileRefreshCoordinator.self) private var soundPrintRefreshCoordinator
     @Query(sort: \Album.title) private var albums: [Album]
 
     private let log: LogEntry?
     private let preselectedAlbum: Album?
     private let injectedSoundPrintProvider: SoundPrintProvider?
-    private let injectedTagSuggestionProvider: TagSuggestionProvider?
+    private let injectedJournalAssistService: JournalAssistServiceProtocol?
 
     @State private var selectedAlbumID: UUID?
     @State private var rating: Double?
@@ -28,17 +28,18 @@ struct LogEntryEditorView: View {
     @State private var suggestedTags: [String] = []
     @State private var errorMessage: String?
     @State private var isSaving = false
+    @State private var activeAssistMode: JournalAssistMode?
 
     init(
         log: LogEntry? = nil,
         preselectedAlbum: Album? = nil,
         soundPrintProvider: SoundPrintProvider? = nil,
-        tagSuggestionProvider: TagSuggestionProvider? = nil
+        journalAssistService: JournalAssistServiceProtocol? = nil
     ) {
         self.log = log
         self.preselectedAlbum = preselectedAlbum
         injectedSoundPrintProvider = soundPrintProvider
-        injectedTagSuggestionProvider = tagSuggestionProvider
+        injectedJournalAssistService = journalAssistService
         _selectedAlbumID = State(initialValue: log?.album?.id ?? preselectedAlbum?.id)
         _rating = State(initialValue: log?.rating)
         _reviewText = State(initialValue: log?.reviewText ?? "")
@@ -74,6 +75,32 @@ struct LogEntryEditorView: View {
                     TextEditor(text: $reviewText)
                         .frame(minHeight: 120)
                         .accessibilityIdentifier("reviewTextEditor")
+                }
+
+                Section("Journal Assist") {
+                    Button {
+                        activeAssistMode = .helpWrite
+                    } label: {
+                        Label("Help me write", systemImage: "square.and.pencil")
+                    }
+                    .disabled(selectedAlbum == nil)
+                    .accessibilityIdentifier("helpMeWriteButton")
+
+                    Button {
+                        activeAssistMode = .draftReview
+                    } label: {
+                        Label("Turn my notes into a review", systemImage: "text.bubble")
+                    }
+                    .disabled(selectedAlbum == nil)
+                    .accessibilityIdentifier("draftReviewButton")
+
+                    Button {
+                        activeAssistMode = .suggestTags
+                    } label: {
+                        Label("Suggest tags", systemImage: "tag")
+                    }
+                    .disabled(selectedAlbum == nil)
+                    .accessibilityIdentifier("journalSuggestTagsButton")
                 }
 
                 Section("Tags") {
@@ -129,6 +156,20 @@ struct LogEntryEditorView: View {
             .task(id: tagSuggestionInput) {
                 await refreshTagSuggestions()
             }
+            .sheet(item: $activeAssistMode) { mode in
+                if let selectedAlbum {
+                    JournalAssistSheet(
+                        mode: mode,
+                        album: selectedAlbum,
+                        rating: rating,
+                        existingReviewText: reviewText,
+                        existingTags: parsedTags,
+                        service: journalAssistService,
+                        onAcceptDraft: acceptJournalAssistDraft,
+                        onAcceptTag: appendSuggestedTag
+                    )
+                }
+            }
         }
     }
 
@@ -140,8 +181,8 @@ struct LogEntryEditorView: View {
         injectedSoundPrintProvider ?? environmentSoundPrintProvider
     }
 
-    private var tagSuggestionProvider: TagSuggestionProvider {
-        injectedTagSuggestionProvider ?? environmentTagSuggestionProvider
+    private var journalAssistService: JournalAssistServiceProtocol {
+        injectedJournalAssistService ?? environmentJournalAssistService
     }
 
     private var availableAlbums: [Album] {
@@ -191,23 +232,7 @@ struct LogEntryEditorView: View {
             return
         }
 
-        let localTags = LocalTagSuggestionProvider.suggestedTags(for: input)
-        suggestedTags = localTags
-
-        do {
-            try await Task.sleep(for: .milliseconds(350))
-            let refinedTags = try await tagSuggestionProvider.suggestedTags(for: input)
-
-            guard !Task.isCancelled else {
-                return
-            }
-
-            suggestedTags = refinedTags.isEmpty ? localTags : refinedTags
-        } catch is CancellationError {
-            return
-        } catch {
-            suggestedTags = localTags
-        }
+        suggestedTags = LocalTagSuggestionProvider.suggestedTags(for: input)
     }
 
     private func appendSuggestedTag(_ tag: String) {
@@ -224,6 +249,10 @@ struct LogEntryEditorView: View {
 
         let updatedTags = existingTags + [displayTag]
         tagsText = updatedTags.joined(separator: ", ")
+    }
+
+    private func acceptJournalAssistDraft(_ draft: String) {
+        reviewText = JournalAssistValidator.applyDraft(draft, to: reviewText)
     }
 
     private func accessibilityID(for tag: String) -> String {

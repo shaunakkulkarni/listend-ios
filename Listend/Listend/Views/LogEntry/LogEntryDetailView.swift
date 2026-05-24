@@ -65,6 +65,34 @@ struct LogEntryDetailView: View {
                 }
             }
 
+            if log.hasTrackHighlights {
+                Section("Track Highlights") {
+                    if !log.favoriteTracks.isEmpty {
+                        DetailRow(
+                            title: "Favorite tracks",
+                            value: log.favoriteTracks.joined(separator: ", "),
+                            valueIdentifier: "favoriteTracksValueText"
+                        )
+                    }
+
+                    if !log.skipTracks.isEmpty {
+                        DetailRow(
+                            title: "Less favorite tracks",
+                            value: log.skipTracks.joined(separator: ", "),
+                            valueIdentifier: "lessFavoriteTracksValueText"
+                        )
+                    }
+
+                    if let standoutMoment = log.normalizedStandoutMoment {
+                        DetailRow(
+                            title: "Standout moment",
+                            value: standoutMoment,
+                            valueIdentifier: "standoutMomentValueText"
+                        )
+                    }
+                }
+            }
+
             if let errorMessage {
                 Section {
                     Text(errorMessage)
@@ -197,7 +225,10 @@ private struct DetailRow: View {
                 album: Album(title: "Blonde", artistName: "Frank Ocean"),
                 rating: 5.0,
                 reviewText: "Sparse in the right places.",
-                tags: ["late night", "vocals"]
+                tags: ["late night", "vocals"],
+                favoriteTracks: ["Nights"],
+                skipTracks: ["Solo (Reprise)"],
+                standoutMoment: "The beat switch still feels weightless."
             )
         )
     }

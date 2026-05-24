@@ -213,6 +213,7 @@ final class ListendUITests: XCTestCase {
         reviewTextEditor.typeText("Late night vocals.")
 
         let tagsTextField = app.textFields["tagsTextField"]
+        reveal(tagsTextField)
         XCTAssertTrue(tagsTextField.waitForExistence(timeout: 5))
         tagsTextField.tap()
 
@@ -221,6 +222,135 @@ final class ListendUITests: XCTestCase {
         lateNightTag.tap()
 
         XCTAssertTrue((tagsTextField.value as? String)?.contains("late night") == true)
+    }
+
+    @MainActor
+    func testJournalAssistDraftRequiresExplicitAcceptance() throws {
+        launchResetApp()
+        openAlbumDetailFromSearch()
+
+        app.buttons["logThisAlbumButton"].tap()
+        selectRating("4.5")
+
+        let reviewTextEditor = app.textViews["reviewTextEditor"]
+        XCTAssertTrue(reviewTextEditor.waitForExistence(timeout: 5))
+        reviewTextEditor.tap()
+        reviewTextEditor.typeText("Original manual review.")
+
+        app.buttons["helpMeWriteButton"].tap()
+        let generateDraftButton = app.buttons["helpWriteGenerateJournalDraftButton"]
+        reveal(generateDraftButton)
+        XCTAssertTrue(generateDraftButton.waitForExistence(timeout: 5))
+        generateDraftButton.tap()
+        XCTAssertTrue(app.textViews["journalAssistDraftEditor"].waitForExistence(timeout: 5))
+
+        XCTAssertTrue((reviewTextEditor.value as? String)?.contains("Original manual review.") == true)
+        XCTAssertFalse((reviewTextEditor.value as? String)?.contains("I rated SOS") == true)
+
+        let acceptDraftButton = app.buttons["acceptJournalDraftButton"]
+        reveal(acceptDraftButton)
+        XCTAssertTrue(acceptDraftButton.waitForExistence(timeout: 5))
+        acceptDraftButton.tap()
+
+        XCTAssertTrue((reviewTextEditor.value as? String)?.contains("I rated SOS") == true)
+    }
+
+    @MainActor
+    func testJournalAssistTagsRequireExplicitTap() throws {
+        launchResetApp()
+        openAlbumDetailFromSearch()
+
+        app.buttons["logThisAlbumButton"].tap()
+        selectRating("4.5")
+
+        let reviewTextEditor = app.textViews["reviewTextEditor"]
+        XCTAssertTrue(reviewTextEditor.waitForExistence(timeout: 5))
+        reviewTextEditor.tap()
+        reviewTextEditor.typeText("Late night vocals.")
+
+        let tagsTextField = app.textFields["tagsTextField"]
+        reveal(tagsTextField)
+        XCTAssertTrue(tagsTextField.waitForExistence(timeout: 5))
+        tagsTextField.tap()
+        tagsTextField.typeText("manual")
+        XCTAssertFalse((tagsTextField.value as? String)?.contains("late night") == true)
+
+        app.buttons["helpMeWriteButton"].tap()
+        let generateTagsButton = app.buttons["helpWriteGenerateJournalTagsButton"]
+        reveal(generateTagsButton)
+        generateTagsButton.tap()
+        let journalAssistTag = app.buttons["journalAssistTag-late-night"]
+        XCTAssertTrue(journalAssistTag.waitForExistence(timeout: 5))
+        XCTAssertFalse((tagsTextField.value as? String)?.contains("late night") == true)
+
+        journalAssistTag.tap()
+        app.buttons["Done"].tap()
+
+        XCTAssertTrue((tagsTextField.value as? String)?.contains("late night") == true)
+    }
+
+    @MainActor
+    func testTrackHighlightsPersistAndUpdateInLogDetail() throws {
+        launchResetApp()
+        openAlbumDetailFromSearch()
+
+        app.buttons["logThisAlbumButton"].tap()
+        selectRating("4.5")
+        openTrackHighlightsSection()
+
+        let favoriteTracksField = app.textFields["favoriteTracksTextField"]
+        reveal(favoriteTracksField)
+        XCTAssertTrue(favoriteTracksField.waitForExistence(timeout: 5))
+        favoriteTracksField.tap()
+        favoriteTracksField.typeText("Snooze, Good Days")
+
+        let lessFavoriteTracksField = app.textFields["lessFavoriteTracksTextField"]
+        reveal(lessFavoriteTracksField)
+        XCTAssertTrue(lessFavoriteTracksField.waitForExistence(timeout: 5))
+        lessFavoriteTracksField.tap()
+        lessFavoriteTracksField.typeText("Too Late")
+
+        let standoutMomentField = app.textFields["standoutMomentTextField"]
+        reveal(standoutMomentField)
+        XCTAssertTrue(standoutMomentField.waitForExistence(timeout: 5))
+        standoutMomentField.tap()
+        standoutMomentField.typeText("The final chorus opens up.")
+
+        app.buttons["saveLogButton"].tap()
+        openTab("Logs")
+        openLog(title: "SOS")
+
+        XCTAssertTrue(app.staticTexts["Track Highlights"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["favoriteTracksValueText"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["favoriteTracksValueText"].label.contains("Snooze"))
+        XCTAssertTrue(app.descendants(matching: .any)["lessFavoriteTracksValueText"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["lessFavoriteTracksValueText"].label.contains("Too Late"))
+        XCTAssertTrue(app.descendants(matching: .any)["standoutMomentValueText"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["standoutMomentValueText"].label.contains("final chorus"))
+
+        app.buttons["Edit"].tap()
+        let expandedFavoriteTracksField = app.textFields["favoriteTracksTextField"]
+        reveal(expandedFavoriteTracksField)
+        XCTAssertTrue(expandedFavoriteTracksField.waitForExistence(timeout: 5))
+        appendText(in: expandedFavoriteTracksField, text: ", Blind")
+        app.buttons["saveLogButton"].tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["favoriteTracksValueText"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["favoriteTracksValueText"].label.contains("Blind"))
+    }
+
+    @MainActor
+    func testEmptyTrackHighlightsDoNotShowDetailClutter() throws {
+        launchResetApp()
+        createSOSLog(rating: "4.0", review: "No highlight review.", tags: "simple")
+
+        openTab("Logs")
+        openLog(title: "SOS")
+
+        XCTAssertFalse(app.staticTexts["Track Highlights"].waitForExistence(timeout: 1))
+        XCTAssertFalse(app.descendants(matching: .any)["favoriteTracksValueText"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["lessFavoriteTracksValueText"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["standoutMomentValueText"].exists)
     }
 
     @MainActor
@@ -314,6 +444,7 @@ final class ListendUITests: XCTestCase {
         reviewTextEditor.typeText(review)
 
         let tagsTextField = app.textFields["tagsTextField"]
+        reveal(tagsTextField)
         tagsTextField.tap()
         tagsTextField.typeText(tags)
 
@@ -375,6 +506,26 @@ final class ListendUITests: XCTestCase {
             } else {
                 control.swipeDown()
             }
+        }
+    }
+
+    private func openTrackHighlightsSection() {
+        let disclosure = app.buttons["trackHighlightsDisclosure"]
+        if !disclosure.waitForExistence(timeout: 2) {
+            app.swipeUp()
+        }
+        XCTAssertTrue(disclosure.waitForExistence(timeout: 5))
+        disclosure.tap()
+
+        let favoriteTracksField = app.textFields["favoriteTracksTextField"]
+        if !favoriteTracksField.waitForExistence(timeout: 1) {
+            app.swipeUp()
+        }
+    }
+
+    private func reveal(_ element: XCUIElement, maxSwipes: Int = 3) {
+        for _ in 0..<maxSwipes where !element.isHittable {
+            app.swipeUp()
         }
     }
 

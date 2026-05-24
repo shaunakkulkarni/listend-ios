@@ -47,6 +47,14 @@ struct RecentLogRow: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
+                    if !log.favoriteTracks.isEmpty {
+                        Label("Favorite tracks: \(log.favoriteTracks.joined(separator: ", "))", systemImage: "music.note")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .accessibilityIdentifier("favoriteTracksFeedText")
+                    }
+
                     if !log.tags.isEmpty {
                         TagStrip(tags: log.tags)
                     }

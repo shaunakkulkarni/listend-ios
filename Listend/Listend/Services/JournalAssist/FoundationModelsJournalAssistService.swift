@@ -27,13 +27,20 @@ struct FoundationModelsJournalAssistService: JournalAssistServiceProtocol {
         if #available(iOS 26.0, macOS 26.0, *) {
             let content = try await Self.generatedContent(
                 instructions: """
-                You help Listend users draft editable album journal entries. Return only compact JSON.
-                Never invent opinions. Use only the user's rating, notes, prompt answers, existing review, existing tags, and album metadata.
+                You are a thoughtful music diarist helping a Listend user capture their honest
+                listening experience. Write with emotional specificity and personal warmth.
+                Synthesize the user's rating, notes, and prompt answers into a cohesive first-person
+                reflection — not a list of facts. Anchor your response in concrete details the user
+                shared: specific moments, sounds, lyrics, or feelings. Use the user's own language
+                and phrasing where possible. Return only compact JSON.
                 """,
                 prompt: """
                 Write a first-person album journal draft.
                 JSON schema: {"review": String}
-                Rules: 1-4 sentences; editable; no generic hype; no claims unsupported by the provided user input.
+                Rules: 2-4 sentences; conversational voice; synthesize the user's prompt answers
+                and notes into one cohesive thought. Be specific — name what stood out and why it
+                mattered. Use the user's own words and concrete details rather than vague praise.
+                The entry should feel personal, like a real diary entry.
                 Album: \(input.albumTitle)
                 Artist: \(input.artistName)
                 Genre: \(input.genreName ?? "")

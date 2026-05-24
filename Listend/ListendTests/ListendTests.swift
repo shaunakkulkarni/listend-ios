@@ -215,6 +215,77 @@ struct ListendTests {
         #expect(!negativeFallback.canAnchorRecommendation)
     }
 
+    @Test func logEntryTrackHighlightDefaultsAreEmpty() {
+        let log = LogEntry(album: nil, rating: 4.0)
+
+        #expect(log.favoriteTracks.isEmpty)
+        #expect(log.skipTracks.isEmpty)
+        #expect(log.normalizedStandoutMoment == nil)
+        #expect(log.hasTrackHighlights == false)
+        #expect(log.favoriteTracksRawValue == nil)
+        #expect(log.skipTracksRawValue == nil)
+    }
+
+    @Test func logEntryTrackHighlightsParseCommaSeparatedValues() {
+        let log = LogEntry(
+            album: nil,
+            rating: 4.0,
+            favoriteTracks: ["  Kill Bill  ", "", "Snooze"],
+            skipTracks: ["Seek & Destroy", "  ", "Too Late"],
+            standoutMoment: "  second chorus lift  "
+        )
+
+        #expect(log.favoriteTracks == ["Kill Bill", "Snooze"])
+        #expect(log.skipTracks == ["Seek & Destroy", "Too Late"])
+        #expect(log.standoutMoment == "second chorus lift")
+        #expect(log.favoriteTracksRawValue == "Kill Bill,Snooze")
+        #expect(log.skipTracksRawValue == "Seek & Destroy,Too Late")
+    }
+
+    @Test func logEntryTrackHighlightSettersClearEmptyValues() {
+        let log = LogEntry(
+            album: nil,
+            rating: 4.0,
+            favoriteTracks: ["Ghost in the Machine"],
+            skipTracks: ["Too Late"],
+            standoutMoment: "bridge"
+        )
+
+        log.favoriteTracks = [" ", ""]
+        log.skipTracks = []
+        log.standoutMoment = "   "
+
+        #expect(log.favoriteTracks.isEmpty)
+        #expect(log.skipTracks.isEmpty)
+        #expect(log.normalizedStandoutMoment == nil)
+        #expect(log.hasTrackHighlights == false)
+        #expect(log.favoriteTracksRawValue == nil)
+        #expect(log.skipTracksRawValue == nil)
+    }
+
+    @MainActor
+    @Test func editingTrackHighlightsUpdatesSavedLog() throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let album = Album(title: "SOS", artistName: "SZA")
+        let log = LogEntry(album: album, rating: 4.5)
+
+        modelContext.insert(album)
+        modelContext.insert(log)
+        try modelContext.save()
+
+        log.favoriteTracks = ["Snooze", "Good Days"]
+        log.skipTracks = ["Too Late"]
+        log.standoutMoment = "The last chorus opened up."
+        try modelContext.save()
+
+        let logs = try modelContext.fetch(FetchDescriptor<LogEntry>())
+        let savedLog = try #require(logs.first)
+        #expect(savedLog.favoriteTracks == ["Snooze", "Good Days"])
+        #expect(savedLog.skipTracks == ["Too Late"])
+        #expect(savedLog.standoutMoment == "The last chorus opened up.")
+    }
+
     @Test func starRatingCalculatorClampsLeftEdgeToHalfStar() {
         #expect(StarRatingCalculator.rating(atX: 0, width: 200) == 0.5)
     }

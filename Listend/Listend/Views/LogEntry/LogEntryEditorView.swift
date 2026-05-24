@@ -25,6 +25,10 @@ struct LogEntryEditorView: View {
     @State private var rating: Double?
     @State private var reviewText: String
     @State private var tagsText: String
+    @State private var favoriteTracksText: String
+    @State private var lessFavoriteTracksText: String
+    @State private var standoutMomentText: String
+    @State private var isTrackHighlightsExpanded: Bool
     @State private var suggestedTags: [String] = []
     @State private var errorMessage: String?
     @State private var isSaving = false
@@ -44,6 +48,10 @@ struct LogEntryEditorView: View {
         _rating = State(initialValue: log?.rating)
         _reviewText = State(initialValue: log?.reviewText ?? "")
         _tagsText = State(initialValue: log?.tags.joined(separator: ", ") ?? "")
+        _favoriteTracksText = State(initialValue: log?.favoriteTracks.joined(separator: ", ") ?? "")
+        _lessFavoriteTracksText = State(initialValue: log?.skipTracks.joined(separator: ", ") ?? "")
+        _standoutMomentText = State(initialValue: log?.normalizedStandoutMoment ?? "")
+        _isTrackHighlightsExpanded = State(initialValue: log?.hasTrackHighlights == true)
     }
 
     var body: some View {
@@ -126,6 +134,33 @@ struct LogEntryEditorView: View {
                         }
                         .scrollClipDisabled()
                     }
+                }
+
+                Section {
+                    Button {
+                        withAnimation {
+                            isTrackHighlightsExpanded.toggle()
+                        }
+                    } label: {
+                        Label("Track Highlights", systemImage: "music.note.list")
+                    }
+                    .accessibilityIdentifier("trackHighlightsDisclosure")
+
+                    if isTrackHighlightsExpanded {
+                        TextField("Snooze, Good Days", text: $favoriteTracksText)
+                            .textInputAutocapitalization(.words)
+                            .accessibilityIdentifier("favoriteTracksTextField")
+
+                        TextField("Less favorite tracks", text: $lessFavoriteTracksText)
+                            .textInputAutocapitalization(.words)
+                            .accessibilityIdentifier("lessFavoriteTracksTextField")
+
+                        TextField("One short note", text: $standoutMomentText, axis: .vertical)
+                            .lineLimit(1...3)
+                            .accessibilityIdentifier("standoutMomentTextField")
+                    }
+                } footer: {
+                    Text("Optional album-level notes. No song logging required.")
                 }
 
                 if let errorMessage {
@@ -287,6 +322,9 @@ struct LogEntryEditorView: View {
 
         let trimmedReview = reviewText.trimmingCharacters(in: .whitespacesAndNewlines)
         let tagsToSave = parsedTags
+        let favoriteTracksToSave = parsedTrackList(from: favoriteTracksText)
+        let lessFavoriteTracksToSave = parsedTrackList(from: lessFavoriteTracksText)
+        let standoutMomentToSave = normalizedOptionalText(standoutMomentText)
 
         do {
             let savedLog: LogEntry
@@ -296,6 +334,9 @@ struct LogEntryEditorView: View {
                 log.rating = rating
                 log.reviewText = trimmedReview
                 log.tags = tagsToSave
+                log.favoriteTracks = favoriteTracksToSave
+                log.skipTracks = lessFavoriteTracksToSave
+                log.standoutMoment = standoutMomentToSave
                 log.updatedAt = Date()
                 savedLog = log
             } else {
@@ -305,6 +346,9 @@ struct LogEntryEditorView: View {
                     rating: rating,
                     reviewText: trimmedReview,
                     tags: tagsToSave,
+                    favoriteTracks: favoriteTracksToSave,
+                    skipTracks: lessFavoriteTracksToSave,
+                    standoutMoment: standoutMomentToSave,
                     loggedAt: now,
                     updatedAt: now
                 )
@@ -324,6 +368,18 @@ struct LogEntryEditorView: View {
         } catch {
             errorMessage = "Could not save log."
         }
+    }
+
+    private func parsedTrackList(from text: String) -> [String] {
+        text
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func normalizedOptionalText(_ text: String) -> String? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 

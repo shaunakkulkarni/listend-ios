@@ -15,8 +15,8 @@ final class Recommendation {
     var score: Double
     var confidence: Double
     var status: String
-    var source: String
-    var freshnessStatus: String
+    var source: String?
+    var freshnessStatus: String?
     var explanationText: String
     var createdAt: Date
 

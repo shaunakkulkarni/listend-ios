@@ -9,15 +9,32 @@ import SwiftUI
 import SwiftData
 
 struct SoundPrintProfileView: View {
+    @Query(sort: \SoundPrintPersona.generatedAt, order: .reverse) private var personas: [SoundPrintPersona]
     @Query(sort: \TasteDimension.weight, order: .reverse) private var dimensions: [TasteDimension]
     @Query private var evidence: [TasteEvidence]
     @Query private var logs: [LogEntry]
+
+    @State private var isShowingDimensions = false
 
     var body: some View {
         let evidenceByDimension = evidenceGroupedByDimension
         let logsByID = logsKeyedByID
 
         List {
+            if let persona = personas.first {
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Persona")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+
+                        Text(persona.personaText)
+                            .font(.body)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+
             Section {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("How SoundPrint sees your taste")
@@ -36,13 +53,19 @@ struct SoundPrintProfileView: View {
                     description: Text("Positive logs with reviews or tags will build your taste profile.")
                 )
             } else {
-                Section("Dimensions") {
-                    ForEach(dimensions) { dimension in
-                        DimensionCard(
-                            dimension: dimension,
-                            evidence: evidenceByDimension[dimension.name, default: []],
-                            logsByID: logsByID
-                        )
+                Section {
+                    DisclosureGroup(isExpanded: $isShowingDimensions) {
+                        ForEach(dimensions) { dimension in
+                            DimensionCard(
+                                dimension: dimension,
+                                evidence: evidenceByDimension[dimension.name, default: []],
+                                logsByID: logsByID
+                            )
+                        }
+                        .padding(.top, 8)
+                    } label: {
+                        Text("Taste Dimensions (\(dimensions.count))")
+                            .font(.headline)
                     }
                 }
             }

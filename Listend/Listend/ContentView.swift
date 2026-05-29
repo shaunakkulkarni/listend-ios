@@ -8,10 +8,19 @@
 import SwiftUI
 import SwiftData
 
+enum ListendTab: Hashable {
+    case home
+    case logs
+    case search
+    case profile
+}
+
 struct ContentView: View {
     private let catalogService: AlbumCatalogServiceProtocol
     private let recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol
     private let appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol?
+
+    @State private var selectedTab: ListendTab = .home
 
     init(
         catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService(),
@@ -24,17 +33,19 @@ struct ContentView: View {
     }
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             NavigationStack {
                 HomeView(
                     catalogService: catalogService,
                     recentlyPlayedAlbumService: recentlyPlayedAlbumService,
-                    appleMusicRecommendationService: appleMusicRecommendationService
+                    appleMusicRecommendationService: appleMusicRecommendationService,
+                    switchToProfileTab: { selectedTab = .profile }
                 )
             }
             .tabItem {
                 Label("Home", systemImage: "house")
             }
+            .tag(ListendTab.home)
             .accessibilityIdentifier("homeTab")
 
             NavigationStack {
@@ -43,6 +54,7 @@ struct ContentView: View {
             .tabItem {
                 Label("Logs", systemImage: "music.note.list")
             }
+            .tag(ListendTab.logs)
             .accessibilityIdentifier("logsTab")
 
             NavigationStack {
@@ -51,6 +63,7 @@ struct ContentView: View {
             .tabItem {
                 Label("Search", systemImage: "magnifyingglass")
             }
+            .tag(ListendTab.search)
             .accessibilityIdentifier("searchTab")
 
             NavigationStack {
@@ -59,6 +72,7 @@ struct ContentView: View {
             .tabItem {
                 Label("Profile", systemImage: "person.crop.circle")
             }
+            .tag(ListendTab.profile)
             .accessibilityIdentifier("profileTab")
         }
     }

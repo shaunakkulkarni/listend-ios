@@ -14,6 +14,7 @@ struct HomeView: View {
     private let catalogService: AlbumCatalogServiceProtocol
     private let recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol
     private let appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol?
+    private let switchToProfileTab: () -> Void
 
     @Query(sort: \Album.title) private var albums: [Album]
     @Query(sort: \LogEntry.loggedAt, order: .reverse) private var logs: [LogEntry]
@@ -32,11 +33,13 @@ struct HomeView: View {
     init(
         catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService(),
         recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol = MockRecentlyPlayedAlbumService(),
-        appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol? = nil
+        appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol? = nil,
+        switchToProfileTab: @escaping () -> Void = {}
     ) {
         self.catalogService = catalogService
         self.recentlyPlayedAlbumService = recentlyPlayedAlbumService
         self.appleMusicRecommendationService = appleMusicRecommendationService
+        self.switchToProfileTab = switchToProfileTab
     }
 
     var body: some View {
@@ -76,8 +79,8 @@ struct HomeView: View {
                 )
 
                 if let currentPersona {
-                    NavigationLink {
-                        SoundPrintProfileView()
+                    Button {
+                        switchToProfileTab()
                     } label: {
                         SoundPrintSummaryModule(
                             persona: currentPersona,

@@ -32,7 +32,7 @@ final class ListendUITests: XCTestCase {
 
         app.buttons["Edit"].tap()
         selectRating("5.0")
-        appendText(in: app.textViews["reviewTextEditor"], text: " Edited review.")
+        appendText(in: reviewTextInput(), text: " Edited review.")
         appendText(in: app.textFields["tagsTextField"], text: ", edited")
         app.buttons["saveLogButton"].tap()
 
@@ -207,7 +207,7 @@ final class ListendUITests: XCTestCase {
         app.buttons["logThisAlbumButton"].tap()
         selectRating("4.5")
 
-        let reviewTextEditor = app.textViews["reviewTextEditor"]
+        let reviewTextEditor = reviewTextInput()
         XCTAssertTrue(reviewTextEditor.waitForExistence(timeout: 5))
         reviewTextEditor.tap()
         reviewTextEditor.typeText("Late night vocals.")
@@ -232,7 +232,7 @@ final class ListendUITests: XCTestCase {
         app.buttons["logThisAlbumButton"].tap()
         selectRating("4.5")
 
-        let reviewTextEditor = app.textViews["reviewTextEditor"]
+        let reviewTextEditor = reviewTextInput()
         XCTAssertTrue(reviewTextEditor.waitForExistence(timeout: 5))
         reviewTextEditor.tap()
         reviewTextEditor.typeText("Original manual review.")
@@ -263,7 +263,7 @@ final class ListendUITests: XCTestCase {
         app.buttons["logThisAlbumButton"].tap()
         selectRating("4.5")
 
-        let reviewTextEditor = app.textViews["reviewTextEditor"]
+        let reviewTextEditor = reviewTextInput()
         XCTAssertTrue(reviewTextEditor.waitForExistence(timeout: 5))
         reviewTextEditor.tap()
         reviewTextEditor.typeText("Late night vocals.")
@@ -361,7 +361,7 @@ final class ListendUITests: XCTestCase {
         app.buttons["logThisAlbumButton"].tap()
         selectRating("4.5")
 
-        let reviewTextEditor = app.textViews["reviewTextEditor"]
+        let reviewTextEditor = reviewTextInput()
         XCTAssertTrue(reviewTextEditor.waitForExistence(timeout: 5))
         reviewTextEditor.tap()
         reviewTextEditor.typeText("Fast save review.")
@@ -373,15 +373,17 @@ final class ListendUITests: XCTestCase {
     }
 
     @MainActor
-    func testTonightPickFeedbackClearsActiveRecommendation() throws {
+    func testTodayPickFeedbackClearsActiveRecommendation() throws {
         launchResetApp()
-        createSOSLog(rating: "4.5", review: "Tonight pick anchor.", tags: "anchor")
+        createSOSLog(rating: "4.5", review: "Today pick anchor.", tags: "anchor")
 
         openTab("Home")
-        app.buttons["tonightPickLink"].tap()
-        app.buttons["findTonightPickButton"].tap()
+        XCTAssertTrue(app.staticTexts["Today's Pick"].waitForExistence(timeout: 5))
+        app.buttons["todayPickLink"].tap()
+        app.buttons["findTodayPickButton"].tap()
 
         XCTAssertTrue(app.buttons["likeRecommendationButton"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Apple Music freshness was unavailable, so this pick is based on your Listend logs."].waitForExistence(timeout: 5))
         app.buttons["likeRecommendationButton"].tap()
 
         XCTAssertTrue(app.staticTexts["Feedback saved. You can generate the next eligible pick."].waitForExistence(timeout: 5))
@@ -397,13 +399,13 @@ final class ListendUITests: XCTestCase {
     }
 
     @MainActor
-    func testTonightPickShowsPreviewUnavailableWithMockService() throws {
+    func testTodayPickShowsPreviewUnavailableWithMockService() throws {
         launchResetApp()
         createSOSLog(rating: "4.5", review: "Preview pick anchor.", tags: "anchor")
 
         openTab("Home")
-        app.buttons["tonightPickLink"].tap()
-        app.buttons["findTonightPickButton"].tap()
+        app.buttons["todayPickLink"].tap()
+        app.buttons["findTodayPickButton"].tap()
 
         XCTAssertTrue(app.buttons["likeRecommendationButton"].waitForExistence(timeout: 5))
         assertPreviewUnavailableAfterTap()
@@ -438,7 +440,7 @@ final class ListendUITests: XCTestCase {
         app.buttons["logThisAlbumButton"].tap()
         selectRating(rating)
 
-        let reviewTextEditor = app.textViews["reviewTextEditor"]
+        let reviewTextEditor = reviewTextInput()
         XCTAssertTrue(reviewTextEditor.waitForExistence(timeout: 5))
         reviewTextEditor.tap()
         reviewTextEditor.typeText(review)
@@ -451,6 +453,10 @@ final class ListendUITests: XCTestCase {
         app.buttons["saveLogButton"].tap()
 
         openTab("Home")
+    }
+
+    private func reviewTextInput() -> XCUIElement {
+        app.descendants(matching: .any)["reviewTextEditor"]
     }
 
     private func openAlbumDetailFromSearch() {

@@ -1,5 +1,5 @@
 //
-//  TonightPickView.swift
+//  TodayPickView.swift
 //  Listend
 //
 //  Created by Codex on 4/26/26.
@@ -8,7 +8,7 @@
 import SwiftUI
 import SwiftData
 
-struct TonightPickView: View {
+struct TodayPickView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \LogEntry.loggedAt, order: .reverse) private var logs: [LogEntry]
 
@@ -19,8 +19,14 @@ struct TonightPickView: View {
     @State private var message: String?
     @State private var isWorking = false
 
-    init(catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService()) {
-        recommendationService = LocalRecommendationService(catalogService: catalogService)
+    init(
+        catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService(),
+        appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol? = nil
+    ) {
+        recommendationService = LocalRecommendationService(
+            catalogService: catalogService,
+            appleMusicService: appleMusicRecommendationService
+        )
     }
 
     var body: some View {
@@ -32,7 +38,7 @@ struct TonightPickView: View {
                 emptyStateSection
             }
         }
-        .navigationTitle("Tonight's Pick")
+        .navigationTitle("Today's Pick")
         .task {
             await loadActiveRecommendation()
         }
@@ -44,7 +50,7 @@ struct TonightPickView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(recommendation.album?.title ?? "Unknown Album")
                         .font(.title2.weight(.bold))
-                        .accessibilityIdentifier("tonightPickStateText")
+                        .accessibilityIdentifier("todayPickStateText")
                     Text(recommendation.album?.artistName ?? "Unknown Artist")
                         .font(.headline)
                         .foregroundStyle(.secondary)
@@ -54,6 +60,11 @@ struct TonightPickView: View {
                 Text(confidenceText(for: recommendation))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
+
+                Text(freshnessText(for: recommendation))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("todayPickFreshnessText")
 
                 Text(recommendation.explanationText)
                     .font(.subheadline)
@@ -131,16 +142,16 @@ struct TonightPickView: View {
             Button {
                 generateRecommendation()
             } label: {
-                Label("Find Tonight's Pick", systemImage: "sparkles")
+                Label("Find Today's Pick", systemImage: "sparkles")
             }
             .disabled(isWorking || !hasPositiveAnchor)
-            .accessibilityIdentifier("findTonightPickButton")
+            .accessibilityIdentifier("findTodayPickButton")
 
             if let message {
                 Text(message)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("tonightPickMessageText")
+                    .accessibilityIdentifier("todayPickMessageText")
             }
         }
     }
@@ -158,7 +169,7 @@ struct TonightPickView: View {
     }
 
     private var emptyDescription: String {
-        hasPositiveAnchor ? "Generate one pick backed by your own logs." : "A 4-star positive log unlocks Tonight's Pick."
+        hasPositiveAnchor ? "Generate one pick backed by your own logs." : "A 4-star positive log unlocks Today's Pick."
     }
 
     @ViewBuilder
@@ -182,6 +193,14 @@ struct TonightPickView: View {
         return "\(score) match confidence: \(confidence)"
     }
 
+    private func freshnessText(for recommendation: Recommendation) -> String {
+        if recommendation.freshnessStatus == RecommendationFreshnessStatus.appleFreshnessChecked.rawValue {
+            return "Checked against Apple Music library and recent plays."
+        }
+
+        return "Apple Music freshness was unavailable, so this pick is based on your Listend logs."
+    }
+
     @MainActor
     private func loadActiveRecommendation() async {
         do {
@@ -190,7 +209,7 @@ struct TonightPickView: View {
                 receipts = try recommendationService.receipts(for: recommendation, in: modelContext)
             }
         } catch {
-            message = "Could not load Tonight's Pick."
+            message = "Could not load Today's Pick."
         }
     }
 
@@ -225,7 +244,7 @@ struct TonightPickView: View {
         } catch LocalRecommendationError.noCandidates {
             message = "No picks left."
         } catch {
-            message = "Could not generate Tonight's Pick."
+            message = "Could not generate Today's Pick."
         }
     }
 
@@ -263,14 +282,14 @@ struct TonightPickView: View {
 
 #Preview("Active Pick") {
     NavigationStack {
-        TonightPickView()
+        TodayPickView()
     }
     .modelContainer(PreviewData.activeRecommendationContainer)
 }
 
 #Preview("Cold Start") {
     NavigationStack {
-        TonightPickView()
+        TodayPickView()
     }
     .modelContainer(PreviewData.coldStartRecommendationContainer)
 }

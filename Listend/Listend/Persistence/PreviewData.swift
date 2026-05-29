@@ -35,7 +35,9 @@ enum PreviewData {
             SoundPrintPersona.self,
             Recommendation.self,
             RecommendationReceipt.self,
-            RecommendationFeedback.self
+            RecommendationFeedback.self,
+            RecentlyPlayedAlbumSnapshot.self,
+            AppleMusicRecentPlaySnapshot.self
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
 
@@ -132,7 +134,9 @@ enum PreviewData {
                 album: recommendedAlbum,
                 score: 0.82,
                 confidence: 0.84,
-                explanationText: "Because you liked Titanic Rising, Tonight's Pick is Fetch the Bolt Cutters by Fiona Apple. Rated Titanic Rising 4.5 stars and tagged it lush, layered."
+                source: RecommendationSource.applePersonalRecommendations.rawValue,
+                freshnessStatus: RecommendationFreshnessStatus.appleFreshnessChecked.rawValue,
+                explanationText: "Because you liked Titanic Rising, Today's Pick is Fetch the Bolt Cutters by Fiona Apple. Rated Titanic Rising 4.5 stars and tagged it lush, layered."
             )
 
             modelContext.insert(recommendedAlbum)

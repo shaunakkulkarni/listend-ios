@@ -80,8 +80,9 @@ struct LogEntryEditorView: View {
                 }
 
                 Section("Review") {
-                    TextEditor(text: $reviewText)
-                        .frame(minHeight: 120)
+                    TextField("What did this album leave with you?", text: $reviewText, axis: .vertical)
+                        .lineLimit(4...8)
+                        .textInputAutocapitalization(.sentences)
                         .accessibilityIdentifier("reviewTextEditor")
                 }
 
@@ -385,7 +386,7 @@ struct LogEntryEditorView: View {
 
 #Preview {
     LogEntryEditorView()
-        .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self, SoundPrintPersona.self, Recommendation.self, RecommendationReceipt.self, RecommendationFeedback.self], inMemory: true)
+        .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self, SoundPrintPersona.self, Recommendation.self, RecommendationReceipt.self, RecommendationFeedback.self, RecentlyPlayedAlbumSnapshot.self, AppleMusicRecentPlaySnapshot.self], inMemory: true)
         .environment(SoundPrintProfileRefreshCoordinator())
 }
 

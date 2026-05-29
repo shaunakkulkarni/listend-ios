@@ -15,6 +15,8 @@ final class Recommendation {
     var score: Double
     var confidence: Double
     var status: String
+    var source: String
+    var freshnessStatus: String
     var explanationText: String
     var createdAt: Date
 
@@ -24,6 +26,8 @@ final class Recommendation {
         score: Double,
         confidence: Double,
         status: String = RecommendationStatus.active.rawValue,
+        source: String = RecommendationSource.listendFallback.rawValue,
+        freshnessStatus: String = RecommendationFreshnessStatus.appleFreshnessUnavailable.rawValue,
         explanationText: String,
         createdAt: Date = Date()
     ) {
@@ -32,6 +36,8 @@ final class Recommendation {
         self.score = score
         self.confidence = confidence
         self.status = status
+        self.source = source
+        self.freshnessStatus = freshnessStatus
         self.explanationText = explanationText
         self.createdAt = createdAt
     }

@@ -13,12 +13,14 @@ struct HomeView: View {
 
     private let catalogService: AlbumCatalogServiceProtocol
     private let recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol
+    private let appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol?
 
     @Query(sort: \Album.title) private var albums: [Album]
     @Query(sort: \LogEntry.loggedAt, order: .reverse) private var logs: [LogEntry]
     @Query(sort: \TasteDimension.weight, order: .reverse) private var dimensions: [TasteDimension]
     @Query(sort: \SoundPrintPersona.generatedAt, order: .reverse) private var personas: [SoundPrintPersona]
     @Query(sort: \Recommendation.createdAt, order: .reverse) private var recommendations: [Recommendation]
+    @Query(sort: \RecentlyPlayedAlbumSnapshot.sortOrder) private var cachedRecentlyPlayedAlbumSnapshots: [RecentlyPlayedAlbumSnapshot]
     @State private var isShowingNewLog = false
     @State private var albumForNewLog: Album?
     @State private var recentlyPlayedAlbums: [AlbumSearchResult] = []
@@ -29,10 +31,12 @@ struct HomeView: View {
 
     init(
         catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService(),
-        recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol = MockRecentlyPlayedAlbumService()
+        recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol = MockRecentlyPlayedAlbumService(),
+        appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol? = nil
     ) {
         self.catalogService = catalogService
         self.recentlyPlayedAlbumService = recentlyPlayedAlbumService
+        self.appleMusicRecommendationService = appleMusicRecommendationService
     }
 
     var body: some View {
@@ -45,24 +49,27 @@ struct HomeView: View {
                     addLog: showNewLog
                 )
 
-                if canShowTonightPick {
+                if canShowTodayPick {
                     NavigationLink {
-                        TonightPickView(catalogService: catalogService)
+                        TodayPickView(
+                            catalogService: catalogService,
+                            appleMusicRecommendationService: appleMusicRecommendationService
+                        )
                     } label: {
-                        TonightPickModule(
-                            title: tonightPickTitle,
-                            subtitle: tonightPickSubtitle,
+                        TodayPickModule(
+                            title: todayPickTitle,
+                            subtitle: todayPickSubtitle,
                             isActive: activeRecommendation != nil
                         )
                     }
                     .buttonStyle(.plain)
-                    .accessibilityIdentifier("tonightPickLink")
+                    .accessibilityIdentifier("todayPickLink")
                 }
 
                 RecentlyPlayedAlbumsSection(
-                    albums: recentlyPlayedAlbums,
+                    items: displayedRecentlyPlayedItems,
                     isLoading: isLoadingRecentlyPlayed,
-                    didLoad: didLoadRecentlyPlayed,
+                    didLoad: didLoadRecentlyPlayed || !cachedRecentlyPlayedAlbumSnapshots.isEmpty,
                     errorMessage: recentlyPlayedErrorMessage,
                     loadAlbums: requestRecentlyPlayedAlbums,
                     selectAlbum: startRecentLog
@@ -121,17 +128,36 @@ struct HomeView: View {
         recommendations.first { $0.status == RecommendationStatus.active.rawValue }
     }
 
-    private var canShowTonightPick: Bool {
+    private var canShowTodayPick: Bool {
         activeRecommendation != nil || logs.contains { log in
             log.album != nil && !log.isNegativeSignal && log.rating >= 4.0
         }
     }
 
-    private var tonightPickTitle: String {
-        activeRecommendation?.album?.title ?? "Find Tonight's Pick"
+    @MainActor
+    private var displayedRecentlyPlayedAlbums: [AlbumSearchResult] {
+        if !recentlyPlayedAlbums.isEmpty {
+            return recentlyPlayedAlbums
+        }
+
+        return cachedRecentlyPlayedAlbumSnapshots.map(RecentlyPlayedAlbumCache.albumSearchResult)
     }
 
-    private var tonightPickSubtitle: String {
+    @MainActor
+    private var displayedRecentlyPlayedItems: [RecentlyPlayedAlbumDisplayItem] {
+        displayedRecentlyPlayedAlbums.prefix(6).map { album in
+            RecentlyPlayedAlbumDisplayItem(
+                album: album,
+                isLogged: RecentlyPlayedAlbumLogState.isLogged(album, in: logs)
+            )
+        }
+    }
+
+    private var todayPickTitle: String {
+        activeRecommendation?.album?.title ?? "Find Today's Pick"
+    }
+
+    private var todayPickSubtitle: String {
         if let album = activeRecommendation?.album {
             return "\(album.artistName) is ready when you are."
         }
@@ -170,10 +196,10 @@ struct HomeView: View {
 
         do {
             let albums = try await recentlyPlayedAlbumService.recentlyPlayedAlbums()
+            try RecentlyPlayedAlbumCache.replaceCachedAlbums(with: albums, in: modelContext)
             recentlyPlayedAlbums = albums
             didLoadRecentlyPlayed = true
         } catch {
-            recentlyPlayedAlbums = []
             didLoadRecentlyPlayed = true
             recentlyPlayedErrorMessage = "Could not load recently played albums. Check Apple Music access and try again."
         }
@@ -268,7 +294,7 @@ private struct HomeStatPill: View {
     }
 }
 
-private struct TonightPickModule: View {
+private struct TodayPickModule: View {
     let title: String
     let subtitle: String
     let isActive: Bool
@@ -276,13 +302,13 @@ private struct TonightPickModule: View {
     var body: some View {
         EditorialSurface(isInteractive: true) {
             HStack(alignment: .center, spacing: 12) {
-                Image(systemName: isActive ? "sparkles" : "moon.stars")
+                Image(systemName: isActive ? "sparkles" : "sun.max")
                     .font(.title2)
                     .frame(width: 36, height: 36)
                     .foregroundStyle(Color.accentColor)
 
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Tonight's Pick")
+                    Text("Today's Pick")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                     Text(title)
@@ -413,8 +439,17 @@ private struct LatestLogPreviewRow: View {
     }
 }
 
+private struct RecentlyPlayedAlbumDisplayItem: Identifiable {
+    let album: AlbumSearchResult
+    let isLogged: Bool
+
+    var id: String {
+        album.id
+    }
+}
+
 private struct RecentlyPlayedAlbumsSection: View {
-    let albums: [AlbumSearchResult]
+    let items: [RecentlyPlayedAlbumDisplayItem]
     let isLoading: Bool
     let didLoad: Bool
     let errorMessage: String?
@@ -437,7 +472,7 @@ private struct RecentlyPlayedAlbumsSection: View {
                 .accessibilityIdentifier("loadRecentlyPlayedAlbumsButton")
             }
 
-            if albums.isEmpty {
+            if items.isEmpty {
                 RecentlyPlayedEmptyState(
                     isLoading: isLoading,
                     didLoad: didLoad,
@@ -445,21 +480,22 @@ private struct RecentlyPlayedAlbumsSection: View {
                     loadAlbums: loadAlbums
                 )
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(alignment: .top, spacing: 12) {
-                        ForEach(albums) { album in
+                VStack(spacing: 6) {
+                    ForEach(items) { item in
+                        if item.isLogged {
+                            RecentlyPlayedAlbumRow(item: item)
+                                .accessibilityIdentifier("recentlyPlayedAlbum-\(item.album.catalogID)")
+                        } else {
                             Button {
-                                selectAlbum(album)
+                                selectAlbum(item.album)
                             } label: {
-                                RecentlyPlayedAlbumRow(album: album)
-                                    .frame(width: 250)
+                                RecentlyPlayedAlbumRow(item: item)
                             }
                             .buttonStyle(.plain)
-                            .accessibilityIdentifier("recentlyPlayedAlbum-\(album.catalogID)")
+                            .accessibilityIdentifier("recentlyPlayedAlbum-\(item.album.catalogID)")
                         }
                     }
                 }
-                .scrollClipDisabled()
 
                 if let errorMessage {
                     Text(errorMessage)
@@ -544,50 +580,57 @@ private struct RecentlyPlayedEmptyState: View {
 }
 
 private struct RecentlyPlayedAlbumRow: View {
-    let album: AlbumSearchResult
+    let item: RecentlyPlayedAlbumDisplayItem
 
-    var body: some View {
-        EditorialSurface(isInteractive: true) {
-            VStack(alignment: .leading, spacing: 10) {
-                AlbumArtworkView(artworkURL: album.artworkURL, size: 56)
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(album.title)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                        .lineLimit(2)
-
-                    Text(album.artistName)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-
-                    metadata
-                }
-
-                HStack {
-                    Spacer()
-                    Image(systemName: "plus.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(Color.accentColor)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
+    private var album: AlbumSearchResult {
+        item.album
     }
 
-    private var metadata: some View {
-        HStack(spacing: 8) {
-            if let releaseYear = album.releaseYear {
-                Text(String(releaseYear))
+    var body: some View {
+        HStack(alignment: .center, spacing: 9) {
+            AlbumArtworkView(artworkURL: album.artworkURL, size: 40)
+                .frame(width: 40, height: 40)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(album.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                Text(album.artistName)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
 
-            if let genreName = album.genreName {
-                Text(genreName)
+            Spacer(minLength: 8)
+
+            if item.isLogged {
+                Label("Logged", systemImage: "checkmark.circle.fill")
+                    .font(.caption.weight(.semibold))
+                    .labelStyle(.titleAndIcon)
+                    .foregroundStyle(.green)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.green.opacity(0.10), in: Capsule())
+            } else {
+                Image(systemName: "plus.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(Color.accentColor)
             }
         }
-        .font(.caption)
-        .foregroundStyle(.secondary)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
+        .frame(minHeight: 54)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(.secondarySystemGroupedBackground))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.separator.opacity(0.35), lineWidth: 1)
+        }
     }
 }
 

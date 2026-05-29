@@ -29,3 +29,13 @@ enum RecommendationFeedbackType: String, Codable, CaseIterable {
         }
     }
 }
+
+enum RecommendationSource: String, Codable {
+    case applePersonalRecommendations
+    case listendFallback
+}
+
+enum RecommendationFreshnessStatus: String, Codable {
+    case appleFreshnessChecked
+    case appleFreshnessUnavailable
+}

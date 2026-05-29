@@ -843,6 +843,96 @@ struct ListendTests {
     }
 
     @MainActor
+    @Test func recentlyPlayedAlbumCacheStoresAlbumsInFetchOrder() throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+
+        try RecentlyPlayedAlbumCache.replaceCachedAlbums(
+            with: [
+                AlbumSearchResult(id: "music.first", title: "First", artistName: "Artist One", releaseYear: 2020, genreName: "Pop"),
+                AlbumSearchResult(id: "music.second", title: "Second", artistName: "Artist Two", releaseYear: 2021, genreName: "Rock")
+            ],
+            in: modelContext
+        )
+
+        let cachedAlbums = try RecentlyPlayedAlbumCache.cachedAlbums(in: modelContext)
+
+        #expect(cachedAlbums.map(\.catalogID) == ["music.first", "music.second"])
+        #expect(cachedAlbums.first?.title == "First")
+        #expect(cachedAlbums.first?.artistName == "Artist One")
+        #expect(cachedAlbums.first?.releaseYear == 2020)
+        #expect(cachedAlbums.first?.genreName == "Pop")
+    }
+
+    @MainActor
+    @Test func recentlyPlayedAlbumCacheReplacesStaleAlbumsAndDedupesCatalogIDs() throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+
+        try RecentlyPlayedAlbumCache.replaceCachedAlbums(
+            with: [
+                AlbumSearchResult(id: "music.old", title: "Old", artistName: "Old Artist", releaseYear: nil, genreName: nil),
+                AlbumSearchResult(id: "music.duplicate", title: "Earlier Duplicate", artistName: "Artist", releaseYear: 2020, genreName: "Pop")
+            ],
+            in: modelContext
+        )
+
+        try RecentlyPlayedAlbumCache.replaceCachedAlbums(
+            with: [
+                AlbumSearchResult(id: "music.duplicate", title: "Fresh Duplicate", artistName: "Artist", releaseYear: 2024, genreName: "Soul"),
+                AlbumSearchResult(id: "music.duplicate", title: "Ignored Duplicate", artistName: "Artist", releaseYear: 2025, genreName: "Rock"),
+                AlbumSearchResult(id: "music.new", title: "New", artistName: "New Artist", releaseYear: 2026, genreName: "Jazz")
+            ],
+            in: modelContext
+        )
+
+        let cachedAlbums = try RecentlyPlayedAlbumCache.cachedAlbums(in: modelContext)
+        let snapshots = try modelContext.fetch(FetchDescriptor<RecentlyPlayedAlbumSnapshot>())
+
+        #expect(cachedAlbums.map(\.catalogID) == ["music.duplicate", "music.new"])
+        #expect(cachedAlbums.first?.title == "Fresh Duplicate")
+        #expect(cachedAlbums.first?.releaseYear == 2024)
+        #expect(cachedAlbums.first?.genreName == "Soul")
+        #expect(snapshots.count == 2)
+    }
+
+    @MainActor
+    @Test func recentlyPlayedAlbumLogStateMatchesLoggedAlbumsByCatalogIDOrTitleAndArtist() {
+        let catalogAlbum = Album(appleMusicID: "music.catalog", title: "Old Title", artistName: "Old Artist")
+        let titleArtistAlbum = Album(title: "Cafe Bleu", artistName: "The Style Council")
+        let logs = [
+            LogEntry(album: catalogAlbum, rating: 4.0),
+            LogEntry(album: titleArtistAlbum, rating: 3.5)
+        ]
+
+        let catalogMatch = AlbumSearchResult(
+            id: "music.catalog",
+            title: "Fresh Title",
+            artistName: "Fresh Artist",
+            releaseYear: nil,
+            genreName: nil
+        )
+        let titleArtistMatch = AlbumSearchResult(
+            id: "music.cafe-bleu",
+            title: "Café Bleu",
+            artistName: "the style council",
+            releaseYear: nil,
+            genreName: nil
+        )
+        let unloggedAlbum = AlbumSearchResult(
+            id: "music.unlogged",
+            title: "Unlogged",
+            artistName: "Artist",
+            releaseYear: nil,
+            genreName: nil
+        )
+
+        #expect(RecentlyPlayedAlbumLogState.isLogged(catalogMatch, in: logs))
+        #expect(RecentlyPlayedAlbumLogState.isLogged(titleArtistMatch, in: logs))
+        #expect(!RecentlyPlayedAlbumLogState.isLogged(unloggedAlbum, in: logs))
+    }
+
+    @MainActor
     @Test func albumSelectionUpserterCachesSelectedAlbum() throws {
         let container = try makeInMemoryContainer()
         let modelContext = container.mainContext
@@ -1402,6 +1492,133 @@ struct ListendTests {
         #expect(receipts.first?.sourceAlbumTitle == "Titanic Rising")
     }
 
+    @Test func appleMusicPersonalRecommendationMapperKeepsAlbumsAndDropsOtherItems() {
+        let albums = AppleMusicPersonalRecommendationMapper.albumSearchResults(
+            from: [
+                AppleMusicPersonalRecommendationMetadata(
+                    kind: .album,
+                    id: "music.album",
+                    title: "Apple Pick",
+                    artistName: "Apple Artist",
+                    releaseYear: 2025,
+                    genreName: "Alternative",
+                    artworkURL: "https://example.com/apple.jpg"
+                ),
+                AppleMusicPersonalRecommendationMetadata(
+                    kind: .playlist,
+                    id: "music.playlist",
+                    title: "Playlist",
+                    artistName: "Curator",
+                    releaseYear: nil,
+                    genreName: nil,
+                    artworkURL: nil
+                )
+            ]
+        )
+
+        #expect(albums.map(\.catalogID) == ["music.album"])
+        #expect(albums.first?.title == "Apple Pick")
+        #expect(albums.first?.artworkURL == "https://example.com/apple.jpg")
+    }
+
+    @MainActor
+    @Test func appleMusicFreshnessFilterBlocksRecentLibraryLoggedAndRollingSnapshotAlbums() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let loggedAlbum = Album(appleMusicID: "music.logged", title: "Logged", artistName: "Logged Artist", genreName: "Art Pop")
+        let anchorAlbum = Album(title: "Anchor", artistName: "Anchor Artist", genreName: "Art Pop")
+        let anchorLog = LogEntry(album: anchorAlbum, rating: 4.5, tags: ["art"], sentimentScore: 0.8)
+        let service = RecordingAppleMusicRecommendationService(
+            personalRecommendations: [
+                AlbumSearchResult(id: "music.logged", title: "Logged", artistName: "Logged Artist", releaseYear: nil, genreName: "Art Pop"),
+                AlbumSearchResult(id: "music.recent", title: "Recent", artistName: "Recent Artist", releaseYear: nil, genreName: "Art Pop"),
+                AlbumSearchResult(id: "music.library", title: "Library", artistName: "Library Artist", releaseYear: nil, genreName: "Art Pop"),
+                AlbumSearchResult(id: "music.snapshot", title: "Snapshot", artistName: "Snapshot Artist", releaseYear: nil, genreName: "Art Pop"),
+                AlbumSearchResult(id: "music.available", title: "Available", artistName: "Available Artist", releaseYear: nil, genreName: "Art Pop")
+            ],
+            recentlyPlayedAlbums: [
+                AlbumSearchResult(id: "music.recent", title: "Recent", artistName: "Recent Artist", releaseYear: nil, genreName: "Art Pop")
+            ],
+            libraryCatalogIDs: ["music.library"]
+        )
+        let recommendationService = LocalRecommendationService(
+            catalogAlbums: [],
+            appleMusicService: service
+        )
+
+        modelContext.insert(loggedAlbum)
+        modelContext.insert(anchorAlbum)
+        modelContext.insert(anchorLog)
+        modelContext.insert(
+            AppleMusicRecentPlaySnapshot(
+                catalogID: "music.snapshot",
+                title: "Snapshot",
+                artistName: "Snapshot Artist",
+                lastObservedAt: Date().addingTimeInterval(-30 * 86_400)
+            )
+        )
+        try modelContext.save()
+
+        let recommendation = try await recommendationService.currentOrGenerateRecommendation(in: modelContext)
+
+        #expect(recommendation.album?.appleMusicID == "music.available")
+        #expect(recommendation.source == RecommendationSource.applePersonalRecommendations.rawValue)
+        #expect(recommendation.freshnessStatus == RecommendationFreshnessStatus.appleFreshnessChecked.rawValue)
+    }
+
+    @MainActor
+    @Test func oldAppleMusicRecentPlaySnapshotDoesNotBlockCandidate() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let anchorAlbum = Album(title: "Anchor", artistName: "Anchor Artist", genreName: "Art Pop")
+        let anchorLog = LogEntry(album: anchorAlbum, rating: 4.5, tags: ["art"], sentimentScore: 0.8)
+        let candidate = AlbumSearchResult(id: "music.old-snapshot", title: "Old Snapshot", artistName: "Old Artist", releaseYear: nil, genreName: "Art Pop")
+        let appleMusicService = RecordingAppleMusicRecommendationService(personalRecommendations: [candidate])
+
+        modelContext.insert(anchorAlbum)
+        modelContext.insert(anchorLog)
+        modelContext.insert(
+            AppleMusicRecentPlaySnapshot(
+                catalogID: "music.old-snapshot",
+                title: "Old Snapshot",
+                artistName: "Old Artist",
+                lastObservedAt: Date().addingTimeInterval(-120 * 86_400)
+            )
+        )
+        try modelContext.save()
+
+        let recommendation = try await LocalRecommendationService(
+            catalogAlbums: [],
+            appleMusicService: appleMusicService
+        ).currentOrGenerateRecommendation(in: modelContext)
+
+        #expect(recommendation.album?.appleMusicID == "music.old-snapshot")
+        #expect(recommendation.freshnessStatus == RecommendationFreshnessStatus.appleFreshnessChecked.rawValue)
+    }
+
+    @MainActor
+    @Test func appleMusicUnavailableFallsBackToListendRecommendationWithDisclosureMetadata() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let anchorAlbum = Album(title: "Anchor", artistName: "Anchor Artist", genreName: "Art Pop")
+        let anchorLog = LogEntry(album: anchorAlbum, rating: 4.5, tags: ["art"], sentimentScore: 0.8)
+
+        modelContext.insert(anchorAlbum)
+        modelContext.insert(anchorLog)
+        try modelContext.save()
+
+        let recommendation = try await LocalRecommendationService(
+            catalogAlbums: [
+                AlbumSearchResult(id: "mock.listend-fallback", title: "Listend Fallback", artistName: "Fallback Artist", releaseYear: nil, genreName: "Art Pop")
+            ],
+            appleMusicService: ThrowingAppleMusicRecommendationService()
+        ).currentOrGenerateRecommendation(in: modelContext)
+
+        #expect(recommendation.album?.appleMusicID == "mock.listend-fallback")
+        #expect(recommendation.source == RecommendationSource.listendFallback.rawValue)
+        #expect(recommendation.freshnessStatus == RecommendationFreshnessStatus.appleFreshnessUnavailable.rawValue)
+    }
+
     @MainActor
     @Test func recommendationGenerationDoesNotUseNegativeLogsAsLiveCatalogQueries() async throws {
         let container = try makeInMemoryContainer()
@@ -1606,7 +1823,9 @@ struct ListendTests {
             SoundPrintPersona.self,
             Recommendation.self,
             RecommendationReceipt.self,
-            RecommendationFeedback.self
+            RecommendationFeedback.self,
+            RecentlyPlayedAlbumSnapshot.self,
+            AppleMusicRecentPlaySnapshot.self
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [configuration])
@@ -1734,6 +1953,10 @@ private enum ThrowingJournalAssistError: Error {
     case failed
 }
 
+private enum ThrowingAppleMusicRecommendationError: Error {
+    case failed
+}
+
 private struct ThrowingAlbumCatalogService: AlbumCatalogServiceProtocol {
     func searchAlbums(query: String) async throws -> [AlbumSearchResult] {
         throw ThrowingAlbumCatalogError.failed
@@ -1806,6 +2029,48 @@ private final class RecordingAlbumCatalogService: AlbumCatalogServiceProtocol {
         }
 
         return resultsByQuery.values.flatMap { $0 }.first { $0.catalogID == id }
+    }
+}
+
+private struct RecordingAppleMusicRecommendationService: AppleMusicRecommendationServiceProtocol {
+    let personalRecommendations: [AlbumSearchResult]
+    let recentlyPlayedAlbums: [AlbumSearchResult]
+    let libraryCatalogIDs: Set<String>
+
+    init(
+        personalRecommendations: [AlbumSearchResult],
+        recentlyPlayedAlbums: [AlbumSearchResult] = [],
+        libraryCatalogIDs: Set<String> = []
+    ) {
+        self.personalRecommendations = personalRecommendations
+        self.recentlyPlayedAlbums = recentlyPlayedAlbums
+        self.libraryCatalogIDs = libraryCatalogIDs
+    }
+
+    func recommendedAlbums(limit: Int) async throws -> [AlbumSearchResult] {
+        Array(personalRecommendations.prefix(limit))
+    }
+
+    func recentlyPlayedAlbums(limit: Int) async throws -> [AlbumSearchResult] {
+        Array(recentlyPlayedAlbums.prefix(limit))
+    }
+
+    func containsInLibrary(_ album: AlbumSearchResult) async throws -> Bool {
+        libraryCatalogIDs.contains(album.catalogID)
+    }
+}
+
+private struct ThrowingAppleMusicRecommendationService: AppleMusicRecommendationServiceProtocol {
+    func recommendedAlbums(limit: Int) async throws -> [AlbumSearchResult] {
+        throw ThrowingAppleMusicRecommendationError.failed
+    }
+
+    func recentlyPlayedAlbums(limit: Int) async throws -> [AlbumSearchResult] {
+        throw ThrowingAppleMusicRecommendationError.failed
+    }
+
+    func containsInLibrary(_ album: AlbumSearchResult) async throws -> Bool {
+        throw ThrowingAppleMusicRecommendationError.failed
     }
 }
 

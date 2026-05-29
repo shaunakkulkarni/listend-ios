@@ -16,21 +16,33 @@ enum LocalRecommendationError: Error, Equatable {
 struct LocalRecommendationService {
     private let catalogAlbums: [AlbumSearchResult]
     private let candidateProvider: CatalogRecommendationCandidateProvider?
+    private let appleMusicService: AppleMusicRecommendationServiceProtocol?
+    private let appleMusicCandidateLimit: Int
 
-    init(catalogAlbums: [AlbumSearchResult] = MockAlbumCatalogService.defaultAlbums) {
+    init(
+        catalogAlbums: [AlbumSearchResult] = MockAlbumCatalogService.defaultAlbums,
+        appleMusicService: AppleMusicRecommendationServiceProtocol? = nil,
+        appleMusicCandidateLimit: Int = 20
+    ) {
         self.catalogAlbums = catalogAlbums
         candidateProvider = nil
+        self.appleMusicService = appleMusicService
+        self.appleMusicCandidateLimit = appleMusicCandidateLimit
     }
 
     init(
         catalogService: AlbumCatalogServiceProtocol,
-        fallbackCandidates: [AlbumSearchResult] = MockAlbumCatalogService.defaultAlbums
+        fallbackCandidates: [AlbumSearchResult] = MockAlbumCatalogService.defaultAlbums,
+        appleMusicService: AppleMusicRecommendationServiceProtocol? = nil,
+        appleMusicCandidateLimit: Int = 20
     ) {
         catalogAlbums = fallbackCandidates
         candidateProvider = CatalogRecommendationCandidateProvider(
             catalogService: catalogService,
             fallbackCandidates: fallbackCandidates
         )
+        self.appleMusicService = appleMusicService
+        self.appleMusicCandidateLimit = appleMusicCandidateLimit
     }
 
     @MainActor
@@ -58,35 +70,27 @@ struct LocalRecommendationService {
             throw LocalRecommendationError.needsMoreLogs
         }
 
-        let candidates = await recommendationCandidates(
+        let recommendationInput = try await scoredRecommendationInput(
             logs: logs,
             albums: albums,
             evidence: evidence,
-            anchors: anchors
-        )
-
-        guard let scoredCandidate = bestCandidate(
-            candidates: candidates,
-            logs: logs,
-            localAlbums: albums,
-            evidence: evidence,
             recommendations: recommendations,
             anchors: anchors,
-            allowDismissed: false
-        ) else {
-            throw LocalRecommendationError.noCandidates
-        }
+            in: modelContext
+        )
 
-        let album = try upsertAlbum(for: scoredCandidate.album, existingAlbums: albums, in: modelContext)
+        let album = try upsertAlbum(for: recommendationInput.scoredCandidate.album, existingAlbums: albums, in: modelContext)
         let recommendation = Recommendation(
             album: album,
-            score: scoredCandidate.score,
-            confidence: scoredCandidate.confidence,
-            explanationText: scoredCandidate.explanation
+            score: recommendationInput.scoredCandidate.score,
+            confidence: recommendationInput.scoredCandidate.confidence,
+            source: recommendationInput.source.rawValue,
+            freshnessStatus: recommendationInput.freshnessStatus.rawValue,
+            explanationText: recommendationInput.scoredCandidate.explanation
         )
         modelContext.insert(recommendation)
 
-        for receipt in scoredCandidate.receipts {
+        for receipt in recommendationInput.scoredCandidate.receipts {
             modelContext.insert(
                 RecommendationReceipt(
                     recommendationID: recommendation.id,
@@ -205,6 +209,137 @@ struct LocalRecommendationService {
                 return lhsName < rhsName
             }
             .first
+    }
+
+    @MainActor
+    private func scoredRecommendationInput(
+        logs: [LogEntry],
+        albums: [Album],
+        evidence: [TasteEvidence],
+        recommendations: [Recommendation],
+        anchors: [LogEntry],
+        in modelContext: ModelContext
+    ) async throws -> PendingRecommendationInput {
+        if let appleMusicService {
+            do {
+                let candidates = try await appleMusicRecommendationCandidates(
+                    service: appleMusicService,
+                    in: modelContext
+                )
+
+                guard let scoredCandidate = bestCandidate(
+                    candidates: candidates,
+                    logs: logs,
+                    localAlbums: albums,
+                    evidence: evidence,
+                    recommendations: recommendations,
+                    anchors: anchors,
+                    allowDismissed: false
+                ) else {
+                    throw LocalRecommendationError.noCandidates
+                }
+
+                return PendingRecommendationInput(
+                    scoredCandidate: scoredCandidate,
+                    source: .applePersonalRecommendations,
+                    freshnessStatus: .appleFreshnessChecked
+                )
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch LocalRecommendationError.noCandidates {
+                throw LocalRecommendationError.noCandidates
+            } catch {
+                return try await listendFallbackRecommendationInput(
+                    logs: logs,
+                    albums: albums,
+                    evidence: evidence,
+                    recommendations: recommendations,
+                    anchors: anchors
+                )
+            }
+        }
+
+        return try await listendFallbackRecommendationInput(
+            logs: logs,
+            albums: albums,
+            evidence: evidence,
+            recommendations: recommendations,
+            anchors: anchors
+        )
+    }
+
+    @MainActor
+    private func listendFallbackRecommendationInput(
+        logs: [LogEntry],
+        albums: [Album],
+        evidence: [TasteEvidence],
+        recommendations: [Recommendation],
+        anchors: [LogEntry]
+    ) async throws -> PendingRecommendationInput {
+        let candidates = await recommendationCandidates(
+            logs: logs,
+            albums: albums,
+            evidence: evidence,
+            anchors: anchors
+        )
+
+        guard let scoredCandidate = bestCandidate(
+            candidates: candidates,
+            logs: logs,
+            localAlbums: albums,
+            evidence: evidence,
+            recommendations: recommendations,
+            anchors: anchors,
+            allowDismissed: false
+        ) else {
+            throw LocalRecommendationError.noCandidates
+        }
+
+        return PendingRecommendationInput(
+            scoredCandidate: scoredCandidate,
+            source: .listendFallback,
+            freshnessStatus: .appleFreshnessUnavailable
+        )
+    }
+
+    @MainActor
+    private func appleMusicRecommendationCandidates(
+        service: AppleMusicRecommendationServiceProtocol,
+        in modelContext: ModelContext
+    ) async throws -> [AlbumSearchResult] {
+        async let recommendedAlbums = service.recommendedAlbums(limit: appleMusicCandidateLimit)
+        async let recentlyPlayedAlbums = service.recentlyPlayedAlbums(limit: appleMusicCandidateLimit)
+
+        let (recommendations, recentAlbums) = try await (recommendedAlbums, recentlyPlayedAlbums)
+        try AppleMusicRecentPlaySnapshotStore.recordRecentlyPlayedAlbums(recentAlbums, in: modelContext)
+        let recentSnapshots = try AppleMusicRecentPlaySnapshotStore.recentlyObservedAlbums(in: modelContext)
+
+        let freshnessEligibleCandidates = recommendations
+            .prefix(appleMusicCandidateLimit)
+            .filter { candidate in
+                !recentAlbums.contains(where: { Self.matches($0, candidate) })
+                    && !recentSnapshots.contains(where: { AppleMusicRecentPlaySnapshotStore.matches($0, candidate) })
+            }
+
+        return try await withThrowingTaskGroup(of: AppleMusicLibraryCheckResult.self) { group in
+            for (index, candidate) in freshnessEligibleCandidates.enumerated() {
+                group.addTask {
+                    try Task.checkCancellation()
+                    let isInLibrary = try await service.containsInLibrary(candidate)
+                    return AppleMusicLibraryCheckResult(index: index, album: candidate, isInLibrary: isInLibrary)
+                }
+            }
+
+            var checkedCandidates: [AppleMusicLibraryCheckResult] = []
+            for try await checkedCandidate in group {
+                checkedCandidates.append(checkedCandidate)
+            }
+
+            return checkedCandidates
+                .filter { !$0.isInLibrary }
+                .sorted { $0.index < $1.index }
+                .map(\.album)
+        }
     }
 
     @MainActor
@@ -341,7 +476,7 @@ struct LocalRecommendationService {
     }
 
     private func explanation(candidate: AlbumSearchResult, receipt: PendingRecommendationReceipt) -> String {
-        "Because you liked \(receipt.sourceAlbumTitle), Tonight's Pick is \(candidate.title) by \(candidate.artistName). \(receipt.snippet)"
+        "Because you liked \(receipt.sourceAlbumTitle), Today's Pick is \(candidate.title) by \(candidate.artistName). \(receipt.snippet)"
     }
 
     @MainActor
@@ -408,6 +543,15 @@ struct LocalRecommendationService {
         album.catalogID
     }
 
+    private static func matches(_ lhs: AlbumSearchResult, _ rhs: AlbumSearchResult) -> Bool {
+        if lhs.catalogID == rhs.catalogID {
+            return true
+        }
+
+        return lhs.title.normalizedRecommendationText == rhs.title.normalizedRecommendationText
+            && lhs.artistName.normalizedRecommendationText == rhs.artistName.normalizedRecommendationText
+    }
+
     @MainActor
     private static func anchorInput(from log: LogEntry) -> RecommendationAnchorInput? {
         guard let album = log.album else {
@@ -441,6 +585,18 @@ struct LocalRecommendationService {
             isPositiveEvidence: evidence.isPositiveEvidence
         )
     }
+}
+
+private struct PendingRecommendationInput {
+    let scoredCandidate: ScoredRecommendationCandidate
+    let source: RecommendationSource
+    let freshnessStatus: RecommendationFreshnessStatus
+}
+
+private struct AppleMusicLibraryCheckResult {
+    let index: Int
+    let album: AlbumSearchResult
+    let isInLibrary: Bool
 }
 
 struct ScoredRecommendationCandidate {

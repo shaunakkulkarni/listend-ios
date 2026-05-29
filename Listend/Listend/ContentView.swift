@@ -11,13 +11,16 @@ import SwiftData
 struct ContentView: View {
     private let catalogService: AlbumCatalogServiceProtocol
     private let recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol
+    private let appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol?
 
     init(
         catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService(),
-        recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol = MockRecentlyPlayedAlbumService()
+        recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol = MockRecentlyPlayedAlbumService(),
+        appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol? = nil
     ) {
         self.catalogService = catalogService
         self.recentlyPlayedAlbumService = recentlyPlayedAlbumService
+        self.appleMusicRecommendationService = appleMusicRecommendationService
     }
 
     var body: some View {
@@ -25,7 +28,8 @@ struct ContentView: View {
             NavigationStack {
                 HomeView(
                     catalogService: catalogService,
-                    recentlyPlayedAlbumService: recentlyPlayedAlbumService
+                    recentlyPlayedAlbumService: recentlyPlayedAlbumService,
+                    appleMusicRecommendationService: appleMusicRecommendationService
                 )
             }
             .tabItem {
@@ -62,6 +66,6 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self, SoundPrintPersona.self, Recommendation.self, RecommendationReceipt.self, RecommendationFeedback.self], inMemory: true)
+        .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self, SoundPrintPersona.self, Recommendation.self, RecommendationReceipt.self, RecommendationFeedback.self, RecentlyPlayedAlbumSnapshot.self, AppleMusicRecentPlaySnapshot.self], inMemory: true)
         .environment(SoundPrintProfileRefreshCoordinator())
 }

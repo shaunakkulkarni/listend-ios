@@ -27,6 +27,7 @@ struct AlbumSelectionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Album.title) private var cachedAlbums: [Album]
+    @Query(sort: \RecentlyPlayedAlbumSnapshot.sortOrder) private var cachedRecentlyPlayedAlbumSnapshots: [RecentlyPlayedAlbumSnapshot]
 
     private let catalogService: AlbumCatalogServiceProtocol
     private let recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol
@@ -67,7 +68,7 @@ struct AlbumSelectionView: View {
                 HStack {
                     Text("Recently Played")
                     Spacer()
-                    if didLoadRecentlyPlayed {
+                    if didLoadRecentlyPlayed || !cachedRecentlyPlayedAlbumSnapshots.isEmpty {
                         Button("Refresh") {
                             requestRecentlyPlayedAlbums()
                         }
@@ -104,6 +105,21 @@ struct AlbumSelectionView: View {
     private var recentlyPlayedContent: some View {
         if isLoadingRecentlyPlayed {
             ProgressView("Loading recently played")
+        } else if !displayedRecentlyPlayedAlbums.isEmpty {
+            ForEach(displayedRecentlyPlayedAlbums) { album in
+                Button {
+                    choose(album)
+                } label: {
+                    AlbumSelectionResultRow(album: album)
+                }
+                .accessibilityIdentifier("albumSelectionRecent-\(album.catalogID)")
+            }
+
+            if let recentlyPlayedErrorMessage {
+                Text(recentlyPlayedErrorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
         } else if let recentlyPlayedErrorMessage {
             VStack(alignment: .leading, spacing: 10) {
                 Label("Could not load recently played", systemImage: "exclamationmark.triangle")
@@ -118,21 +134,12 @@ struct AlbumSelectionView: View {
                 .accessibilityIdentifier("retryRecentlyPlayedAlbumsButton")
             }
             .padding(.vertical, 4)
-        } else if recentlyPlayedAlbums.isEmpty {
-            ContentUnavailableView(
-                didLoadRecentlyPlayed ? "No Recent Albums" : "Loading Recent Albums",
-                systemImage: "music.note",
-                description: Text(didLoadRecentlyPlayed ? "Search Apple Music to choose an album." : "Checking Apple Music for recent albums.")
-            )
         } else {
-            ForEach(recentlyPlayedAlbums) { album in
-                Button {
-                    choose(album)
-                } label: {
-                    AlbumSelectionResultRow(album: album)
-                }
-                .accessibilityIdentifier("albumSelectionRecent-\(album.catalogID)")
-            }
+            ContentUnavailableView(
+                (didLoadRecentlyPlayed || !cachedRecentlyPlayedAlbumSnapshots.isEmpty) ? "No Recent Albums" : "Loading Recent Albums",
+                systemImage: "music.note",
+                description: Text((didLoadRecentlyPlayed || !cachedRecentlyPlayedAlbumSnapshots.isEmpty) ? "Search Apple Music to choose an album." : "Checking Apple Music for recent albums.")
+            )
         }
     }
 
@@ -178,6 +185,15 @@ struct AlbumSelectionView: View {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    @MainActor
+    private var displayedRecentlyPlayedAlbums: [AlbumSearchResult] {
+        if !recentlyPlayedAlbums.isEmpty {
+            return recentlyPlayedAlbums
+        }
+
+        return cachedRecentlyPlayedAlbumSnapshots.map(RecentlyPlayedAlbumCache.albumSearchResult)
+    }
+
     private func requestRecentlyPlayedAlbums() {
         Task {
             await loadRecentlyPlayedAlbums()
@@ -195,10 +211,10 @@ struct AlbumSelectionView: View {
 
         do {
             let albums = try await recentlyPlayedAlbumService.recentlyPlayedAlbums()
+            try RecentlyPlayedAlbumCache.replaceCachedAlbums(with: albums, in: modelContext)
             recentlyPlayedAlbums = albums
             didLoadRecentlyPlayed = true
         } catch {
-            recentlyPlayedAlbums = []
             didLoadRecentlyPlayed = true
             recentlyPlayedErrorMessage = "Check Apple Music access and try again."
         }
@@ -322,5 +338,5 @@ private struct AlbumSelectionResultRow: View {
     NavigationStack {
         AlbumSelectionView { _ in }
     }
-    .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self, SoundPrintPersona.self, Recommendation.self, RecommendationReceipt.self, RecommendationFeedback.self], inMemory: true)
+    .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self, SoundPrintPersona.self, Recommendation.self, RecommendationReceipt.self, RecommendationFeedback.self, RecentlyPlayedAlbumSnapshot.self, AppleMusicRecentPlaySnapshot.self], inMemory: true)
 }

@@ -17,6 +17,7 @@ struct ListendApp: App {
     private let albumPreviewService: AlbumPreviewServiceProtocol
     private let tagSuggestionProvider: TagSuggestionProvider
     private let journalAssistService: JournalAssistServiceProtocol
+    private let appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol?
 
     var sharedModelContainer: ModelContainer = {
         let arguments = ProcessInfo.processInfo.arguments
@@ -31,6 +32,8 @@ struct ListendApp: App {
             Recommendation.self,
             RecommendationReceipt.self,
             RecommendationFeedback.self,
+            RecentlyPlayedAlbumSnapshot.self,
+            AppleMusicRecentPlaySnapshot.self,
         ])
         let modelConfiguration: ModelConfiguration
 
@@ -61,13 +64,15 @@ struct ListendApp: App {
         albumPreviewService = Self.makeAlbumPreviewService()
         tagSuggestionProvider = Self.makeTagSuggestionProvider()
         journalAssistService = Self.makeJournalAssistService()
+        appleMusicRecommendationService = Self.makeAppleMusicRecommendationService()
     }
 
     var body: some Scene {
         WindowGroup {
             ContentView(
                 catalogService: catalogService,
-                recentlyPlayedAlbumService: recentlyPlayedAlbumService
+                recentlyPlayedAlbumService: recentlyPlayedAlbumService,
+                appleMusicRecommendationService: appleMusicRecommendationService
             )
                 .environment(soundPrintRefreshCoordinator)
                 .environment(\.soundPrintProvider, soundPrintProvider)
@@ -96,6 +101,16 @@ struct ListendApp: App {
         }
 
         return MusicKitRecentlyPlayedAlbumService()
+    }
+
+    private static func makeAppleMusicRecommendationService() -> AppleMusicRecommendationServiceProtocol? {
+        let arguments = ProcessInfo.processInfo.arguments
+
+        if arguments.contains("-ui-testing") {
+            return nil
+        }
+
+        return AppleMusicRecommendationService()
     }
 
     private static func makeSoundPrintProvider() -> SoundPrintProvider {

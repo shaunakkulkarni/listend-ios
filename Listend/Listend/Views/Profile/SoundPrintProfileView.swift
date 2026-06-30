@@ -29,7 +29,7 @@ struct SoundPrintProfileView: View {
                             .foregroundStyle(.secondary)
 
                         Text(persona.personaText)
-                            .font(.body)
+                            .font(.system(.body, design: .serif))
                     }
                     .padding(.vertical, 4)
                 }

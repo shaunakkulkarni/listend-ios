@@ -120,7 +120,7 @@ private struct PersonaCard: View {
 
             if let persona, logCount >= 5 {
                 Text(persona.personaText)
-                    .font(.subheadline)
+                    .font(.system(.subheadline, design: .serif))
                     .foregroundStyle(.secondary)
             } else {
                 Text("Log 5 albums to unlock your SoundPrint persona.")

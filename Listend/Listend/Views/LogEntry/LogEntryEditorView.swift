@@ -86,30 +86,42 @@ struct LogEntryEditorView: View {
                         .accessibilityIdentifier("reviewTextEditor")
                 }
 
-                Section("Journal Assist") {
-                    Button {
-                        activeAssistMode = .helpWrite
-                    } label: {
-                        Label("Help me write", systemImage: "square.and.pencil")
-                    }
-                    .disabled(selectedAlbum == nil)
-                    .accessibilityIdentifier("helpMeWriteButton")
+                Section {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("Stuck? Journal Assist can help.", systemImage: "sparkles")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
 
-                    Button {
-                        activeAssistMode = .draftReview
-                    } label: {
-                        Label("Turn my notes into a review", systemImage: "text.bubble")
-                    }
-                    .disabled(selectedAlbum == nil)
-                    .accessibilityIdentifier("draftReviewButton")
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                Button {
+                                    activeAssistMode = .helpWrite
+                                } label: {
+                                    Label("Help me write", systemImage: "square.and.pencil")
+                                }
+                                .accessibilityIdentifier("helpMeWriteButton")
 
-                    Button {
-                        activeAssistMode = .suggestTags
-                    } label: {
-                        Label("Suggest tags", systemImage: "tag")
+                                Button {
+                                    activeAssistMode = .draftReview
+                                } label: {
+                                    Label("Draft review", systemImage: "text.bubble")
+                                }
+                                .accessibilityIdentifier("draftReviewButton")
+
+                                Button {
+                                    activeAssistMode = .suggestTags
+                                } label: {
+                                    Label("Suggest tags", systemImage: "tag")
+                                }
+                                .accessibilityIdentifier("journalSuggestTagsButton")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .disabled(selectedAlbum == nil)
+                        }
+                        .scrollClipDisabled()
                     }
-                    .disabled(selectedAlbum == nil)
-                    .accessibilityIdentifier("journalSuggestTagsButton")
+                    .listRowBackground(Color.listendAccentSoft.opacity(0.4))
                 }
 
                 Section("Tags") {
@@ -383,25 +395,29 @@ private struct AlbumContextRow: View {
     let album: Album
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(album.title)
-                .font(.headline)
+        HStack(alignment: .center, spacing: 12) {
+            AlbumArtworkView(artworkURL: album.artworkURL, size: 56, albumTitle: album.title)
 
-            Text(album.artistName)
-                .font(.subheadline)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(album.title)
+                    .font(.headline)
+
+                Text(album.artistName)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 8) {
+                    if let releaseYear = album.releaseYear {
+                        Text(String(releaseYear))
+                    }
+
+                    if let genreName = album.genreName {
+                        Text(genreName)
+                    }
+                }
+                .font(.caption)
                 .foregroundStyle(.secondary)
-
-            HStack(spacing: 8) {
-                if let releaseYear = album.releaseYear {
-                    Text(String(releaseYear))
-                }
-
-                if let genreName = album.genreName {
-                    Text(genreName)
-                }
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
         }
         .accessibilityIdentifier("selectedAlbumSummary")
     }

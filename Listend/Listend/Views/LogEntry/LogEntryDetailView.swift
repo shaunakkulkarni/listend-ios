@@ -23,18 +23,22 @@ struct LogEntryDetailView: View {
     var body: some View {
         List {
             Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(log.album?.title ?? "Unknown Album")
-                        .font(.title2.weight(.bold))
+                HStack(alignment: .center, spacing: 14) {
+                    AlbumArtworkView(artworkURL: log.album?.artworkURL, size: 80, albumTitle: log.album?.title)
 
-                    Text(log.album?.artistName ?? "Unknown Artist")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(log.album?.title ?? "Unknown Album")
+                            .font(.system(.title3, design: .serif).weight(.semibold))
 
-                    if let releaseYear = log.album?.releaseYear {
-                        Text(String(releaseYear))
-                            .font(.subheadline)
+                        Text(log.album?.artistName ?? "Unknown Artist")
+                            .font(.headline)
                             .foregroundStyle(.secondary)
+
+                        if let releaseYear = log.album?.releaseYear {
+                            Text(String(releaseYear))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
                 .padding(.vertical, 4)

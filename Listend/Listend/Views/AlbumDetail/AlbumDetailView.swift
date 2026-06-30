@@ -21,21 +21,25 @@ struct AlbumDetailView: View {
     var body: some View {
         List {
             Section {
-                VStack(alignment: .leading, spacing: 16) {
-                    AlbumArtworkView(artworkURL: album.artworkURL, size: 120)
+                VStack(alignment: .center, spacing: 16) {
+                    AlbumArtworkView(artworkURL: album.artworkURL, size: 200, albumTitle: album.title)
 
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .center, spacing: 6) {
                         Text(album.title)
-                            .font(.title2.weight(.bold))
+                            .font(.system(.title2, design: .serif).weight(.semibold))
+                            .multilineTextAlignment(.center)
 
                         Text(album.artistName)
                             .font(.headline)
                             .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
 
                         AlbumMetadataView(album: album)
                     }
                 }
+                .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
+                .listRowBackground(Color.clear)
             }
 
             Section("Preview") {
@@ -47,13 +51,18 @@ struct AlbumDetailView: View {
                     Label("Already logged", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                 } else {
-                    Button("Log this album") {
+                    Button {
                         startLog()
+                    } label: {
+                        Text("Log this album")
+                            .frame(maxWidth: .infinity)
                     }
-                    .fontWeight(.semibold)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
                     .accessibilityIdentifier("logThisAlbumButton")
                 }
             }
+            .listRowBackground(Color.clear)
 
             if let errorMessage {
                 Section {

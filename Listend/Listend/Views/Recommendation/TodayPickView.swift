@@ -30,26 +30,56 @@ struct TodayPickView: View {
     }
 
     var body: some View {
-        List {
-            if let recommendation {
-                activeRecommendationSection(recommendation)
-                feedbackSection(recommendation)
-            } else {
-                emptyStateSection
+        ScrollView {
+            VStack(alignment: .leading, spacing: ListendSpacing.xl) {
+                Text("One album. With receipts.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                if let recommendation {
+                    recommendationCard(recommendation)
+
+                    Text(recommendation.explanationText)
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    receiptsSection
+
+                    feedbackRow(recommendation)
+                } else {
+                    emptyState
+                }
             }
+            .padding(.horizontal, ListendSpacing.lg)
+            .padding(.top, ListendSpacing.lg)
+            .padding(.bottom, 90)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .background(Color.listendPaper)
         .navigationTitle("Today's Pick")
+        .navigationBarTitleDisplayMode(.inline)
         .task {
             await loadActiveRecommendation()
         }
     }
 
-    private func activeRecommendationSection(_ recommendation: Recommendation) -> some View {
-        Section {
-            VStack(alignment: .leading, spacing: 12) {
+    private func recommendationCard(_ recommendation: Recommendation) -> some View {
+        ListendObjectCard {
+            VStack(alignment: .leading, spacing: ListendSpacing.md) {
+                HStack {
+                    Spacer(minLength: 0)
+                    AlbumArtworkView(
+                        artworkURL: recommendation.album?.artworkURL,
+                        size: 220,
+                        albumTitle: recommendation.album?.title
+                    )
+                    Spacer(minLength: 0)
+                }
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(recommendation.album?.title ?? "Unknown Album")
-                        .font(.title2.weight(.bold))
+                        .font(.system(.title2, design: .serif).weight(.semibold))
                         .accessibilityIdentifier("todayPickStateText")
                     Text(recommendation.album?.artistName ?? "Unknown Artist")
                         .font(.headline)
@@ -57,82 +87,109 @@ struct TodayPickView: View {
                     metadata(for: recommendation)
                 }
 
-                Text(confidenceText(for: recommendation))
+                Label(confidenceText(for: recommendation), systemImage: "checkmark.seal.fill")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.listendAccent)
 
                 Text(freshnessText(for: recommendation))
-                    .font(.subheadline)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("todayPickFreshnessText")
-
-                Text(recommendation.explanationText)
-                    .font(.subheadline)
 
                 if let album = recommendation.album {
                     AlbumPreviewControl(lookup: AlbumPreviewLookup(album: album))
                 }
             }
-            .padding(.vertical, 6)
-        } header: {
-            Text("Pick")
         }
     }
 
-    private func feedbackSection(_ recommendation: Recommendation) -> some View {
-        Section("Receipts") {
+    @ViewBuilder
+    private var receiptsSection: some View {
+        VStack(alignment: .leading, spacing: ListendSpacing.sm) {
+            Text("Receipts")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+
             if receipts.isEmpty {
                 Text("No receipts saved for this pick.")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(receipts) { receipt in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(receipt.snippet)
-                            .font(.subheadline)
-                        Text("\(receipt.sourceAlbumTitle) - \(receipt.sourceArtistName)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(receipts.enumerated()), id: \.element.id) { index, receipt in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(receipt.snippet)
+                                .font(.subheadline)
+                            Text("\(receipt.sourceAlbumTitle) - \(receipt.sourceArtistName)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 8)
+
+                        if index < receipts.count - 1 {
+                            Divider()
+                                .background(Color.listendHairline)
+                        }
                     }
-                    .padding(.vertical, 2)
                 }
             }
-
-            Button {
-                submit(.liked, for: recommendation)
-            } label: {
-                Label("Like", systemImage: "hand.thumbsup")
-            }
-            .disabled(isWorking)
-            .accessibilityIdentifier("likeRecommendationButton")
-
-            Button {
-                submit(.dismissed, for: recommendation)
-            } label: {
-                Label("Dismiss", systemImage: "xmark")
-            }
-            .disabled(isWorking)
-            .accessibilityIdentifier("dismissRecommendationButton")
-
-            Button {
-                submit(.savedForLater, for: recommendation)
-            } label: {
-                Label("Save for Later", systemImage: "bookmark")
-            }
-            .disabled(isWorking)
-            .accessibilityIdentifier("saveRecommendationButton")
-
-            Button {
-                submit(.listened, for: recommendation)
-            } label: {
-                Label("Listened", systemImage: "checkmark.circle")
-            }
-            .disabled(isWorking)
-            .accessibilityIdentifier("listenedRecommendationButton")
         }
     }
 
-    private var emptyStateSection: some View {
-        Section {
+    private func feedbackRow(_ recommendation: Recommendation) -> some View {
+        HStack(spacing: ListendSpacing.sm) {
+            feedbackButton(
+                systemImage: "hand.thumbsup",
+                label: "Like recommendation",
+                identifier: "likeRecommendationButton"
+            ) {
+                submit(.liked, for: recommendation)
+            }
+
+            feedbackButton(
+                systemImage: "bookmark",
+                label: "Save recommendation for later",
+                identifier: "saveRecommendationButton"
+            ) {
+                submit(.savedForLater, for: recommendation)
+            }
+
+            feedbackButton(
+                systemImage: "checkmark.circle",
+                label: "Mark recommendation as listened",
+                identifier: "listenedRecommendationButton"
+            ) {
+                submit(.listened, for: recommendation)
+            }
+
+            feedbackButton(
+                systemImage: "xmark",
+                label: "Dismiss recommendation",
+                identifier: "dismissRecommendationButton"
+            ) {
+                submit(.dismissed, for: recommendation)
+            }
+        }
+    }
+
+    private func feedbackButton(
+        systemImage: String,
+        label: String,
+        identifier: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .frame(width: 44, height: 36)
+        }
+        .buttonStyle(.bordered)
+        .disabled(isWorking)
+        .accessibilityLabel(label)
+        .accessibilityIdentifier(identifier)
+    }
+
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: ListendSpacing.lg) {
             ContentUnavailableView(
                 emptyTitle,
                 systemImage: emptySystemImage,
@@ -143,7 +200,10 @@ struct TodayPickView: View {
                 generateRecommendation()
             } label: {
                 Label("Find Today's Pick", systemImage: "sparkles")
+                    .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
             .disabled(isWorking || !hasPositiveAnchor)
             .accessibilityIdentifier("findTodayPickButton")
 
@@ -154,6 +214,7 @@ struct TodayPickView: View {
                     .accessibilityIdentifier("todayPickMessageText")
             }
         }
+        .frame(maxWidth: .infinity)
     }
 
     private var hasPositiveAnchor: Bool {

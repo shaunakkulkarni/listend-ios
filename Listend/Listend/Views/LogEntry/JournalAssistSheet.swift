@@ -39,6 +39,7 @@ struct JournalAssistSheet: View {
     let onAcceptTag: (String) -> Void
 
     @State private var notes: String = ""
+    @State private var isShowingPrompts = false
     @State private var promptAnswers: [JournalAssistPromptAnswer]
     @State private var draftReview: String?
     @State private var suggestedTags: [String] = []
@@ -71,8 +72,8 @@ struct JournalAssistSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                promptSection
                 notesSection
+                promptSection
                 actionSection
                 resultSection
 
@@ -96,11 +97,13 @@ struct JournalAssistSheet: View {
     }
 
     private var promptSection: some View {
-        Section("Reflection Prompts") {
-            ForEach($promptAnswers) { $answer in
-                TextField(answer.question, text: $answer.answer, axis: .vertical)
-                    .lineLimit(1...3)
-                    .accessibilityIdentifier("journalAssistPrompt-\(answer.promptID)")
+        Section {
+            DisclosureGroup("Reflection Prompts (optional)", isExpanded: $isShowingPrompts) {
+                ForEach($promptAnswers) { $answer in
+                    TextField(answer.question, text: $answer.answer, axis: .vertical)
+                        .lineLimit(1...3)
+                        .accessibilityIdentifier("journalAssistPrompt-\(answer.promptID)")
+                }
             }
         }
     }
@@ -175,7 +178,9 @@ struct JournalAssistSheet: View {
                     acceptDraft()
                 } label: {
                     Label("Use Draft", systemImage: "checkmark.circle")
+                        .frame(maxWidth: .infinity)
                 }
+                .buttonStyle(.borderedProminent)
                 .accessibilityIdentifier("acceptJournalDraftButton")
             }
         }

@@ -218,49 +218,136 @@ struct ListendTests {
     @Test func logEntryTrackHighlightDefaultsAreEmpty() {
         let log = LogEntry(album: nil, rating: 4.0)
 
+        #expect(log.tags.isEmpty)
         #expect(log.favoriteTracks.isEmpty)
         #expect(log.skipTracks.isEmpty)
         #expect(log.normalizedStandoutMoment == nil)
         #expect(log.hasTrackHighlights == false)
+        #expect(log.tagsRawValue == "[]")
         #expect(log.favoriteTracksRawValue == nil)
         #expect(log.skipTracksRawValue == nil)
     }
 
-    @Test func logEntryTrackHighlightsParseCommaSeparatedValues() {
+    @Test func logEntryListStorageWritesJSONValues() {
         let log = LogEntry(
             album: nil,
             rating: 4.0,
+            tags: [" late night ", "Late Night", "", "vocals"],
             favoriteTracks: ["  Kill Bill  ", "", "Snooze"],
             skipTracks: ["Seek & Destroy", "  ", "Too Late"],
             standoutMoment: "  second chorus lift  "
         )
 
+        #expect(log.tags == ["late night", "vocals"])
         #expect(log.favoriteTracks == ["Kill Bill", "Snooze"])
         #expect(log.skipTracks == ["Seek & Destroy", "Too Late"])
         #expect(log.standoutMoment == "second chorus lift")
-        #expect(log.favoriteTracksRawValue == "Kill Bill,Snooze")
-        #expect(log.skipTracksRawValue == "Seek & Destroy,Too Late")
+        #expect(log.tagsRawValue == "[\"late night\",\"vocals\"]")
+        #expect(log.favoriteTracksRawValue == "[\"Kill Bill\",\"Snooze\"]")
+        #expect(log.skipTracksRawValue == "[\"Seek & Destroy\",\"Too Late\"]")
+    }
+
+    @Test func logEntryListStoragePreservesCommaContainingTrackNames() {
+        let log = LogEntry(
+            album: nil,
+            rating: 4.0,
+            favoriteTracks: ["Sweet, I Thought You Wanted To Dance"]
+        )
+
+        #expect(log.favoriteTracks == ["Sweet, I Thought You Wanted To Dance"])
+        #expect(log.favoriteTracksRawValue == "[\"Sweet, I Thought You Wanted To Dance\"]")
+    }
+
+    @Test func logEntryListStorageDedupesValues() {
+        let log = LogEntry(
+            album: nil,
+            rating: 4.0,
+            tags: [" late night ", "Late Night", "VOCALS"],
+            favoriteTracks: ["Snooze", " snooze ", "Good Days"],
+            skipTracks: ["Élite", "elite", "Too Late"]
+        )
+
+        #expect(log.tags == ["late night", "vocals"])
+        #expect(log.favoriteTracks == ["Snooze", "Good Days"])
+        #expect(log.skipTracks == ["Élite", "Too Late"])
+    }
+
+    @Test func logEntryListStorageReadsLegacyCommaSeparatedValues() {
+        let log = LogEntry(album: nil, rating: 4.0)
+
+        log.tagsRawValue = "late night,vocals"
+        log.favoriteTracksRawValue = "Snooze,Good Days"
+        log.skipTracksRawValue = "Seek & Destroy,Too Late"
+
+        #expect(log.tags == ["late night", "vocals"])
+        #expect(log.favoriteTracks == ["Snooze", "Good Days"])
+        #expect(log.skipTracks == ["Seek & Destroy", "Too Late"])
+    }
+
+    @Test func logEntryListStorageWritesJSONAfterReadingLegacyValues() {
+        let log = LogEntry(album: nil, rating: 4.0)
+
+        log.tagsRawValue = "late night,vocals"
+        log.favoriteTracksRawValue = "Snooze,Good Days"
+        log.skipTracksRawValue = "Seek & Destroy,Too Late"
+
+        log.tags = log.tags + ["repeat"]
+        log.favoriteTracks = log.favoriteTracks + ["Blind"]
+        log.skipTracks = log.skipTracks + ["Ghost"]
+
+        #expect(log.tagsRawValue == "[\"late night\",\"vocals\",\"repeat\"]")
+        #expect(log.favoriteTracksRawValue == "[\"Snooze\",\"Good Days\",\"Blind\"]")
+        #expect(log.skipTracksRawValue == "[\"Seek & Destroy\",\"Too Late\",\"Ghost\"]")
+    }
+
+    @Test func logEntryListStorageReturnsEmptyForMalformedJSONLookingValues() {
+        let log = LogEntry(album: nil, rating: 4.0)
+
+        log.tagsRawValue = "[late night,vocals"
+        log.favoriteTracksRawValue = "[Snooze,Good Days"
+        log.skipTracksRawValue = "[Seek & Destroy,Too Late"
+
+        #expect(log.tags.isEmpty)
+        #expect(log.favoriteTracks.isEmpty)
+        #expect(log.skipTracks.isEmpty)
     }
 
     @Test func logEntryTrackHighlightSettersClearEmptyValues() {
         let log = LogEntry(
             album: nil,
             rating: 4.0,
+            tags: ["late night"],
             favoriteTracks: ["Ghost in the Machine"],
             skipTracks: ["Too Late"],
             standoutMoment: "bridge"
         )
 
+        log.tags = [" ", ""]
         log.favoriteTracks = [" ", ""]
         log.skipTracks = []
         log.standoutMoment = "   "
 
+        #expect(log.tags.isEmpty)
         #expect(log.favoriteTracks.isEmpty)
         #expect(log.skipTracks.isEmpty)
         #expect(log.normalizedStandoutMoment == nil)
         #expect(log.hasTrackHighlights == false)
+        #expect(log.tagsRawValue == "[]")
         #expect(log.favoriteTracksRawValue == nil)
         #expect(log.skipTracksRawValue == nil)
+    }
+
+    @Test func logEntryHasTrackHighlightsUsesNormalizedValues() {
+        let emptyLog = LogEntry(album: nil, rating: 4.0)
+        let favoriteLog = LogEntry(album: nil, rating: 4.0, favoriteTracks: ["Snooze"])
+        let skipLog = LogEntry(album: nil, rating: 4.0, skipTracks: ["Too Late"])
+        let standoutLog = LogEntry(album: nil, rating: 4.0, standoutMoment: "  final chorus  ")
+
+        #expect(emptyLog.hasTrackHighlights == false)
+        #expect(favoriteLog.hasTrackHighlights)
+        #expect(skipLog.hasTrackHighlights)
+        #expect(standoutLog.hasTrackHighlights)
+        #expect(standoutLog.normalizedStandoutMoment == "final chorus")
     }
 
     @MainActor

@@ -238,7 +238,7 @@ struct LogEntryEditorView: View {
     }
 
     private var parsedTags: [String] {
-        TagSuggestionValidator.parsedTags(from: tagsText)
+        ListTextNormalizer.parsedTags(from: tagsText)
     }
 
     private var tagSuggestionInput: TagSuggestionInput? {
@@ -323,9 +323,9 @@ struct LogEntryEditorView: View {
 
         let trimmedReview = reviewText.trimmingCharacters(in: .whitespacesAndNewlines)
         let tagsToSave = parsedTags
-        let favoriteTracksToSave = parsedTrackList(from: favoriteTracksText)
-        let lessFavoriteTracksToSave = parsedTrackList(from: lessFavoriteTracksText)
-        let standoutMomentToSave = normalizedOptionalText(standoutMomentText)
+        let favoriteTracksToSave = ListTextNormalizer.parsedTrackNames(from: favoriteTracksText)
+        let lessFavoriteTracksToSave = ListTextNormalizer.parsedTrackNames(from: lessFavoriteTracksText)
+        let standoutMomentToSave = ListTextNormalizer.normalizedOptionalText(standoutMomentText)
 
         do {
             let savedLog: LogEntry
@@ -371,17 +371,6 @@ struct LogEntryEditorView: View {
         }
     }
 
-    private func parsedTrackList(from text: String) -> [String] {
-        text
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-    }
-
-    private func normalizedOptionalText(_ text: String) -> String? {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
-    }
 }
 
 #Preview {

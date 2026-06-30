@@ -14,6 +14,8 @@ final class LogEntry {
     var album: Album?
     var rating: Double
     var reviewText: String
+    // Legacy persisted field names retained for SwiftData compatibility.
+    // Current writes store JSON-encoded string arrays in these raw values.
     var tagsRawValue: String
     var favoriteTracksRawValue: String?
     var skipTracksRawValue: String?
@@ -25,31 +27,28 @@ final class LogEntry {
 
     var tags: [String] {
         get {
-            tagsRawValue
-                .split(separator: ",")
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
+            ListTextNormalizer.decodedStringArrayOrLegacyCommaList(from: tagsRawValue, kind: .tags)
         }
         set {
-            tagsRawValue = newValue.joined(separator: ",")
+            tagsRawValue = ListTextNormalizer.encodedStringArray(ListTextNormalizer.normalizedTags(newValue))
         }
     }
 
     var favoriteTracks: [String] {
         get {
-            Self.trackList(from: favoriteTracksRawValue)
+            ListTextNormalizer.decodedStringArrayOrLegacyCommaList(from: favoriteTracksRawValue, kind: .trackNames)
         }
         set {
-            favoriteTracksRawValue = Self.rawTrackList(from: newValue)
+            favoriteTracksRawValue = Self.encodedOptionalTrackList(from: newValue)
         }
     }
 
     var skipTracks: [String] {
         get {
-            Self.trackList(from: skipTracksRawValue)
+            ListTextNormalizer.decodedStringArrayOrLegacyCommaList(from: skipTracksRawValue, kind: .trackNames)
         }
         set {
-            skipTracksRawValue = Self.rawTrackList(from: newValue)
+            skipTracksRawValue = Self.encodedOptionalTrackList(from: newValue)
         }
     }
 
@@ -60,7 +59,7 @@ final class LogEntry {
     }
 
     var normalizedStandoutMoment: String? {
-        Self.normalizedOptionalText(standoutMoment)
+        ListTextNormalizer.normalizedOptionalText(standoutMoment)
     }
 
     var isPositiveSignal: Bool {
@@ -97,41 +96,22 @@ final class LogEntry {
         self.album = album
         self.rating = rating
         self.reviewText = reviewText
-        self.tagsRawValue = tags.joined(separator: ",")
-        self.favoriteTracksRawValue = Self.rawTrackList(from: favoriteTracks)
-        self.skipTracksRawValue = Self.rawTrackList(from: skipTracks)
-        self.standoutMoment = Self.normalizedOptionalText(standoutMoment)
+        self.tagsRawValue = ListTextNormalizer.encodedStringArray(ListTextNormalizer.normalizedTags(tags))
+        self.favoriteTracksRawValue = Self.encodedOptionalTrackList(from: favoriteTracks)
+        self.skipTracksRawValue = Self.encodedOptionalTrackList(from: skipTracks)
+        self.standoutMoment = ListTextNormalizer.normalizedOptionalText(standoutMoment)
         self.sentimentScore = sentimentScore
         self.sentimentConfidence = sentimentConfidence
         self.loggedAt = loggedAt
         self.updatedAt = updatedAt
     }
 
-    private static func trackList(from rawValue: String?) -> [String] {
-        guard let rawValue else {
-            return []
-        }
-
-        return rawValue
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-    }
-
-    private static func rawTrackList(from tracks: [String]) -> String? {
-        let cleanedTracks = tracks
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-
-        guard !cleanedTracks.isEmpty else {
+    private static func encodedOptionalTrackList(from tracks: [String]) -> String? {
+        let normalizedTracks = ListTextNormalizer.normalizedTrackNames(tracks)
+        guard !normalizedTracks.isEmpty else {
             return nil
         }
 
-        return cleanedTracks.joined(separator: ",")
-    }
-
-    private static func normalizedOptionalText(_ value: String?) -> String? {
-        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmed.isEmpty ? nil : trimmed
+        return ListTextNormalizer.encodedStringArray(normalizedTracks)
     }
 }

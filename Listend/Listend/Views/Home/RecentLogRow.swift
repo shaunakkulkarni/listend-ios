@@ -31,7 +31,7 @@ struct RecentLogRow: View {
                     HStack(spacing: 10) {
                         Label(ratingText, systemImage: "star.fill")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.yellow)
+                            .foregroundStyle(Color.listendAccent)
 
                         Text(log.loggedAt, format: .dateTime.month(.abbreviated).day().year())
                             .font(.caption)

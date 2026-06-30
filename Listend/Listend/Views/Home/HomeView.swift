@@ -44,8 +44,8 @@ struct HomeView: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 20) {
-                HomeHeader(
+            LazyVStack(alignment: .leading, spacing: 24) {
+                HomeIdentityHeader(
                     logCount: logs.count,
                     averageRatingText: averageRatingText,
                     latestLogDate: logs.first?.loggedAt,
@@ -59,7 +59,9 @@ struct HomeView: View {
                             appleMusicRecommendationService: appleMusicRecommendationService
                         )
                     } label: {
-                        TodayPickModule(
+                        TodayPickCard(
+                            album: activeRecommendation?.album,
+                            confidence: activeRecommendation?.confidence,
                             title: todayPickTitle,
                             subtitle: todayPickSubtitle,
                             isActive: activeRecommendation != nil
@@ -96,7 +98,7 @@ struct HomeView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 20)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Color.listendPaper)
         .navigationTitle("Listend")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(
@@ -223,97 +225,99 @@ struct HomeView: View {
     }
 }
 
-private struct HomeHeader: View {
+private struct HomeIdentityHeader: View {
     let logCount: Int
     let averageRatingText: String
     let latestLogDate: Date?
     let addLog: () -> Void
 
     var body: some View {
-        EditorialSurface {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Listend")
-                        .font(.system(.largeTitle, design: .serif).weight(.bold))
-                    Text("A quiet place for the albums that stayed with you.")
-                        .font(.subheadline)
+        VStack(alignment: .leading, spacing: ListendSpacing.lg) {
+            VStack(alignment: .leading, spacing: ListendSpacing.xs) {
+                Text("Listend")
+                    .font(.system(.largeTitle, design: .serif).weight(.semibold))
+                    .foregroundStyle(Color.listendInk)
+                Text("A quiet place for the albums that stayed with you.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: ListendSpacing.xxl) {
+                HomeStatNumeral(value: logCount.formatted(), label: "Logs")
+                HomeStatNumeral(value: averageRatingText, label: "Average")
+            }
+
+            HStack(alignment: .center, spacing: ListendSpacing.md) {
+                Button(action: addLog) {
+                    Label("Add Log", systemImage: "plus")
+                }
+                .listendProminentButtonStyle()
+                .accessibilityIdentifier("addLogButton")
+
+                if let latestLogDate {
+                    Text("Last logged \(latestLogDate, format: .relative(presentation: .named))")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 10) {
-                        HomeStatPill(title: "Logs", value: logCount.formatted(), systemImage: "music.note.list")
-                        HomeStatPill(title: "Average", value: averageRatingText, systemImage: "star.fill")
-                    }
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        HomeStatPill(title: "Logs", value: logCount.formatted(), systemImage: "music.note.list")
-                        HomeStatPill(title: "Average", value: averageRatingText, systemImage: "star.fill")
-                    }
-                }
-
-                HStack(alignment: .center, spacing: 12) {
-                    Button(action: addLog) {
-                        Label("Add Log", systemImage: "plus")
-                    }
-                    .listendProminentButtonStyle()
-                    .accessibilityIdentifier("addLogButton")
-
-                    if let latestLogDate {
-                        Text("Last logged \(latestLogDate, format: .relative(presentation: .named))")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                    }
+                        .lineLimit(2)
                 }
             }
         }
     }
 }
 
-private struct HomeStatPill: View {
-    let title: String
+private struct HomeStatNumeral: View {
     let value: String
-    let systemImage: String
+    let label: String
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: systemImage)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value)
+                .font(.system(.title, design: .rounded).weight(.semibold))
+                .foregroundStyle(Color.listendInk)
+            Text(label)
+                .font(.caption)
                 .foregroundStyle(.secondary)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(value)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(.secondary.opacity(0.10), in: Capsule())
     }
 }
 
-private struct TodayPickModule: View {
+private struct TodayPickCard: View {
+    let album: Album?
+    let confidence: Double?
     let title: String
     let subtitle: String
     let isActive: Bool
 
     var body: some View {
-        EditorialSurface(isInteractive: true) {
-            HStack(alignment: .center, spacing: 12) {
-                Image(systemName: isActive ? "sparkles" : "sun.max")
-                    .font(.title2)
-                    .frame(width: 36, height: 36)
-                    .foregroundStyle(Color.accentColor)
+        ListendObjectCard {
+            HStack(alignment: .center, spacing: ListendSpacing.md) {
+                if isActive {
+                    AlbumArtworkView(artworkURL: album?.artworkURL, size: 64, albumTitle: album?.title)
+                } else {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: ListendRadius.artwork)
+                            .fill(Color.listendAccentSoft)
+                        Image(systemName: "sun.max")
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(width: 64, height: 64)
+                    .accessibilityHidden(true)
+                }
 
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Today's Pick")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 6) {
+                        Text("Today's Pick")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+
+                        if isActive, let confidence {
+                            Text(confidence, format: .percent.precision(.fractionLength(0)))
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color.listendAccent)
+                        }
+                    }
                     Text(title)
                         .font(.headline)
                         .foregroundStyle(.primary)
@@ -339,11 +343,11 @@ private struct SoundPrintSummaryModule: View {
     let topDimension: TasteDimension?
 
     var body: some View {
-        EditorialSurface(isInteractive: true) {
+        ListendObjectCard {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     Image(systemName: "waveform.path")
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(.secondary)
                     Text("SoundPrint")
                         .font(.headline)
 
@@ -402,9 +406,9 @@ private struct LatestLogPreviewRow: View {
     let log: LogEntry
 
     var body: some View {
-        EditorialSurface(isInteractive: true) {
+        ListendObjectCard {
             HStack(alignment: .center, spacing: 12) {
-                AlbumArtworkView(artworkURL: log.album?.artworkURL, size: 48)
+                AlbumArtworkView(artworkURL: log.album?.artworkURL, size: 56, albumTitle: log.album?.title)
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(log.album?.title ?? "Unknown Album")
@@ -420,7 +424,7 @@ private struct LatestLogPreviewRow: View {
                     HStack(spacing: 10) {
                         Label(ratingText, systemImage: "star.fill")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.yellow)
+                            .foregroundStyle(Color.listendAccent)
 
                         Text(log.loggedAt, format: .dateTime.month(.abbreviated).day().year())
                             .font(.caption)
@@ -470,7 +474,8 @@ private struct RecentlyPlayedAlbumsSection: View {
                 Button(action: loadAlbums) {
                     Label(buttonTitle, systemImage: buttonSystemImage)
                 }
-                .font(.subheadline.weight(.semibold))
+                .buttonStyle(.bordered)
+                .controlSize(.small)
                 .disabled(isLoading)
                 .accessibilityIdentifier("loadRecentlyPlayedAlbumsButton")
             }
@@ -530,7 +535,7 @@ private struct RecentlyPlayedEmptyState: View {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: iconName)
                         .font(.title2)
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(.secondary)
                         .frame(width: 32, height: 32)
 
                     VStack(alignment: .leading, spacing: 6) {
@@ -546,7 +551,7 @@ private struct RecentlyPlayedEmptyState: View {
                 Button(action: loadAlbums) {
                     Label(isLoading ? "Loading" : "Load Recently Played", systemImage: isLoading ? "hourglass" : "music.note")
                 }
-                .listendProminentButtonStyle()
+                .buttonStyle(.bordered)
                 .disabled(isLoading)
                 .accessibilityIdentifier("recentlyPlayedEmptyStateLoadButton")
             }

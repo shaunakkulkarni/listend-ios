@@ -133,7 +133,7 @@ struct StarRatingControl: View {
     }
 
     private func color(for starIndex: Int) -> Color {
-        symbolName(for: starIndex) == "star" ? Color.secondary.opacity(0.55) : Color.accentColor
+        symbolName(for: starIndex) == "star" ? Color.listendHairline : Color.listendAccent
     }
 
     private func ratingLabel(for value: Double) -> String {

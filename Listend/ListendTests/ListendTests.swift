@@ -1194,6 +1194,130 @@ struct ListendTests {
     }
 
     @MainActor
+    @Test func soundPrintProfileRebuildPersistsAvoidanceSignalsFromNegativeAndSkipHeavyLogs() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+
+        let album = Album(title: "Skip Heavy Album", artistName: "Some Artist")
+        let log = LogEntry(
+            album: album,
+            rating: 3.0,
+            reviewText: "Feels bloated in the back half.",
+            skipTracks: ["Track A", "Track B"],
+            sentimentScore: 0.1
+        )
+
+        modelContext.insert(album)
+        modelContext.insert(log)
+        try modelContext.save()
+
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+
+        let avoidanceSignals = try modelContext.fetch(FetchDescriptor<TasteAvoidanceSignal>())
+        let skipHeavy = try #require(avoidanceSignals.first { $0.name == "skipHeavyAlbums" })
+
+        #expect(skipHeavy.evidenceLogEntryIDs.contains(log.id))
+    }
+
+    @MainActor
+    @Test func soundPrintProfileRebuildReplacesAvoidanceSignalsOnlyAfterSuccessAndRemovesStaleOnes() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+
+        let album = Album(title: "Bloated Album", artistName: "Some Artist")
+        let log = LogEntry(
+            album: album,
+            rating: 3.0,
+            reviewText: "Feels bloated and inconsistent.",
+            sentimentScore: 0.1
+        )
+
+        modelContext.insert(album)
+        modelContext.insert(log)
+        try modelContext.save()
+
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+
+        var avoidanceSignals = try modelContext.fetch(FetchDescriptor<TasteAvoidanceSignal>())
+        #expect(!avoidanceSignals.isEmpty)
+
+        modelContext.delete(log)
+        try modelContext.save()
+
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+
+        avoidanceSignals = try modelContext.fetch(FetchDescriptor<TasteAvoidanceSignal>())
+        #expect(avoidanceSignals.isEmpty)
+    }
+
+    @MainActor
+    @Test func soundPrintProfileRebuildPreservesAvoidanceSignalsOnExtractionFailure() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+
+        let album = Album(title: "Existing Album", artistName: "Some Artist")
+        let log = LogEntry(album: album, rating: 3.0, reviewText: "Feels bloated.", sentimentScore: 0.1)
+        let existingAvoidance = TasteAvoidanceSignal(
+            name: "fillerSensitivity",
+            label: "Filler Sensitivity",
+            summary: "Existing avoidance.",
+            strength: 0.6,
+            confidence: 0.6
+        )
+
+        modelContext.insert(album)
+        modelContext.insert(log)
+        modelContext.insert(existingAvoidance)
+        try modelContext.save()
+
+        do {
+            try await SoundPrintProfileBuilder(provider: ThrowingSoundPrintProvider(failingOperation: .tasteExtraction)).rebuildProfile(in: modelContext)
+            Issue.record("Profile rebuild should throw when extraction fails.")
+        } catch {
+            let avoidanceSignals = try modelContext.fetch(FetchDescriptor<TasteAvoidanceSignal>())
+            #expect(avoidanceSignals.count == 1)
+            #expect(avoidanceSignals[0].summary == "Existing avoidance.")
+        }
+    }
+
+    @MainActor
+    @Test func soundPrintProfileRebuildGeneratesCompactSummaryAlongsidePersona() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+
+        insertPersonaReadyLogs(in: modelContext, count: 5)
+        try modelContext.save()
+
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+
+        let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
+        let persona = try #require(personas.first)
+
+        #expect(persona.headline != nil)
+        #expect(persona.summaryText != nil)
+        #expect(persona.bullets.count == 3)
+    }
+
+    @MainActor
+    @Test func compactSummaryFailureDoesNotRollBackAnAlreadyPersistedPersona() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+
+        insertPersonaReadyLogs(in: modelContext, count: 5)
+        try modelContext.save()
+
+        try await SoundPrintProfileBuilder(
+            provider: ThrowingSoundPrintProvider(failingOperation: .compactSummary)
+        ).rebuildProfile(in: modelContext)
+
+        let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
+        let persona = try #require(personas.first)
+
+        #expect(!persona.personaText.isEmpty)
+        #expect(persona.headline == nil)
+    }
+
+    @MainActor
     @Test func recommendationGenerationExcludesLoggedAlbumsAndCreatesReceipts() async throws {
         let container = try makeInMemoryContainer()
         let modelContext = container.mainContext

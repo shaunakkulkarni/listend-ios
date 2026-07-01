@@ -262,9 +262,9 @@ struct FoundationModelsSoundPrintValidator {
 
     static func validatedPersona(text: String, input: PersonaInput) throws -> PersonaResult {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let concreteSignals = concreteSignals(from: input)
+        let concreteSignals = concreteSignals(from: input) + input.avoidanceSignals
 
-        guard MockSoundPrintProvider.isValidPersona(trimmed, concreteSignals: concreteSignals) else {
+        guard SoundPrintOutputValidator.isPersonaValid(trimmed, concreteSignals: concreteSignals, logCount: input.totalLogCount) else {
             throw FoundationModelsSoundPrintProviderError.validationFailed
         }
 

@@ -928,13 +928,68 @@ struct ListendTests {
         #expect(!normalizedText.contains("wide range of genres"))
     }
 
+    @Test func personaGenerationRespectsSentenceAndWordLimits() async throws {
+        let provider = MockSoundPrintProvider()
+        let result = try await provider.generatePersona(input: personaInput())
+
+        #expect(result.text.soundPrintSentences.count == 2)
+        #expect(result.text.normalizedSoundPrintWords.count <= SoundPrintOutputValidator.maxPersonaWordCount)
+        #expect(!result.text.normalizedSoundPrintText.hasPrefix("you are"))
+    }
+
+    @Test func personaGenerationPrioritizesAvoidanceSignalOverAlbumMention() async throws {
+        let provider = MockSoundPrintProvider()
+        var input = personaInput()
+        input = PersonaInput(
+            dimensions: input.dimensions,
+            recentLogs: input.recentLogs,
+            totalLogCount: input.totalLogCount,
+            topTags: input.topTags,
+            averageRating: input.averageRating,
+            avoidanceSignals: ["Skip-Heavy Albums"]
+        )
+
+        let result = try await provider.generatePersona(input: input)
+
+        #expect(result.text.lowercased().contains("skip-heavy albums") || result.text.lowercased().contains("skip heavy albums"))
+    }
+
+    @Test func personaGenerationUsesFavoriteTrackWhenPresent() async throws {
+        let provider = MockSoundPrintProvider()
+        let baseInput = personaInput()
+        let logsWithFavorite = baseInput.recentLogs.map { log in
+            log.albumTitle == "Blonde"
+                ? PersonaLogInput(
+                    albumTitle: log.albumTitle,
+                    artistName: log.artistName,
+                    rating: log.rating,
+                    reviewSnippet: log.reviewSnippet,
+                    tags: log.tags,
+                    isPositiveSignal: log.isPositiveSignal,
+                    favoriteTracks: ["Nights"]
+                )
+                : log
+        }
+        let input = PersonaInput(
+            dimensions: baseInput.dimensions,
+            recentLogs: logsWithFavorite,
+            totalLogCount: baseInput.totalLogCount,
+            topTags: baseInput.topTags,
+            averageRating: baseInput.averageRating
+        )
+
+        let result = try await provider.generatePersona(input: input)
+
+        #expect(result.text.contains("Nights"))
+    }
+
     @Test func personaQualityFilterRejectsVagueOrGenericText() {
         let concreteSignals = ["Vocal Focus", "Blonde", "vocals"]
 
-        #expect(!MockSoundPrintProvider.isValidPersona("", concreteSignals: concreteSignals))
-        #expect(!MockSoundPrintProvider.isValidPersona("Too short.", concreteSignals: concreteSignals))
-        #expect(!MockSoundPrintProvider.isValidPersona("You have eclectic taste and a wide range of genres, especially around Vocal Focus and Blonde.", concreteSignals: concreteSignals))
-        #expect(!MockSoundPrintProvider.isValidPersona("Across five logs, the profile is long enough to seem substantial, but it carefully avoids naming any actual signal from the input data.", concreteSignals: concreteSignals))
+        #expect(!SoundPrintOutputValidator.isPersonaValid("", concreteSignals: concreteSignals))
+        #expect(!SoundPrintOutputValidator.isPersonaValid("Too short.", concreteSignals: concreteSignals))
+        #expect(!SoundPrintOutputValidator.isPersonaValid("You have eclectic taste and a wide range of genres, especially around Vocal Focus and Blonde.", concreteSignals: concreteSignals))
+        #expect(!SoundPrintOutputValidator.isPersonaValid("Across five logs, the profile is long enough to seem substantial, but it carefully avoids naming any actual signal from the input data.", concreteSignals: concreteSignals))
     }
 
     @Test func personaGenerationFallsBackToSpecificSparseInput() async throws {

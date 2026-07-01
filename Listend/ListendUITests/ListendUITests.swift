@@ -298,17 +298,15 @@ final class ListendUITests: XCTestCase {
         selectRating("4.5")
         openTrackHighlightsSection()
 
-        let favoriteTracksField = app.textFields["favoriteTracksTextField"]
-        reveal(favoriteTracksField)
-        XCTAssertTrue(favoriteTracksField.waitForExistence(timeout: 5))
-        favoriteTracksField.tap()
-        favoriteTracksField.typeText("Snooze, Good Days")
+        let favoriteSnooze = app.buttons["favoriteTrackOption-snooze"]
+        reveal(favoriteSnooze)
+        XCTAssertTrue(favoriteSnooze.waitForExistence(timeout: 5))
+        favoriteSnooze.tap()
 
-        let lessFavoriteTracksField = app.textFields["lessFavoriteTracksTextField"]
-        reveal(lessFavoriteTracksField)
-        XCTAssertTrue(lessFavoriteTracksField.waitForExistence(timeout: 5))
-        lessFavoriteTracksField.tap()
-        lessFavoriteTracksField.typeText("Too Late")
+        let skipGoodDays = app.buttons["skipTrackOption-good-days"]
+        reveal(skipGoodDays)
+        XCTAssertTrue(skipGoodDays.waitForExistence(timeout: 5))
+        skipGoodDays.tap()
 
         let standoutMomentField = app.textFields["standoutMomentTextField"]
         reveal(standoutMomentField)
@@ -324,19 +322,61 @@ final class ListendUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["favoriteTracksValueText"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["favoriteTracksValueText"].label.contains("Snooze"))
         XCTAssertTrue(app.descendants(matching: .any)["lessFavoriteTracksValueText"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.descendants(matching: .any)["lessFavoriteTracksValueText"].label.contains("Too Late"))
+        XCTAssertTrue(app.descendants(matching: .any)["lessFavoriteTracksValueText"].label.contains("Good Days"))
         XCTAssertTrue(app.descendants(matching: .any)["standoutMomentValueText"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["standoutMomentValueText"].label.contains("final chorus"))
 
         app.buttons["Edit"].tap()
-        let expandedFavoriteTracksField = app.textFields["favoriteTracksTextField"]
-        reveal(expandedFavoriteTracksField)
-        XCTAssertTrue(expandedFavoriteTracksField.waitForExistence(timeout: 5))
-        appendText(in: expandedFavoriteTracksField, text: ", Blind")
+        let selectedSnooze = app.buttons["favoriteTrackOption-snooze"]
+        reveal(selectedSnooze)
+        XCTAssertTrue(selectedSnooze.waitForExistence(timeout: 5))
+        XCTAssertEqual(selectedSnooze.value as? String, "Selected")
+        let selectedGoodDays = app.buttons["skipTrackOption-good-days"]
+        reveal(selectedGoodDays)
+        XCTAssertTrue(selectedGoodDays.waitForExistence(timeout: 5))
+        XCTAssertEqual(selectedGoodDays.value as? String, "Selected")
+        app.buttons["favoriteTrackOption-kill-bill"].tap()
         app.buttons["saveLogButton"].tap()
 
         XCTAssertTrue(app.descendants(matching: .any)["favoriteTracksValueText"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.descendants(matching: .any)["favoriteTracksValueText"].label.contains("Blind"))
+        XCTAssertTrue(app.descendants(matching: .any)["favoriteTracksValueText"].label.contains("Kill Bill"))
+    }
+
+    @MainActor
+    func testTrackHighlightsFallbackAllowsManualTracksWhenTracklistUnavailable() throws {
+        launchResetApp()
+
+        app.buttons["loadRecentlyPlayedAlbumsButton"].tap()
+        let recentAlbum = app.buttons["recentlyPlayedAlbum-mock.frank-ocean.blonde"]
+        XCTAssertTrue(recentAlbum.waitForExistence(timeout: 5))
+        recentAlbum.tap()
+
+        XCTAssertTrue(app.navigationBars["New Log"].waitForExistence(timeout: 5))
+        selectRating("4.5")
+        openTrackHighlightsSection()
+
+        XCTAssertTrue(app.staticTexts["tracklistUnavailableText"].waitForExistence(timeout: 5))
+
+        let favoriteTracksField = app.textFields["favoriteTracksTextField"]
+        reveal(favoriteTracksField)
+        XCTAssertTrue(favoriteTracksField.waitForExistence(timeout: 5))
+        favoriteTracksField.tap()
+        favoriteTracksField.typeText("Nights")
+
+        let lessFavoriteTracksField = app.textFields["lessFavoriteTracksTextField"]
+        reveal(lessFavoriteTracksField)
+        XCTAssertTrue(lessFavoriteTracksField.waitForExistence(timeout: 5))
+        lessFavoriteTracksField.tap()
+        lessFavoriteTracksField.typeText("Solo (Reprise)")
+
+        app.buttons["saveLogButton"].tap()
+        openTab("Logs")
+        openLog(title: "Blonde")
+
+        XCTAssertTrue(app.descendants(matching: .any)["favoriteTracksValueText"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["favoriteTracksValueText"].label.contains("Nights"))
+        XCTAssertTrue(app.descendants(matching: .any)["lessFavoriteTracksValueText"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["lessFavoriteTracksValueText"].label.contains("Solo"))
     }
 
     @MainActor
@@ -459,14 +499,14 @@ final class ListendUITests: XCTestCase {
         app.descendants(matching: .any)["reviewTextEditor"]
     }
 
-    private func openAlbumDetailFromSearch() {
+    private func openAlbumDetailFromSearch(query: String = "SOS", resultID: String = "mock.sza.sos") {
         openTab("Search")
         let searchField = app.searchFields["Album, artist, or genre"]
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
         searchField.tap()
-        searchField.typeText("SOS")
+        searchField.typeText(query)
 
-        let result = app.buttons["albumSearchResult-mock.sza.sos"]
+        let result = app.buttons["albumSearchResult-\(resultID)"]
         XCTAssertTrue(result.waitForExistence(timeout: 5))
         result.tap()
     }
@@ -522,11 +562,6 @@ final class ListendUITests: XCTestCase {
         }
         XCTAssertTrue(disclosure.waitForExistence(timeout: 5))
         disclosure.tap()
-
-        let favoriteTracksField = app.textFields["favoriteTracksTextField"]
-        if !favoriteTracksField.waitForExistence(timeout: 1) {
-            app.swipeUp()
-        }
     }
 
     private func reveal(_ element: XCUIElement, maxSwipes: Int = 3) {

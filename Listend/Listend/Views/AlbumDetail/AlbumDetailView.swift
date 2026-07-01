@@ -134,5 +134,5 @@ private struct AlbumMetadataView: View {
     NavigationStack {
         AlbumDetailView(album: MockAlbumCatalogService.defaultAlbums[0])
     }
-    .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self, SoundPrintPersona.self, Recommendation.self, RecommendationReceipt.self, RecommendationFeedback.self, RecentlyPlayedAlbumSnapshot.self, AppleMusicRecentPlaySnapshot.self], inMemory: true)
+    .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self, SoundPrintPersona.self, Recommendation.self, RecommendationReceipt.self, RecommendationFeedback.self, RecentlyPlayedAlbumSnapshot.self, AppleMusicRecentPlaySnapshot.self, AlbumTrack.self], inMemory: true)
 }

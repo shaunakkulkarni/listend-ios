@@ -373,6 +373,127 @@ struct ListendTests {
         #expect(savedLog.standoutMoment == "The last chorus opened up.")
     }
 
+    @Test func albumTrackCandidatesSortByDiscTrackThenReturnedOrder() {
+        let tracks = [
+            AlbumTrackCandidate(albumAppleMusicID: "album", title: "Second", trackNumber: 2, discNumber: 1, returnedOrder: 1),
+            AlbumTrackCandidate(albumAppleMusicID: "album", title: "Disc Two", trackNumber: 1, discNumber: 2, returnedOrder: 2),
+            AlbumTrackCandidate(albumAppleMusicID: "album", title: "First", trackNumber: 1, discNumber: 1, returnedOrder: 3),
+            AlbumTrackCandidate(albumAppleMusicID: "album", title: "Untitled", returnedOrder: 0)
+        ]
+
+        #expect(tracks.sortedForAlbumDisplay().map(\.title) == ["First", "Second", "Disc Two", "Untitled"])
+    }
+
+    @MainActor
+    @Test func fallbackAlbumTrackServiceReturnsEmptyForMissingAppleMusicID() async throws {
+        let container = try makeInMemoryContainer()
+        let album = Album(title: "Local Album", artistName: "Local Artist")
+        let service = FallbackAlbumTrackService(
+            primary: SuccessfulAlbumTrackService(tracks: [.sosTrack(title: "Snooze", trackNumber: 8)]),
+            fallback: EmptyAlbumTrackService()
+        )
+
+        let tracks = try await service.tracks(for: album, in: container.mainContext)
+
+        #expect(tracks.isEmpty)
+    }
+
+    @MainActor
+    @Test func fallbackAlbumTrackServiceUsesFreshCacheBeforePrimary() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let album = Album(appleMusicID: "mock.sza.sos", title: "SOS", artistName: "SZA")
+        modelContext.insert(album)
+        try AlbumTrackCache.replaceCachedTracks(
+            [.sosTrack(title: "Cached Snooze", trackNumber: 8)],
+            albumAppleMusicID: "mock.sza.sos",
+            in: modelContext
+        )
+
+        let service = FallbackAlbumTrackService(
+            primary: ThrowingAlbumTrackService(),
+            fallback: EmptyAlbumTrackService()
+        )
+
+        let tracks = try await service.tracks(for: album, in: modelContext)
+
+        #expect(tracks.map(\.title) == ["Cached Snooze"])
+    }
+
+    @MainActor
+    @Test func fallbackAlbumTrackServiceReplacesStaleCacheAfterFetch() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let oldDate = Date(timeIntervalSinceNow: -31 * 24 * 60 * 60)
+        let album = Album(appleMusicID: "mock.sza.sos", title: "SOS", artistName: "SZA")
+        modelContext.insert(album)
+        modelContext.insert(
+            AlbumTrack(
+                albumAppleMusicID: "mock.sza.sos",
+                title: "Old Track",
+                trackNumber: 1,
+                discNumber: 1,
+                cachedAt: oldDate
+            )
+        )
+        try modelContext.save()
+
+        let service = FallbackAlbumTrackService(
+            primary: SuccessfulAlbumTrackService(tracks: [.sosTrack(title: "Fresh Snooze", trackNumber: 8)]),
+            fallback: EmptyAlbumTrackService()
+        )
+
+        let tracks = try await service.tracks(for: album, in: modelContext)
+        let cachedTracks = try AlbumTrackCache.cachedTracks(albumAppleMusicID: "mock.sza.sos", in: modelContext)
+
+        #expect(tracks.map(\.title) == ["Fresh Snooze"])
+        #expect(cachedTracks?.map(\.title) == ["Fresh Snooze"])
+    }
+
+    @MainActor
+    @Test func fallbackAlbumTrackServiceReturnsEmptyNotMockWhenPrimaryFails() async throws {
+        let container = try makeInMemoryContainer()
+        let album = Album(appleMusicID: "mock.sza.sos", title: "SOS", artistName: "SZA")
+        let service = FallbackAlbumTrackService(
+            primary: ThrowingAlbumTrackService(),
+            fallback: EmptyAlbumTrackService()
+        )
+
+        let tracks = try await service.tracks(for: album, in: container.mainContext)
+
+        #expect(tracks.isEmpty)
+    }
+
+    @Test func albumTrackSelectionMutuallyExcludesFavoritesAndSkips() {
+        let track = AlbumTrackCandidate.sosTrack(title: "Snooze", trackNumber: 8)
+        var selection = AlbumTrackSelectionState()
+
+        selection.toggleFavorite(track)
+        selection.toggleSkip(track)
+
+        #expect(!selection.isFavorite(track))
+        #expect(selection.isSkip(track))
+    }
+
+    @Test func albumTrackSelectionMapsOrderedTitlesIntoLogEntryLists() {
+        let candidates = [
+            AlbumTrackCandidate.sosTrack(title: "Kill Bill", trackNumber: 2),
+            AlbumTrackCandidate.sosTrack(title: "Snooze", trackNumber: 8),
+            AlbumTrackCandidate.sosTrack(title: "Good Days", trackNumber: 23)
+        ]
+        var selection = AlbumTrackSelectionState()
+        selection.toggleFavorite(candidates[1])
+        selection.toggleFavorite(candidates[0])
+        selection.toggleSkip(candidates[2])
+        let log = LogEntry(album: nil, rating: 4.5)
+
+        log.favoriteTracks = selection.savedFavoriteTrackTitles(from: candidates, manualText: "Blind")
+        log.skipTracks = selection.savedSkipTrackTitles(from: candidates, manualText: "Too Late")
+
+        #expect(log.favoriteTracks == ["Kill Bill", "Snooze", "Blind"])
+        #expect(log.skipTracks == ["Good Days", "Too Late"])
+    }
+
     @Test func starRatingCalculatorClampsLeftEdgeToHalfStar() {
         #expect(StarRatingCalculator.rating(atX: 0, width: 200) == 0.5)
     }
@@ -1912,7 +2033,8 @@ struct ListendTests {
             RecommendationReceipt.self,
             RecommendationFeedback.self,
             RecentlyPlayedAlbumSnapshot.self,
-            AppleMusicRecentPlaySnapshot.self
+            AppleMusicRecentPlaySnapshot.self,
+            AlbumTrack.self
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [configuration])
@@ -2226,5 +2348,39 @@ private struct CancellingSoundPrintProvider: SoundPrintProvider {
 
     func generatePersona(input: PersonaInput) async throws -> PersonaResult {
         throw CancellationError()
+    }
+}
+
+private enum ThrowingAlbumTrackServiceError: Error {
+    case failed
+}
+
+private struct ThrowingAlbumTrackService: AlbumTrackServiceProtocol {
+    func tracks(for album: Album, in modelContext: ModelContext) async throws -> [AlbumTrackCandidate] {
+        throw ThrowingAlbumTrackServiceError.failed
+    }
+}
+
+private struct SuccessfulAlbumTrackService: AlbumTrackServiceProtocol {
+    let tracks: [AlbumTrackCandidate]
+
+    func tracks(for album: Album, in modelContext: ModelContext) async throws -> [AlbumTrackCandidate] {
+        tracks
+    }
+}
+
+private extension AlbumTrackCandidate {
+    static func sosTrack(title: String, trackNumber: Int) -> AlbumTrackCandidate {
+        AlbumTrackCandidate(
+            albumAppleMusicID: "mock.sza.sos",
+            appleMusicTrackID: "mock.sza.sos.\(trackNumber)",
+            title: title,
+            artistName: "SZA",
+            trackNumber: trackNumber,
+            discNumber: 1,
+            durationMilliseconds: 180_000,
+            previewURL: nil,
+            returnedOrder: trackNumber
+        )
     }
 }

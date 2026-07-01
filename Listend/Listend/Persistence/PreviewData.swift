@@ -37,7 +37,8 @@ enum PreviewData {
             RecommendationReceipt.self,
             RecommendationFeedback.self,
             RecentlyPlayedAlbumSnapshot.self,
-            AppleMusicRecentPlaySnapshot.self
+            AppleMusicRecentPlaySnapshot.self,
+            AlbumTrack.self
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
 

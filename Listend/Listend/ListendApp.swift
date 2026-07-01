@@ -17,6 +17,7 @@ struct ListendApp: App {
     private let albumPreviewService: AlbumPreviewServiceProtocol
     private let tagSuggestionProvider: TagSuggestionProvider
     private let journalAssistService: JournalAssistServiceProtocol
+    private let albumTrackService: AlbumTrackServiceProtocol
     private let appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol?
 
     var sharedModelContainer: ModelContainer = {
@@ -34,6 +35,7 @@ struct ListendApp: App {
             RecommendationFeedback.self,
             RecentlyPlayedAlbumSnapshot.self,
             AppleMusicRecentPlaySnapshot.self,
+            AlbumTrack.self,
         ])
         let modelConfiguration: ModelConfiguration
 
@@ -64,6 +66,7 @@ struct ListendApp: App {
         albumPreviewService = Self.makeAlbumPreviewService()
         tagSuggestionProvider = Self.makeTagSuggestionProvider()
         journalAssistService = Self.makeJournalAssistService()
+        albumTrackService = Self.makeAlbumTrackService()
         appleMusicRecommendationService = Self.makeAppleMusicRecommendationService()
     }
 
@@ -79,6 +82,7 @@ struct ListendApp: App {
                 .environment(\.albumPreviewService, albumPreviewService)
                 .environment(\.tagSuggestionProvider, tagSuggestionProvider)
                 .environment(\.journalAssistService, journalAssistService)
+                .environment(\.albumTrackService, albumTrackService)
         }
         .modelContainer(sharedModelContainer)
     }
@@ -170,6 +174,19 @@ struct ListendApp: App {
         return FallbackJournalAssistService(
             primary: FoundationModelsJournalAssistService(),
             fallback: MockJournalAssistService()
+        )
+    }
+
+    private static func makeAlbumTrackService() -> AlbumTrackServiceProtocol {
+        let arguments = ProcessInfo.processInfo.arguments
+
+        if arguments.contains("-ui-testing") {
+            return MockAlbumTrackService()
+        }
+
+        return FallbackAlbumTrackService(
+            primary: MusicKitAlbumTrackService(),
+            fallback: EmptyAlbumTrackService()
         )
     }
 

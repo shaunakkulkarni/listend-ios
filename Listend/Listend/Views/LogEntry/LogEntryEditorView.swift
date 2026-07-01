@@ -13,6 +13,7 @@ struct LogEntryEditorView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.soundPrintProvider) private var environmentSoundPrintProvider
     @Environment(\.journalAssistService) private var environmentJournalAssistService
+    @Environment(\.albumTrackService) private var environmentAlbumTrackService
     @Environment(SoundPrintProfileRefreshCoordinator.self) private var soundPrintRefreshCoordinator
     @Query(sort: \Album.title) private var albums: [Album]
 
@@ -20,6 +21,7 @@ struct LogEntryEditorView: View {
     private let preselectedAlbum: Album?
     private let injectedSoundPrintProvider: SoundPrintProvider?
     private let injectedJournalAssistService: JournalAssistServiceProtocol?
+    private let injectedAlbumTrackService: AlbumTrackServiceProtocol?
 
     @State private var selectedAlbumID: UUID?
     @State private var rating: Double?
@@ -29,6 +31,11 @@ struct LogEntryEditorView: View {
     @State private var lessFavoriteTracksText: String
     @State private var standoutMomentText: String
     @State private var isTrackHighlightsExpanded: Bool
+    @State private var trackCandidates: [AlbumTrackCandidate] = []
+    @State private var trackSelection = AlbumTrackSelectionState()
+    @State private var isLoadingTracklist = false
+    @State private var hasLoadedTracklist = false
+    @State private var loadedTracklistAlbumID: UUID?
     @State private var suggestedTags: [String] = []
     @State private var errorMessage: String?
     @State private var isSaving = false
@@ -38,12 +45,14 @@ struct LogEntryEditorView: View {
         log: LogEntry? = nil,
         preselectedAlbum: Album? = nil,
         soundPrintProvider: SoundPrintProvider? = nil,
-        journalAssistService: JournalAssistServiceProtocol? = nil
+        journalAssistService: JournalAssistServiceProtocol? = nil,
+        albumTrackService: AlbumTrackServiceProtocol? = nil
     ) {
         self.log = log
         self.preselectedAlbum = preselectedAlbum
         injectedSoundPrintProvider = soundPrintProvider
         injectedJournalAssistService = journalAssistService
+        injectedAlbumTrackService = albumTrackService
         _selectedAlbumID = State(initialValue: log?.album?.id ?? preselectedAlbum?.id)
         _rating = State(initialValue: log?.rating)
         _reviewText = State(initialValue: log?.reviewText ?? "")
@@ -154,19 +163,58 @@ struct LogEntryEditorView: View {
                         withAnimation {
                             isTrackHighlightsExpanded.toggle()
                         }
+                        if isTrackHighlightsExpanded {
+                            Task {
+                                await loadTracklistIfNeeded()
+                            }
+                        }
                     } label: {
                         Label("Track Highlights", systemImage: "music.note.list")
                     }
                     .accessibilityIdentifier("trackHighlightsDisclosure")
 
                     if isTrackHighlightsExpanded {
-                        TextField("Snooze, Good Days", text: $favoriteTracksText)
-                            .textInputAutocapitalization(.words)
-                            .accessibilityIdentifier("favoriteTracksTextField")
+                        if isLoadingTracklist {
+                            Label("Loading tracklist...", systemImage: "music.note")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .accessibilityIdentifier("tracklistLoadingText")
+                        }
 
-                        TextField("Less favorite tracks", text: $lessFavoriteTracksText)
-                            .textInputAutocapitalization(.words)
-                            .accessibilityIdentifier("lessFavoriteTracksTextField")
+                        if !trackCandidates.isEmpty {
+                            AlbumTrackSelectionView(
+                                title: "Favorite tracks",
+                                systemImage: "star",
+                                tracks: trackCandidates,
+                                selection: $trackSelection,
+                                kind: .favorite
+                            )
+
+                            AlbumTrackSelectionView(
+                                title: "Skips / weaker tracks",
+                                systemImage: "minus.circle",
+                                tracks: trackCandidates,
+                                selection: $trackSelection,
+                                kind: .skip
+                            )
+                        }
+
+                        if shouldShowManualTrackFields {
+                            if hasLoadedTracklist && trackCandidates.isEmpty {
+                                Text("Tracklist unavailable. You can still add tracks manually.")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                    .accessibilityIdentifier("tracklistUnavailableText")
+                            }
+
+                            TextField("Snooze, Good Days", text: $favoriteTracksText)
+                                .textInputAutocapitalization(.words)
+                                .accessibilityIdentifier("favoriteTracksTextField")
+
+                            TextField("Less favorite tracks", text: $lessFavoriteTracksText)
+                                .textInputAutocapitalization(.words)
+                                .accessibilityIdentifier("lessFavoriteTracksTextField")
+                        }
 
                         TextField("One short note", text: $standoutMomentText, axis: .vertical)
                             .lineLimit(1...3)
@@ -206,6 +254,9 @@ struct LogEntryEditorView: View {
             .task(id: tagSuggestionInput) {
                 await refreshTagSuggestions()
             }
+            .task(id: trackListTaskID) {
+                await loadTracklistIfNeeded()
+            }
             .sheet(item: $activeAssistMode) { mode in
                 if let selectedAlbum {
                     JournalAssistSheet(
@@ -233,6 +284,20 @@ struct LogEntryEditorView: View {
 
     private var journalAssistService: JournalAssistServiceProtocol {
         injectedJournalAssistService ?? environmentJournalAssistService
+    }
+
+    private var albumTrackService: AlbumTrackServiceProtocol {
+        injectedAlbumTrackService ?? environmentAlbumTrackService
+    }
+
+    private var trackListTaskID: String {
+        "\(selectedAlbum?.id.uuidString ?? "none")-\(isTrackHighlightsExpanded)"
+    }
+
+    private var shouldShowManualTrackFields: Bool {
+        trackCandidates.isEmpty
+            || !favoriteTracksText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !lessFavoriteTracksText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var availableAlbums: [Album] {
@@ -283,6 +348,47 @@ struct LogEntryEditorView: View {
         }
 
         suggestedTags = LocalTagSuggestionProvider.suggestedTags(for: input)
+    }
+
+    @MainActor
+    private func loadTracklistIfNeeded() async {
+        guard isTrackHighlightsExpanded, let selectedAlbum else {
+            return
+        }
+
+        guard loadedTracklistAlbumID != selectedAlbum.id else {
+            return
+        }
+
+        isLoadingTracklist = true
+        hasLoadedTracklist = false
+        defer {
+            isLoadingTracklist = false
+            hasLoadedTracklist = true
+            loadedTracklistAlbumID = selectedAlbum.id
+        }
+
+        do {
+            let tracks = try await albumTrackService.tracks(for: selectedAlbum, in: modelContext)
+            trackCandidates = tracks.sortedForAlbumDisplay()
+            applySavedTrackSelectionIfNeeded()
+        } catch {
+            trackCandidates = []
+        }
+    }
+
+    private func applySavedTrackSelectionIfNeeded() {
+        guard !trackCandidates.isEmpty else {
+            return
+        }
+
+        let unmatched = trackSelection.applySavedTracks(
+            favorites: ListTextNormalizer.parsedTrackNames(from: favoriteTracksText),
+            skips: ListTextNormalizer.parsedTrackNames(from: lessFavoriteTracksText),
+            candidates: trackCandidates
+        )
+        favoriteTracksText = unmatched.favoriteManual.joined(separator: ", ")
+        lessFavoriteTracksText = unmatched.skipManual.joined(separator: ", ")
     }
 
     private func appendSuggestedTag(_ tag: String) {
@@ -337,8 +443,12 @@ struct LogEntryEditorView: View {
 
         let trimmedReview = reviewText.trimmingCharacters(in: .whitespacesAndNewlines)
         let tagsToSave = parsedTags
-        let favoriteTracksToSave = ListTextNormalizer.parsedTrackNames(from: favoriteTracksText)
-        let lessFavoriteTracksToSave = ListTextNormalizer.parsedTrackNames(from: lessFavoriteTracksText)
+        let favoriteTracksToSave = trackCandidates.isEmpty
+            ? ListTextNormalizer.parsedTrackNames(from: favoriteTracksText)
+            : trackSelection.savedFavoriteTrackTitles(from: trackCandidates, manualText: favoriteTracksText)
+        let lessFavoriteTracksToSave = trackCandidates.isEmpty
+            ? ListTextNormalizer.parsedTrackNames(from: lessFavoriteTracksText)
+            : trackSelection.savedSkipTrackTitles(from: trackCandidates, manualText: lessFavoriteTracksText)
         let standoutMomentToSave = ListTextNormalizer.normalizedOptionalText(standoutMomentText)
 
         do {
@@ -389,7 +499,7 @@ struct LogEntryEditorView: View {
 
 #Preview {
     LogEntryEditorView()
-        .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self, SoundPrintPersona.self, Recommendation.self, RecommendationReceipt.self, RecommendationFeedback.self, RecentlyPlayedAlbumSnapshot.self, AppleMusicRecentPlaySnapshot.self], inMemory: true)
+        .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self, SoundPrintPersona.self, Recommendation.self, RecommendationReceipt.self, RecommendationFeedback.self, RecentlyPlayedAlbumSnapshot.self, AppleMusicRecentPlaySnapshot.self, AlbumTrack.self], inMemory: true)
         .environment(SoundPrintProfileRefreshCoordinator())
 }
 
@@ -422,5 +532,96 @@ private struct AlbumContextRow: View {
             }
         }
         .accessibilityIdentifier("selectedAlbumSummary")
+    }
+}
+
+private enum AlbumTrackSelectionKind {
+    case favorite
+    case skip
+}
+
+private struct AlbumTrackSelectionView: View {
+    let title: String
+    let systemImage: String
+    let tracks: [AlbumTrackCandidate]
+    @Binding var selection: AlbumTrackSelectionState
+    let kind: AlbumTrackSelectionKind
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: systemImage)
+                .font(.subheadline.weight(.semibold))
+
+            LazyVStack(alignment: .leading, spacing: 6) {
+                ForEach(tracks.sortedForAlbumDisplay()) { track in
+                    Button {
+                        toggle(track)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: isSelected(track) ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(isSelected(track) ? Color.listendAccent : .secondary)
+
+                            Text(trackLabel(track))
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+
+                            Spacer(minLength: 0)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(accessibilityLabel(for: track))
+                    .accessibilityValue(isSelected(track) ? "Selected" : "Not selected")
+                    .accessibilityIdentifier("\(accessibilityPrefix)-\(track.accessibilityID)")
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var accessibilityPrefix: String {
+        switch kind {
+        case .favorite:
+            return "favoriteTrackOption"
+        case .skip:
+            return "skipTrackOption"
+        }
+    }
+
+    private func isSelected(_ track: AlbumTrackCandidate) -> Bool {
+        switch kind {
+        case .favorite:
+            return selection.isFavorite(track)
+        case .skip:
+            return selection.isSkip(track)
+        }
+    }
+
+    private func toggle(_ track: AlbumTrackCandidate) {
+        switch kind {
+        case .favorite:
+            selection.toggleFavorite(track)
+        case .skip:
+            selection.toggleSkip(track)
+        }
+    }
+
+    private func trackLabel(_ track: AlbumTrackCandidate) -> String {
+        if let trackNumber = track.trackNumber {
+            return "\(trackNumber). \(track.title)"
+        }
+
+        return track.title
+    }
+
+    private func accessibilityLabel(for track: AlbumTrackCandidate) -> String {
+        switch kind {
+        case .favorite:
+            return "Favorite track \(track.title)"
+        case .skip:
+            return "Skip track \(track.title)"
+        }
     }
 }

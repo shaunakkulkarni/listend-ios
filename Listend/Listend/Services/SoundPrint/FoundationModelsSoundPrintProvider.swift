@@ -129,6 +129,11 @@ struct FoundationModelsSoundPrintProvider: SoundPrintProvider {
 
         throw FoundationModelsSoundPrintProviderError.unavailable
     }
+
+    // TODO(task 9): implement via SoundPrintPromptTemplates.compactSummaryInstructions()/.compactSummaryPrompt(...).
+    func generateCompactSummary(input: CompactSummaryInput) async throws -> CompactSummaryResult {
+        throw FoundationModelsSoundPrintProviderError.unavailable
+    }
 }
 
 #if canImport(FoundationModels)

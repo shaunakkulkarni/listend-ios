@@ -2250,6 +2250,7 @@ private enum ThrowingSoundPrintOperation {
     case sentiment
     case tasteExtraction
     case persona
+    case compactSummary
 }
 
 private enum ThrowingSoundPrintError: Error {
@@ -2415,6 +2416,14 @@ private struct ThrowingSoundPrintProvider: SoundPrintProvider {
 
         return try await MockSoundPrintProvider().generatePersona(input: input)
     }
+
+    func generateCompactSummary(input: CompactSummaryInput) async throws -> CompactSummaryResult {
+        if failingOperation == .compactSummary {
+            throw ThrowingSoundPrintError.failed
+        }
+
+        return try await MockSoundPrintProvider().generateCompactSummary(input: input)
+    }
 }
 
 private struct SuccessfulSoundPrintProvider: SoundPrintProvider {
@@ -2434,12 +2443,30 @@ private struct SuccessfulSoundPrintProvider: SoundPrintProvider {
                     evidenceSnippet: "Primary evidence.",
                     isPositiveEvidence: true
                 )
+            ],
+            avoidanceSignals: [
+                AvoidanceSignal(
+                    signalName: "skipHeavyAlbums",
+                    label: "Skip-Heavy Albums",
+                    summary: "Primary avoidance signal.",
+                    strength: 0.6,
+                    confidence: 0.7,
+                    evidenceSnippet: "Primary avoidance evidence."
+                )
             ]
         )
     }
 
     func generatePersona(input: PersonaInput) async throws -> PersonaResult {
         PersonaResult(text: "Across five logs, Blonde by Frank Ocean anchors a vocal focus profile with enough concrete detail to pass the existing quality guard.")
+    }
+
+    func generateCompactSummary(input: CompactSummaryInput) async throws -> CompactSummaryResult {
+        CompactSummaryResult(
+            headline: "Vocal Focus Leads",
+            summary: "You tend to reward vocal focus and lose patience with filler.",
+            bullets: ["Rewards vocal focus", "Loses patience with filler", "High replay value"]
+        )
     }
 }
 
@@ -2453,6 +2480,10 @@ private struct CancellingSoundPrintProvider: SoundPrintProvider {
     }
 
     func generatePersona(input: PersonaInput) async throws -> PersonaResult {
+        throw CancellationError()
+    }
+
+    func generateCompactSummary(input: CompactSummaryInput) async throws -> CompactSummaryResult {
         throw CancellationError()
     }
 }

@@ -20,6 +20,10 @@ struct MockSoundPrintProvider: SoundPrintProvider {
         Self.generatePersona(input: input)
     }
 
+    func generateCompactSummary(input: CompactSummaryInput) async throws -> CompactSummaryResult {
+        Self.generateCompactSummary(input: input)
+    }
+
     static func analyzeSentiment(input: SentimentInput) -> SentimentResult {
         let words = Set(input.reviewText.normalizedSoundPrintWords)
         let positiveMatches = words.intersection(positiveKeywords).count
@@ -83,6 +87,16 @@ struct MockSoundPrintProvider: SoundPrintProvider {
         }
 
         return TasteExtractionResult(signals: signals)
+    }
+
+    // TODO(task 7): replace with real deterministic headline/summary/bullet generation.
+    static func generateCompactSummary(input: CompactSummaryInput) -> CompactSummaryResult {
+        let topDimension = input.dimensions.sorted { $0.weight > $1.weight }.first
+        let headline = topDimension.map { "\($0.label) Leads" } ?? "Still Building Your Profile"
+        let summary = topDimension.map { "You tend to reward \($0.label.lowercased())." }
+            ?? "Log a few more albums to surface a pattern."
+
+        return CompactSummaryResult(headline: headline, summary: summary, bullets: [])
     }
 
     static func generatePersona(input: PersonaInput) -> PersonaResult {

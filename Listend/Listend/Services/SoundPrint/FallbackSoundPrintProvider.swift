@@ -46,4 +46,14 @@ struct FallbackSoundPrintProvider: SoundPrintProvider {
             return try await fallback.generatePersona(input: input)
         }
     }
+
+    func generateCompactSummary(input: CompactSummaryInput) async throws -> CompactSummaryResult {
+        do {
+            return try await primary.generateCompactSummary(input: input)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            return try await fallback.generateCompactSummary(input: input)
+        }
+    }
 }

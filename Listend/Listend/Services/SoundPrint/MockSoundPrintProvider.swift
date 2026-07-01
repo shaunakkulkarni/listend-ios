@@ -263,14 +263,76 @@ struct MockSoundPrintProvider: SoundPrintProvider {
         return signals
     }
 
-    // TODO(task 7): replace with real deterministic headline/summary/bullet generation.
     static func generateCompactSummary(input: CompactSummaryInput) -> CompactSummaryResult {
-        let topDimension = input.dimensions.sorted { $0.weight > $1.weight }.first
-        let headline = topDimension.map { "\($0.label) Leads" } ?? "Still Building Your Profile"
-        let summary = topDimension.map { "You tend to reward \($0.label.lowercased())." }
-            ?? "Log a few more albums to surface a pattern."
+        let sortedDimensions = input.dimensions.sorted { $0.weight > $1.weight }
+        let sortedAvoidance = input.avoidanceSignals.sorted { $0.strength > $1.strength }
 
-        return CompactSummaryResult(headline: headline, summary: summary, bullets: [])
+        let result = CompactSummaryResult(
+            headline: compactSummaryHeadline(topDimension: sortedDimensions.first),
+            summary: compactSummarySentence(topDimension: sortedDimensions.first, topAvoidance: sortedAvoidance.first),
+            bullets: compactSummaryBullets(dimensions: sortedDimensions, avoidanceSignals: sortedAvoidance)
+        )
+
+        guard SoundPrintOutputValidator.validateCompactSummary(
+            headline: result.headline,
+            summary: result.summary,
+            bullets: result.bullets
+        ).isValid else {
+            return fallbackCompactSummary()
+        }
+
+        return result
+    }
+
+    private static func compactSummaryHeadline(topDimension: TasteDimension?) -> String {
+        guard let topDimension else {
+            return "Still Building The Pattern"
+        }
+
+        return "\(topDimension.label) Leads The Pattern"
+    }
+
+    private static func compactSummarySentence(topDimension: TasteDimension?, topAvoidance: TasteAvoidanceSignal?) -> String {
+        guard let topDimension else {
+            return "Log a few more albums to start seeing a pattern here."
+        }
+
+        guard let topAvoidance else {
+            return "You tend to reward \(topDimension.label.lowercased())."
+        }
+
+        return "You tend to reward \(topDimension.label.lowercased()) and lose patience with \(topAvoidance.label.lowercased())."
+    }
+
+    private static func compactSummaryBullets(dimensions: [TasteDimension], avoidanceSignals: [TasteAvoidanceSignal]) -> [String] {
+        var bullets: [String] = []
+
+        for dimension in dimensions.prefix(2) {
+            bullets.append("Rewards \(dimension.label)")
+        }
+
+        if let topAvoidance = avoidanceSignals.first {
+            bullets.append("Loses patience with \(topAvoidance.label)")
+        } else if let thirdDimension = dimensions.dropFirst(2).first {
+            bullets.append("Also leans into \(thirdDimension.label)")
+        }
+
+        let modestFillers = ["Still gathering evidence", "More logs will sharpen this", "Pattern still forming"]
+        var fillerIndex = 0
+        while bullets.count < 3, fillerIndex < modestFillers.count {
+            bullets.append(modestFillers[fillerIndex])
+            fillerIndex += 1
+        }
+
+        return Array(bullets.prefix(3))
+    }
+
+    private static func fallbackCompactSummary() -> CompactSummaryResult {
+        CompactSummaryResult(
+            headline: "Still Building The Pattern",
+            summary: "Log a few more albums to start seeing a pattern here.",
+            bullets: ["Still gathering evidence", "More logs will sharpen this", "Pattern still forming"]
+        )
     }
 
     static func generatePersona(input: PersonaInput) -> PersonaResult {

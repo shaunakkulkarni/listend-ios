@@ -962,6 +962,50 @@ struct ListendTests {
         #expect(result.text.lowercased().contains("titanic rising"))
     }
 
+    @Test func compactSummaryRespectsHeadlineSummaryBulletLimits() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let result = try await provider.generateCompactSummary(
+            input: CompactSummaryInput(
+                dimensions: [
+                    TasteDimension(name: "mood", label: "Emotional Temperature", weight: 0.8, confidence: 0.7, summary: "s"),
+                    TasteDimension(name: "replayability", label: "Replay Pull", weight: 0.6, confidence: 0.6, summary: "s")
+                ],
+                avoidanceSignals: [
+                    TasteAvoidanceSignal(name: "skipHeavyAlbums", label: "Skip-Heavy Albums", summary: "s", strength: 0.5, confidence: 0.5)
+                ]
+            )
+        )
+
+        let outcome = SoundPrintOutputValidator.validateCompactSummary(
+            headline: result.headline,
+            summary: result.summary,
+            bullets: result.bullets
+        )
+
+        #expect(outcome.isValid)
+        #expect(result.bullets.count == 3)
+        #expect(result.headline.normalizedSoundPrintWords.count <= SoundPrintOutputValidator.maxHeadlineWordCount)
+        #expect(result.summary.normalizedSoundPrintWords.count <= SoundPrintOutputValidator.maxSummaryWordCount)
+    }
+
+    @Test func compactSummaryUsesModestOutputWithThinEvidence() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let result = try await provider.generateCompactSummary(
+            input: CompactSummaryInput(dimensions: [], avoidanceSignals: [])
+        )
+
+        let outcome = SoundPrintOutputValidator.validateCompactSummary(
+            headline: result.headline,
+            summary: result.summary,
+            bullets: result.bullets
+        )
+
+        #expect(outcome.isValid)
+        #expect(result.bullets.count == 3)
+    }
+
     @MainActor
     @Test func soundPrintProfileRebuildPersistsOneCurrentPersonaAtFiveLogs() async throws {
         let container = try makeInMemoryContainer()

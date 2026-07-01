@@ -2021,6 +2021,111 @@ struct ListendTests {
         #expect(receipts.first?.snippet.contains("Blonde") == true)
     }
 
+    @Test func soundPrintOutputValidatorRejectsEachBannedPhrase() {
+        for phrase in SoundPrintOutputValidator.bannedPhrases {
+            let text = "You seem drawn to \(phrase) whenever the mood strikes. This is the second sentence."
+            let outcome = SoundPrintOutputValidator.validatePersona(
+                text,
+                context: .init(concreteSignals: ["mood"])
+            )
+
+            #expect(!outcome.isValid, "Expected banned phrase to be rejected: \(phrase)")
+        }
+    }
+
+    @Test func soundPrintOutputValidatorAcceptsCleanTwoSentencePersona() {
+        let text = "You tend to trust albums with a clear emotional temperature. When the songs feel padded, your patience drops quickly."
+        let outcome = SoundPrintOutputValidator.validatePersona(
+            text,
+            context: .init(concreteSignals: ["emotional temperature", "padded"])
+        )
+
+        #expect(outcome.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorRejectsOverLongPersona() {
+        let longSentence = Array(repeating: "word", count: 60).joined(separator: " ")
+        let text = "\(longSentence). Second sentence here."
+        let outcome = SoundPrintOutputValidator.validatePersona(
+            text,
+            context: .init(concreteSignals: ["word"])
+        )
+
+        #expect(!outcome.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorRejectsWrongSentenceCount() {
+        let oneSentence = SoundPrintOutputValidator.validatePersona(
+            "You tend to reward records with a clear emotional temperature and real replay value throughout.",
+            context: .init(concreteSignals: ["emotional temperature"])
+        )
+        let threeSentences = SoundPrintOutputValidator.validatePersona(
+            "You tend to reward emotional temperature. You lose patience with filler. Replay value matters most.",
+            context: .init(concreteSignals: ["emotional temperature"])
+        )
+
+        #expect(!oneSentence.isValid)
+        #expect(!threeSentences.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorRejectsYouAreOpener() {
+        let outcome = SoundPrintOutputValidator.validatePersona(
+            "You are an eclectic listener who rewards emotional temperature. Filler drops your patience fast.",
+            context: .init(concreteSignals: ["emotional temperature"])
+        )
+
+        #expect(!outcome.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorRejectsEmptyOutput() {
+        let outcome = SoundPrintOutputValidator.validatePersona(
+            "   ",
+            context: .init(concreteSignals: ["emotional temperature"])
+        )
+
+        #expect(!outcome.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorRejectsGenericFillerWithNoConcreteSignal() {
+        let outcome = SoundPrintOutputValidator.validatePersona(
+            "Your logs point toward records with real staying power. The pattern so far is fairly consistent overall.",
+            context: .init(concreteSignals: ["emotional temperature", "Blonde", "Frank Ocean"])
+        )
+
+        #expect(!outcome.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorRejectsOverconfidenceForLowLogCount() {
+        let outcome = SoundPrintOutputValidator.validatePersona(
+            "You are never satisfied unless emotional temperature runs high. Filler always drops your patience fast.",
+            context: .init(concreteSignals: ["emotional temperature"], logCount: 3)
+        )
+
+        #expect(!outcome.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorCompactSummaryRespectsLimits() {
+        let valid = SoundPrintOutputValidator.validateCompactSummary(
+            headline: "Emotional Temperature Over Everything",
+            summary: "You tend to reward emotional temperature and lose patience with filler-heavy tracklists.",
+            bullets: ["Rewards emotional temperature", "Loses patience with filler", "High replay value overall"]
+        )
+        let tooManyBullets = SoundPrintOutputValidator.validateCompactSummary(
+            headline: "Emotional Temperature Over Everything",
+            summary: "You tend to reward emotional temperature and lose patience with filler-heavy tracklists.",
+            bullets: ["One", "Two", "Three", "Four"]
+        )
+        let bannedHeadline = SoundPrintOutputValidator.validateCompactSummary(
+            headline: "Your Eclectic Sonic Journey",
+            summary: "You tend to reward emotional temperature and lose patience with filler-heavy tracklists.",
+            bullets: ["Rewards emotional temperature", "Loses patience with filler", "High replay value overall"]
+        )
+
+        #expect(valid.isValid)
+        #expect(!tooManyBullets.isValid)
+        #expect(!bannedHeadline.isValid)
+    }
+
     @MainActor
     private func makeInMemoryContainer() throws -> ModelContainer {
         let schema = Schema([
@@ -2029,6 +2134,7 @@ struct ListendTests {
             TasteDimension.self,
             TasteEvidence.self,
             SoundPrintPersona.self,
+            TasteAvoidanceSignal.self,
             Recommendation.self,
             RecommendationReceipt.self,
             RecommendationFeedback.self,

@@ -171,16 +171,29 @@ private extension FoundationModelsSoundPrintProvider {
 
 struct FoundationModelsSoundPrintValidator {
     static let allowedDimensions: [String: String] = [
-        "mood": "Mood",
-        "energy": "Energy",
-        "productionStyle": "Production Style",
-        "vocalFocus": "Vocal Focus",
-        "lyricFocus": "Lyric Focus",
-        "experimentation": "Experimentation",
-        "instrumentalRichness": "Instrumental Richness",
-        "genreOpenness": "Genre Openness",
-        "eraAffinity": "Era Affinity",
-        "replayability": "Replayability"
+        "mood": "Emotional Temperature",
+        "energy": "Energy Bias",
+        "productionStyle": "Production Taste",
+        "vocalFocus": "Vocal Gravity",
+        "lyricFocus": "Lyric Attention",
+        "experimentation": "Experimental Tolerance",
+        "instrumentalRichness": "Arrangement Depth",
+        "genreOpenness": "Genre Flex",
+        "eraAffinity": "Era Pull",
+        "replayability": "Replay Pull",
+        "tracklistConsistency": "Tracklist Patience",
+        "emotionalDirectness": "Emotional Directness",
+        "texturePreference": "Texture Bias"
+    ]
+
+    static let allowedAvoidanceCategories: [String: String] = [
+        "fillerSensitivity": "Filler Sensitivity",
+        "sterileProduction": "Sterile Production",
+        "weakWriting": "Weak Writing",
+        "lowReplayValue": "Low Replay Value",
+        "energyWithoutPayoff": "Energy Without Payoff",
+        "moodMismatch": "Mood Mismatch",
+        "skipHeavyAlbums": "Skip-Heavy Albums"
     ]
 
     static var allowedDimensionNames: [String] {

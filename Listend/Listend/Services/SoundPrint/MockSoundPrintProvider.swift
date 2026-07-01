@@ -259,16 +259,19 @@ struct MockSoundPrintProvider: SoundPrintProvider {
     ]
 
     private static let tasteRules: [TasteRule] = [
-        TasteRule(dimensionName: "mood", label: "Mood", keywords: ["dark", "sad", "moody", "melancholic"]),
-        TasteRule(dimensionName: "energy", label: "Energy", keywords: ["energetic", "intense", "aggressive"]),
-        TasteRule(dimensionName: "productionStyle", label: "Production Style", keywords: ["polished", "glossy", "clean", "raw", "rough", "lo-fi"]),
-        TasteRule(dimensionName: "vocalFocus", label: "Vocal Focus", keywords: ["vocals", "voice", "singer"]),
-        TasteRule(dimensionName: "lyricFocus", label: "Lyric Focus", keywords: ["lyrics", "writing", "storytelling"]),
-        TasteRule(dimensionName: "experimentation", label: "Experimentation", keywords: ["weird", "experimental", "unpredictable"]),
-        TasteRule(dimensionName: "instrumentalRichness", label: "Instrumental Richness", keywords: ["dense", "layered", "lush"]),
-        TasteRule(dimensionName: "genreOpenness", label: "Genre Openness", keywords: ["genre-bending", "fusion"]),
-        TasteRule(dimensionName: "eraAffinity", label: "Era Affinity", keywords: ["classic", "old-school", "90s", "2000s"]),
-        TasteRule(dimensionName: "replayability", label: "Replayability", keywords: ["replay", "repeat", "addictive"])
+        TasteRule(dimensionName: "mood", label: "Emotional Temperature", keywords: ["dark", "sad", "moody", "melancholic"]),
+        TasteRule(dimensionName: "energy", label: "Energy Bias", keywords: ["energetic", "intense", "aggressive"]),
+        TasteRule(dimensionName: "productionStyle", label: "Production Taste", keywords: ["polished", "glossy", "clean", "raw", "rough", "lo-fi"]),
+        TasteRule(dimensionName: "vocalFocus", label: "Vocal Gravity", keywords: ["vocals", "voice", "singer"]),
+        TasteRule(dimensionName: "lyricFocus", label: "Lyric Attention", keywords: ["lyrics", "writing", "storytelling"]),
+        TasteRule(dimensionName: "experimentation", label: "Experimental Tolerance", keywords: ["weird", "experimental", "unpredictable"]),
+        TasteRule(dimensionName: "instrumentalRichness", label: "Arrangement Depth", keywords: ["dense", "layered", "lush"]),
+        TasteRule(dimensionName: "genreOpenness", label: "Genre Flex", keywords: ["genre-bending", "fusion"]),
+        TasteRule(dimensionName: "eraAffinity", label: "Era Pull", keywords: ["classic", "old-school", "90s", "2000s"]),
+        TasteRule(dimensionName: "replayability", label: "Replay Pull", keywords: ["replay", "repeat", "addictive"]),
+        TasteRule(dimensionName: "tracklistConsistency", label: "Tracklist Patience", keywords: ["consistent", "cohesive", "no filler", "tight tracklist"]),
+        TasteRule(dimensionName: "emotionalDirectness", label: "Emotional Directness", keywords: ["raw emotion", "direct", "honest", "vulnerable"]),
+        TasteRule(dimensionName: "texturePreference", label: "Texture Bias", keywords: ["textured", "grainy", "atmospheric", "warm tone"])
     ]
 }
 
@@ -281,58 +284,5 @@ private struct TasteRule {
 private extension Double {
     func clamped(to range: ClosedRange<Double>) -> Double {
         min(max(self, range.lowerBound), range.upperBound)
-    }
-}
-
-private extension String {
-    var trimmedForSoundPrint: String {
-        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard trimmed.count > 96 else {
-            return trimmed
-        }
-
-        let endIndex = trimmed.index(trimmed.startIndex, offsetBy: 96)
-        return String(trimmed[..<endIndex]).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
-    }
-
-    var normalizedSoundPrintText: String {
-        folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
-            .lowercased()
-            .replacingOccurrences(of: "–", with: "-")
-            .replacingOccurrences(of: "—", with: "-")
-    }
-
-    var normalizedSoundPrintWords: [String] {
-        normalizedSoundPrintText
-            .components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-    }
-
-    func containsNormalizedSoundPrintPhrase(_ phrase: String) -> Bool {
-        let normalizedPhrase = phrase.normalizedSoundPrintText
-        return contains(normalizedPhrase)
-    }
-
-    var firstSoundPrintPhrase: String? {
-        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !trimmed.isEmpty else {
-            return nil
-        }
-
-        let separators = CharacterSet(charactersIn: ".!?")
-        let firstSentence = trimmed
-            .components(separatedBy: separators)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .first { !$0.isEmpty } ?? trimmed
-
-        guard firstSentence.count > 64 else {
-            return firstSentence
-        }
-
-        let endIndex = firstSentence.index(firstSentence.startIndex, offsetBy: 64)
-        return String(firstSentence[..<endIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

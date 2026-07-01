@@ -30,6 +30,7 @@ struct ListendApp: App {
             TasteDimension.self,
             TasteEvidence.self,
             SoundPrintPersona.self,
+            TasteAvoidanceSignal.self,
             Recommendation.self,
             RecommendationReceipt.self,
             RecommendationFeedback.self,

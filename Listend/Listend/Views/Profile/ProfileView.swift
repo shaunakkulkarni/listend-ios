@@ -44,7 +44,7 @@ struct ProfileView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("SoundPrint Profile")
                                 .font(.headline)
-                            Text("\(dimensions.count) taste dimensions from your logs")
+                            Text(soundPrintProfileSubtitle)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -55,7 +55,7 @@ struct ProfileView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Taste profile pending")
                             .font(.headline)
-                        Text("Log a few positive albums to start building your SoundPrint.")
+                        Text("Log an album to start building your SoundPrint.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -99,15 +99,19 @@ struct ProfileView: View {
     }
 
     private var canShowSoundPrintProfile: Bool {
-        positiveLogCount >= 2 && !dimensions.isEmpty
+        !logs.isEmpty
+    }
+
+    private var soundPrintProfileSubtitle: String {
+        guard !dimensions.isEmpty else {
+            return "Keep logging to build your taste profile."
+        }
+
+        return "\(dimensions.count) taste dimensions from your logs"
     }
 
     private var currentPersona: SoundPrintPersona? {
         personas.first
-    }
-
-    private var positiveLogCount: Int {
-        logs.filter(\.isPositiveSignal).count
     }
 }
 
@@ -120,17 +124,36 @@ private struct PersonaCard: View {
             Text("Persona")
                 .font(.headline)
 
-            if let persona, logCount >= 5 {
+            if let persona, logCount >= SoundPrintProfileThresholds.personaMinimumLogCount {
                 Text(persona.personaText)
                     .font(.system(.subheadline, design: .serif))
                     .foregroundStyle(.secondary)
+
+                if let headline = persona.headline {
+                    Text(headline)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
             } else {
-                Text("Log 5 albums to unlock your SoundPrint persona.")
+                Text(statusMessage)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private var statusMessage: String {
+        switch logCount {
+        case 0:
+            return "Log a few albums and SoundPrint will start noticing patterns."
+        case 1..<3:
+            return "A couple more logs and real patterns will start to show."
+        case 3..<SoundPrintProfileThresholds.personaMinimumLogCount:
+            return "Early signals are forming — a few more logs unlocks your persona."
+        default:
+            return "Log \(SoundPrintProfileThresholds.personaMinimumLogCount) albums to unlock your SoundPrint persona."
+        }
     }
 }
 

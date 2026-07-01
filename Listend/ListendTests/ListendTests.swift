@@ -141,15 +141,20 @@ struct ListendTests {
 
         do {
             _ = try FoundationModelsSoundPrintValidator.validatedTasteExtraction(
-                payloadSignals: [
-                    FoundationModelsTasteSignalPayload(
-                        dimensionName: "inventedDimension",
-                        summary: "Invented.",
-                        weight: 0.8,
-                        confidence: 0.8,
-                        evidenceSnippet: "Invented evidence."
-                    )
-                ],
+                payload: TasteExtractionPayload(
+                    sentiment: TasteExtractionPayload.Sentiment(score: 0.8, confidence: 0.8),
+                    positiveSignals: [
+                        FoundationModelsPositiveSignalPayload(
+                            dimensionKey: "inventedDimension",
+                            label: "Invented",
+                            summary: "Invented.",
+                            strength: 0.8,
+                            confidence: 0.8,
+                            evidenceSnippet: "Invented evidence."
+                        )
+                    ],
+                    avoidanceSignals: []
+                ),
                 input: input
             )
             Issue.record("Unknown dimensions should be rejected.")
@@ -160,19 +165,86 @@ struct ListendTests {
 
     @Test func foundationModelsTasteValidationCreatesNoPositiveEvidenceFromNegativeSentiment() throws {
         let result = try FoundationModelsSoundPrintValidator.validatedTasteExtraction(
-            payloadSignals: [
-                FoundationModelsTasteSignalPayload(
-                    dimensionName: "energy",
-                    summary: "Energetic.",
-                    weight: 0.8,
-                    confidence: 0.8,
-                    evidenceSnippet: "Intense momentum."
-                )
-            ],
+            payload: TasteExtractionPayload(
+                sentiment: TasteExtractionPayload.Sentiment(score: -0.4, confidence: 0.8),
+                positiveSignals: [
+                    FoundationModelsPositiveSignalPayload(
+                        dimensionKey: "energy",
+                        label: "Energy Bias",
+                        summary: "Energetic.",
+                        strength: 0.8,
+                        confidence: 0.8,
+                        evidenceSnippet: "Intense momentum."
+                    )
+                ],
+                avoidanceSignals: []
+            ),
             input: tasteExtractionInput(sentimentScore: -0.4)
         )
 
         #expect(result.signals.isEmpty)
+    }
+
+    @Test func foundationModelsTasteValidationRejectsUnknownAvoidanceCategory() throws {
+        let input = tasteExtractionInput(sentimentScore: 0.8)
+
+        do {
+            _ = try FoundationModelsSoundPrintValidator.validatedTasteExtraction(
+                payload: TasteExtractionPayload(
+                    sentiment: TasteExtractionPayload.Sentiment(score: 0.8, confidence: 0.8),
+                    positiveSignals: [],
+                    avoidanceSignals: [
+                        FoundationModelsAvoidanceSignalPayload(
+                            signalKey: "inventedAvoidance",
+                            label: "Invented",
+                            summary: "Invented.",
+                            strength: 0.6,
+                            confidence: 0.6,
+                            evidenceSnippet: "Invented evidence."
+                        )
+                    ]
+                ),
+                input: input
+            )
+            Issue.record("Unknown avoidance categories should be rejected.")
+        } catch let error as FoundationModelsSoundPrintProviderError {
+            #expect(error == .validationFailed)
+        }
+    }
+
+    @Test func foundationModelsTasteValidationCapsPositiveAndAvoidanceSignalCounts() throws {
+        let positiveSignals = FoundationModelsSoundPrintValidator.allowedDimensionNames.prefix(6).map { key in
+            FoundationModelsPositiveSignalPayload(
+                dimensionKey: key,
+                label: key,
+                summary: "Summary.",
+                strength: 0.6,
+                confidence: 0.6,
+                evidenceSnippet: "Evidence."
+            )
+        }
+        let avoidanceSignals = FoundationModelsSoundPrintValidator.allowedAvoidanceCategoryNames.map { key in
+            FoundationModelsAvoidanceSignalPayload(
+                signalKey: key,
+                label: key,
+                summary: "Summary.",
+                strength: 0.5,
+                confidence: 0.5,
+                evidenceSnippet: "Evidence."
+            )
+        }
+
+        let result = try FoundationModelsSoundPrintValidator.validatedTasteExtraction(
+            payload: TasteExtractionPayload(
+                sentiment: TasteExtractionPayload.Sentiment(score: 0.8, confidence: 0.8),
+                positiveSignals: Array(positiveSignals),
+                avoidanceSignals: avoidanceSignals
+            ),
+            input: tasteExtractionInput(sentimentScore: 0.8)
+        )
+
+        #expect(result.signals.count == 4)
+        #expect(result.avoidanceSignals.count == 3)
     }
 
     @Test func foundationModelsPersonaValidationUsesExistingQualityGuard() throws {
@@ -622,6 +694,195 @@ struct ListendTests {
         #expect(dimensions.contains("genreOpenness"))
     }
 
+    @Test func favoriteTracksContributePositiveReplayabilityEvidence() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let result = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 4.5,
+                reviewText: "",
+                tags: [],
+                sentimentScore: 0.7,
+                favoriteTracks: ["Track One", "Track Two"]
+            )
+        )
+
+        let replayability = try #require(result.signals.first { $0.dimensionName == "replayability" })
+        #expect(replayability.evidenceSnippet.contains("Track One"))
+    }
+
+    @Test func standoutMomentProducesHighConfidencePositiveEvidence() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let withoutStandout = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 4.5,
+                reviewText: "Polished production throughout.",
+                tags: [],
+                sentimentScore: 0.7
+            )
+        )
+        let withStandout = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 4.5,
+                reviewText: "Polished production throughout.",
+                tags: [],
+                sentimentScore: 0.7,
+                standoutMoment: "The polished bridge section really lands."
+            )
+        )
+
+        let baseConfidence = try #require(withoutStandout.signals.first { $0.dimensionName == "productionStyle" }?.confidence)
+        let boostedConfidence = try #require(withStandout.signals.first { $0.dimensionName == "productionStyle" }?.confidence)
+
+        #expect(boostedConfidence > baseConfidence)
+    }
+
+    @Test func twoOrMoreSkipTracksTriggerSkipHeavyAvoidance() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let result = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 3.5,
+                reviewText: "",
+                tags: [],
+                sentimentScore: 0.2,
+                skipTracks: ["Track Three", "Track Four"]
+            )
+        )
+
+        let skipHeavy = try #require(result.avoidanceSignals.first { $0.signalName == "skipHeavyAlbums" })
+        #expect(skipHeavy.evidenceSnippet.contains("Track Three"))
+    }
+
+    @Test func negativeReviewLanguageAloneTriggersSkipHeavyAvoidance() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let result = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 3.0,
+                reviewText: "Feels bloated and inconsistent in the middle.",
+                tags: [],
+                sentimentScore: 0.1
+            )
+        )
+
+        #expect(result.avoidanceSignals.contains { $0.signalName == "skipHeavyAlbums" })
+    }
+
+    @Test func skipCountAndKeywordAgreementIncreasesAvoidanceConfidenceVsEitherAlone() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let countOnly = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 3.0,
+                reviewText: "",
+                tags: [],
+                sentimentScore: 0.1,
+                skipTracks: ["A", "B", "C"]
+            )
+        )
+        let agreement = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 3.0,
+                reviewText: "Feels bloated in the back half.",
+                tags: [],
+                sentimentScore: 0.1,
+                skipTracks: ["A", "B", "C"]
+            )
+        )
+
+        let countOnlyStrength = try #require(countOnly.avoidanceSignals.first { $0.signalName == "skipHeavyAlbums" }?.strength)
+        let agreementStrength = try #require(agreement.avoidanceSignals.first { $0.signalName == "skipHeavyAlbums" }?.strength)
+
+        #expect(agreementStrength > countOnlyStrength)
+    }
+
+    @Test func highRatingWithSkipTracksProducesModestAvoidanceAlongsidePositiveDimensions() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let result = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 4.5,
+                reviewText: "Polished and energetic throughout.",
+                tags: [],
+                sentimentScore: 0.8,
+                skipTracks: ["Track Three", "Track Four"]
+            )
+        )
+
+        let skipHeavy = try #require(result.avoidanceSignals.first { $0.signalName == "skipHeavyAlbums" })
+
+        #expect(!result.signals.isEmpty)
+        #expect(skipHeavy.strength <= 0.4)
+    }
+
+    @Test func lowRatingWithOneFavoriteTrackDoesNotBecomeBroadPositiveClaim() async throws {
+        let provider = MockSoundPrintProvider()
+
+        // An explicit (mildly positive) sentimentScore override is used here so the log clears
+        // the overall positive-signal gate despite the low star rating, letting us exercise the
+        // conflict-dampening logic itself rather than the earlier "negative sentiment" cutoff.
+        let result = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 2.5,
+                reviewText: "",
+                tags: [],
+                sentimentScore: 0.15,
+                favoriteTracks: ["Track One"]
+            )
+        )
+
+        let replayability = try #require(result.signals.first { $0.dimensionName == "replayability" })
+        #expect(replayability.weight <= 0.3)
+        #expect(replayability.confidence <= 0.35)
+    }
+
     @MainActor
     @Test func soundPrintProfileRebuildPersistsPositiveEvidenceAndRemovesStaleData() async throws {
         let container = try makeInMemoryContainer()
@@ -739,13 +1000,68 @@ struct ListendTests {
         #expect(!normalizedText.contains("wide range of genres"))
     }
 
+    @Test func personaGenerationRespectsSentenceAndWordLimits() async throws {
+        let provider = MockSoundPrintProvider()
+        let result = try await provider.generatePersona(input: personaInput())
+
+        #expect(result.text.soundPrintSentences.count == 2)
+        #expect(result.text.normalizedSoundPrintWords.count <= SoundPrintOutputValidator.maxPersonaWordCount)
+        #expect(!result.text.normalizedSoundPrintText.hasPrefix("you are"))
+    }
+
+    @Test func personaGenerationPrioritizesAvoidanceSignalOverAlbumMention() async throws {
+        let provider = MockSoundPrintProvider()
+        var input = personaInput()
+        input = PersonaInput(
+            dimensions: input.dimensions,
+            recentLogs: input.recentLogs,
+            totalLogCount: input.totalLogCount,
+            topTags: input.topTags,
+            averageRating: input.averageRating,
+            avoidanceSignals: ["Skip-Heavy Albums"]
+        )
+
+        let result = try await provider.generatePersona(input: input)
+
+        #expect(result.text.lowercased().contains("skip-heavy albums") || result.text.lowercased().contains("skip heavy albums"))
+    }
+
+    @Test func personaGenerationUsesFavoriteTrackWhenPresent() async throws {
+        let provider = MockSoundPrintProvider()
+        let baseInput = personaInput()
+        let logsWithFavorite = baseInput.recentLogs.map { log in
+            log.albumTitle == "Blonde"
+                ? PersonaLogInput(
+                    albumTitle: log.albumTitle,
+                    artistName: log.artistName,
+                    rating: log.rating,
+                    reviewSnippet: log.reviewSnippet,
+                    tags: log.tags,
+                    isPositiveSignal: log.isPositiveSignal,
+                    favoriteTracks: ["Nights"]
+                )
+                : log
+        }
+        let input = PersonaInput(
+            dimensions: baseInput.dimensions,
+            recentLogs: logsWithFavorite,
+            totalLogCount: baseInput.totalLogCount,
+            topTags: baseInput.topTags,
+            averageRating: baseInput.averageRating
+        )
+
+        let result = try await provider.generatePersona(input: input)
+
+        #expect(result.text.contains("Nights"))
+    }
+
     @Test func personaQualityFilterRejectsVagueOrGenericText() {
         let concreteSignals = ["Vocal Focus", "Blonde", "vocals"]
 
-        #expect(!MockSoundPrintProvider.isValidPersona("", concreteSignals: concreteSignals))
-        #expect(!MockSoundPrintProvider.isValidPersona("Too short.", concreteSignals: concreteSignals))
-        #expect(!MockSoundPrintProvider.isValidPersona("You have eclectic taste and a wide range of genres, especially around Vocal Focus and Blonde.", concreteSignals: concreteSignals))
-        #expect(!MockSoundPrintProvider.isValidPersona("Across five logs, the profile is long enough to seem substantial, but it carefully avoids naming any actual signal from the input data.", concreteSignals: concreteSignals))
+        #expect(!SoundPrintOutputValidator.isPersonaValid("", concreteSignals: concreteSignals))
+        #expect(!SoundPrintOutputValidator.isPersonaValid("Too short.", concreteSignals: concreteSignals))
+        #expect(!SoundPrintOutputValidator.isPersonaValid("You have eclectic taste and a wide range of genres, especially around Vocal Focus and Blonde.", concreteSignals: concreteSignals))
+        #expect(!SoundPrintOutputValidator.isPersonaValid("Across five logs, the profile is long enough to seem substantial, but it carefully avoids naming any actual signal from the input data.", concreteSignals: concreteSignals))
     }
 
     @Test func personaGenerationFallsBackToSpecificSparseInput() async throws {
@@ -771,6 +1087,50 @@ struct ListendTests {
 
         #expect(result.text.count >= 80)
         #expect(result.text.lowercased().contains("titanic rising"))
+    }
+
+    @Test func compactSummaryRespectsHeadlineSummaryBulletLimits() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let result = try await provider.generateCompactSummary(
+            input: CompactSummaryInput(
+                dimensions: [
+                    TasteDimension(name: "mood", label: "Emotional Temperature", weight: 0.8, confidence: 0.7, summary: "s"),
+                    TasteDimension(name: "replayability", label: "Replay Pull", weight: 0.6, confidence: 0.6, summary: "s")
+                ],
+                avoidanceSignals: [
+                    TasteAvoidanceSignal(name: "skipHeavyAlbums", label: "Skip-Heavy Albums", summary: "s", strength: 0.5, confidence: 0.5)
+                ]
+            )
+        )
+
+        let outcome = SoundPrintOutputValidator.validateCompactSummary(
+            headline: result.headline,
+            summary: result.summary,
+            bullets: result.bullets
+        )
+
+        #expect(outcome.isValid)
+        #expect(result.bullets.count == 3)
+        #expect(result.headline.normalizedSoundPrintWords.count <= SoundPrintOutputValidator.maxHeadlineWordCount)
+        #expect(result.summary.normalizedSoundPrintWords.count <= SoundPrintOutputValidator.maxSummaryWordCount)
+    }
+
+    @Test func compactSummaryUsesModestOutputWithThinEvidence() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let result = try await provider.generateCompactSummary(
+            input: CompactSummaryInput(dimensions: [], avoidanceSignals: [])
+        )
+
+        let outcome = SoundPrintOutputValidator.validateCompactSummary(
+            headline: result.headline,
+            summary: result.summary,
+            bullets: result.bullets
+        )
+
+        #expect(outcome.isValid)
+        #expect(result.bullets.count == 3)
     }
 
     @MainActor
@@ -831,6 +1191,130 @@ struct ListendTests {
         let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
 
         #expect(personas.isEmpty)
+    }
+
+    @MainActor
+    @Test func soundPrintProfileRebuildPersistsAvoidanceSignalsFromNegativeAndSkipHeavyLogs() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+
+        let album = Album(title: "Skip Heavy Album", artistName: "Some Artist")
+        let log = LogEntry(
+            album: album,
+            rating: 3.0,
+            reviewText: "Feels bloated in the back half.",
+            skipTracks: ["Track A", "Track B"],
+            sentimentScore: 0.1
+        )
+
+        modelContext.insert(album)
+        modelContext.insert(log)
+        try modelContext.save()
+
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+
+        let avoidanceSignals = try modelContext.fetch(FetchDescriptor<TasteAvoidanceSignal>())
+        let skipHeavy = try #require(avoidanceSignals.first { $0.name == "skipHeavyAlbums" })
+
+        #expect(skipHeavy.evidenceLogEntryIDs.contains(log.id))
+    }
+
+    @MainActor
+    @Test func soundPrintProfileRebuildReplacesAvoidanceSignalsOnlyAfterSuccessAndRemovesStaleOnes() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+
+        let album = Album(title: "Bloated Album", artistName: "Some Artist")
+        let log = LogEntry(
+            album: album,
+            rating: 3.0,
+            reviewText: "Feels bloated and inconsistent.",
+            sentimentScore: 0.1
+        )
+
+        modelContext.insert(album)
+        modelContext.insert(log)
+        try modelContext.save()
+
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+
+        var avoidanceSignals = try modelContext.fetch(FetchDescriptor<TasteAvoidanceSignal>())
+        #expect(!avoidanceSignals.isEmpty)
+
+        modelContext.delete(log)
+        try modelContext.save()
+
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+
+        avoidanceSignals = try modelContext.fetch(FetchDescriptor<TasteAvoidanceSignal>())
+        #expect(avoidanceSignals.isEmpty)
+    }
+
+    @MainActor
+    @Test func soundPrintProfileRebuildPreservesAvoidanceSignalsOnExtractionFailure() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+
+        let album = Album(title: "Existing Album", artistName: "Some Artist")
+        let log = LogEntry(album: album, rating: 3.0, reviewText: "Feels bloated.", sentimentScore: 0.1)
+        let existingAvoidance = TasteAvoidanceSignal(
+            name: "fillerSensitivity",
+            label: "Filler Sensitivity",
+            summary: "Existing avoidance.",
+            strength: 0.6,
+            confidence: 0.6
+        )
+
+        modelContext.insert(album)
+        modelContext.insert(log)
+        modelContext.insert(existingAvoidance)
+        try modelContext.save()
+
+        do {
+            try await SoundPrintProfileBuilder(provider: ThrowingSoundPrintProvider(failingOperation: .tasteExtraction)).rebuildProfile(in: modelContext)
+            Issue.record("Profile rebuild should throw when extraction fails.")
+        } catch {
+            let avoidanceSignals = try modelContext.fetch(FetchDescriptor<TasteAvoidanceSignal>())
+            #expect(avoidanceSignals.count == 1)
+            #expect(avoidanceSignals[0].summary == "Existing avoidance.")
+        }
+    }
+
+    @MainActor
+    @Test func soundPrintProfileRebuildGeneratesCompactSummaryAlongsidePersona() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+
+        insertPersonaReadyLogs(in: modelContext, count: 5)
+        try modelContext.save()
+
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+
+        let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
+        let persona = try #require(personas.first)
+
+        #expect(persona.headline != nil)
+        #expect(persona.summaryText != nil)
+        #expect(persona.bullets.count == 3)
+    }
+
+    @MainActor
+    @Test func compactSummaryFailureDoesNotRollBackAnAlreadyPersistedPersona() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+
+        insertPersonaReadyLogs(in: modelContext, count: 5)
+        try modelContext.save()
+
+        try await SoundPrintProfileBuilder(
+            provider: ThrowingSoundPrintProvider(failingOperation: .compactSummary)
+        ).rebuildProfile(in: modelContext)
+
+        let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
+        let persona = try #require(personas.first)
+
+        #expect(!persona.personaText.isEmpty)
+        #expect(persona.headline == nil)
     }
 
     @MainActor
@@ -2021,6 +2505,111 @@ struct ListendTests {
         #expect(receipts.first?.snippet.contains("Blonde") == true)
     }
 
+    @Test func soundPrintOutputValidatorRejectsEachBannedPhrase() {
+        for phrase in SoundPrintOutputValidator.bannedPhrases {
+            let text = "You seem drawn to \(phrase) whenever the mood strikes. This is the second sentence."
+            let outcome = SoundPrintOutputValidator.validatePersona(
+                text,
+                context: .init(concreteSignals: ["mood"])
+            )
+
+            #expect(!outcome.isValid, "Expected banned phrase to be rejected: \(phrase)")
+        }
+    }
+
+    @Test func soundPrintOutputValidatorAcceptsCleanTwoSentencePersona() {
+        let text = "You tend to trust albums with a clear emotional temperature. When the songs feel padded, your patience drops quickly."
+        let outcome = SoundPrintOutputValidator.validatePersona(
+            text,
+            context: .init(concreteSignals: ["emotional temperature", "padded"])
+        )
+
+        #expect(outcome.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorRejectsOverLongPersona() {
+        let longSentence = Array(repeating: "word", count: 60).joined(separator: " ")
+        let text = "\(longSentence). Second sentence here."
+        let outcome = SoundPrintOutputValidator.validatePersona(
+            text,
+            context: .init(concreteSignals: ["word"])
+        )
+
+        #expect(!outcome.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorRejectsWrongSentenceCount() {
+        let oneSentence = SoundPrintOutputValidator.validatePersona(
+            "You tend to reward records with a clear emotional temperature and real replay value throughout.",
+            context: .init(concreteSignals: ["emotional temperature"])
+        )
+        let threeSentences = SoundPrintOutputValidator.validatePersona(
+            "You tend to reward emotional temperature. You lose patience with filler. Replay value matters most.",
+            context: .init(concreteSignals: ["emotional temperature"])
+        )
+
+        #expect(!oneSentence.isValid)
+        #expect(!threeSentences.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorRejectsYouAreOpener() {
+        let outcome = SoundPrintOutputValidator.validatePersona(
+            "You are an eclectic listener who rewards emotional temperature. Filler drops your patience fast.",
+            context: .init(concreteSignals: ["emotional temperature"])
+        )
+
+        #expect(!outcome.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorRejectsEmptyOutput() {
+        let outcome = SoundPrintOutputValidator.validatePersona(
+            "   ",
+            context: .init(concreteSignals: ["emotional temperature"])
+        )
+
+        #expect(!outcome.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorRejectsGenericFillerWithNoConcreteSignal() {
+        let outcome = SoundPrintOutputValidator.validatePersona(
+            "Your logs point toward records with real staying power. The pattern so far is fairly consistent overall.",
+            context: .init(concreteSignals: ["emotional temperature", "Blonde", "Frank Ocean"])
+        )
+
+        #expect(!outcome.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorRejectsOverconfidenceForLowLogCount() {
+        let outcome = SoundPrintOutputValidator.validatePersona(
+            "You are never satisfied unless emotional temperature runs high. Filler always drops your patience fast.",
+            context: .init(concreteSignals: ["emotional temperature"], logCount: 3)
+        )
+
+        #expect(!outcome.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorCompactSummaryRespectsLimits() {
+        let valid = SoundPrintOutputValidator.validateCompactSummary(
+            headline: "Emotional Temperature Over Everything",
+            summary: "You tend to reward emotional temperature and lose patience with filler-heavy tracklists.",
+            bullets: ["Rewards emotional temperature", "Loses patience with filler", "High replay value overall"]
+        )
+        let tooManyBullets = SoundPrintOutputValidator.validateCompactSummary(
+            headline: "Emotional Temperature Over Everything",
+            summary: "You tend to reward emotional temperature and lose patience with filler-heavy tracklists.",
+            bullets: ["One", "Two", "Three", "Four"]
+        )
+        let bannedHeadline = SoundPrintOutputValidator.validateCompactSummary(
+            headline: "Your Eclectic Sonic Journey",
+            summary: "You tend to reward emotional temperature and lose patience with filler-heavy tracklists.",
+            bullets: ["Rewards emotional temperature", "Loses patience with filler", "High replay value overall"]
+        )
+
+        #expect(valid.isValid)
+        #expect(!tooManyBullets.isValid)
+        #expect(!bannedHeadline.isValid)
+    }
+
     @MainActor
     private func makeInMemoryContainer() throws -> ModelContainer {
         let schema = Schema([
@@ -2029,6 +2618,7 @@ struct ListendTests {
             TasteDimension.self,
             TasteEvidence.self,
             SoundPrintPersona.self,
+            TasteAvoidanceSignal.self,
             Recommendation.self,
             RecommendationReceipt.self,
             RecommendationFeedback.self,
@@ -2144,6 +2734,7 @@ private enum ThrowingSoundPrintOperation {
     case sentiment
     case tasteExtraction
     case persona
+    case compactSummary
 }
 
 private enum ThrowingSoundPrintError: Error {
@@ -2309,6 +2900,14 @@ private struct ThrowingSoundPrintProvider: SoundPrintProvider {
 
         return try await MockSoundPrintProvider().generatePersona(input: input)
     }
+
+    func generateCompactSummary(input: CompactSummaryInput) async throws -> CompactSummaryResult {
+        if failingOperation == .compactSummary {
+            throw ThrowingSoundPrintError.failed
+        }
+
+        return try await MockSoundPrintProvider().generateCompactSummary(input: input)
+    }
 }
 
 private struct SuccessfulSoundPrintProvider: SoundPrintProvider {
@@ -2328,12 +2927,30 @@ private struct SuccessfulSoundPrintProvider: SoundPrintProvider {
                     evidenceSnippet: "Primary evidence.",
                     isPositiveEvidence: true
                 )
+            ],
+            avoidanceSignals: [
+                AvoidanceSignal(
+                    signalName: "skipHeavyAlbums",
+                    label: "Skip-Heavy Albums",
+                    summary: "Primary avoidance signal.",
+                    strength: 0.6,
+                    confidence: 0.7,
+                    evidenceSnippet: "Primary avoidance evidence."
+                )
             ]
         )
     }
 
     func generatePersona(input: PersonaInput) async throws -> PersonaResult {
         PersonaResult(text: "Across five logs, Blonde by Frank Ocean anchors a vocal focus profile with enough concrete detail to pass the existing quality guard.")
+    }
+
+    func generateCompactSummary(input: CompactSummaryInput) async throws -> CompactSummaryResult {
+        CompactSummaryResult(
+            headline: "Vocal Focus Leads",
+            summary: "You tend to reward vocal focus and lose patience with filler.",
+            bullets: ["Rewards vocal focus", "Loses patience with filler", "High replay value"]
+        )
     }
 }
 
@@ -2347,6 +2964,10 @@ private struct CancellingSoundPrintProvider: SoundPrintProvider {
     }
 
     func generatePersona(input: PersonaInput) async throws -> PersonaResult {
+        throw CancellationError()
+    }
+
+    func generateCompactSummary(input: CompactSummaryInput) async throws -> CompactSummaryResult {
         throw CancellationError()
     }
 }

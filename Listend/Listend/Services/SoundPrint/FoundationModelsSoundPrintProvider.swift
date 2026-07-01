@@ -51,37 +51,24 @@ struct FoundationModelsSoundPrintProvider: SoundPrintProvider {
     func extractTasteSignals(input: TasteExtractionInput) async throws -> TasteExtractionResult {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, macOS 26.0, *) {
-            let allowedDimensionNames = FoundationModelsSoundPrintValidator.allowedDimensionNames.joined(separator: ", ")
-            let genreName = input.genreName ?? ""
-            let releaseYear = input.releaseYear.map { String($0) } ?? ""
-            let sentimentScore = input.sentimentScore.map { String($0) } ?? ""
-            let tags = input.tags.joined(separator: ", ")
-            let prompt = """
-            Extract positive taste signals from this album log.
-            Allowed dimensionName values: \(allowedDimensionNames)
-            JSON schema: {"signals":[{"dimensionName": String, "summary": String, "weight": Double 0.0-1.0, "confidence": Double 0.0-1.0, "evidenceSnippet": String}]}
-            If sentiment is negative, return {"signals":[]}.
-            Album: \(input.albumTitle)
-            Artist: \(input.artistName)
-            Genre: \(genreName)
-            Release year: \(releaseYear)
-            Rating: \(input.rating)
-            Sentiment score: \(sentimentScore)
-            Review: \(input.reviewText)
-            Tags: \(tags)
-            """
             let content = try await Self.generatedContent(
-                instructions: """
-                You extract concrete taste signals from album logs for Listend. Return only compact JSON.
-                Only use allowed dimensionName values exactly as given. Do not invent dimensions.
-                """,
-                prompt: prompt
+                instructions: SoundPrintPromptTemplates.tasteExtractionInstructions(),
+                prompt: SoundPrintPromptTemplates.tasteExtractionPrompt(
+                    albumTitle: input.albumTitle,
+                    artistName: input.artistName,
+                    releaseYear: input.releaseYear,
+                    genreName: input.genreName,
+                    rating: input.rating,
+                    reviewText: input.reviewText,
+                    tags: input.tags,
+                    favoriteTracks: input.favoriteTracks,
+                    skipTracks: input.skipTracks,
+                    standoutMoment: input.standoutMoment,
+                    existingDimensions: input.existingDimensions
+                )
             )
-            let payload = try Self.decodedJSON(TastePayload.self, from: content)
-            return try FoundationModelsSoundPrintValidator.validatedTasteExtraction(
-                payloadSignals: payload.signals,
-                input: input
-            )
+            let payload = try Self.decodedJSON(TasteExtractionPayload.self, from: content)
+            return try FoundationModelsSoundPrintValidator.validatedTasteExtraction(payload: payload, input: input)
         }
         #endif
 
@@ -91,39 +78,38 @@ struct FoundationModelsSoundPrintProvider: SoundPrintProvider {
     func generatePersona(input: PersonaInput) async throws -> PersonaResult {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, macOS 26.0, *) {
-            let averageRating = input.averageRating.map { String($0) } ?? ""
-            let dimensions = input.dimensions
-                .map { dimension in "\(dimension.label)=\(dimension.weight)" }
-                .joined(separator: "; ")
-            let topTags = input.topTags.joined(separator: ", ")
-            let recentLogs = input.recentLogs
-                .map { log in
-                    let tags = log.tags.joined(separator: "/")
-                    return "\(log.albumTitle) by \(log.artistName), rating \(log.rating), tags \(tags), note \(log.reviewSnippet)"
-                }
-                .joined(separator: " | ")
-            let prompt = """
-            Write a listener persona.
-            JSON schema: {"text": String}
-            Requirements: 80-360 characters; specific; no generic phrases like eclectic taste or wide range of genres.
-            Total logs: \(input.totalLogCount)
-            Average rating: \(averageRating)
-            Dimensions: \(dimensions)
-            Top tags: \(topTags)
-            Recent logs: \(recentLogs)
-            """
+            return try await Self.generatePersonaViaFoundationModels(input: input)
+        }
+        #endif
+
+        throw FoundationModelsSoundPrintProviderError.unavailable
+    }
+
+    func generateCompactSummary(input: CompactSummaryInput) async throws -> CompactSummaryResult {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, macOS 26.0, *) {
+            let topTasteDimensions = input.dimensions.sorted { $0.weight > $1.weight }.map(\.label)
+            let avoidanceLabels = input.avoidanceSignals.sorted { $0.strength > $1.strength }.map(\.label)
             let content = try await Self.generatedContent(
-                instructions: """
-                You write concise, specific music taste persona text for Listend. Return only compact JSON.
-                Ground every claim in the provided dimensions, tags, albums, artists, or review snippets.
-                """,
-                prompt: prompt
+                instructions: SoundPrintPromptTemplates.compactSummaryInstructions(),
+                prompt: SoundPrintPromptTemplates.compactSummaryPrompt(
+                    topTasteDimensions: topTasteDimensions,
+                    avoidanceSignals: avoidanceLabels,
+                    recentChanges: input.recentChanges
+                )
             )
-            let payload = try Self.decodedJSON(PersonaPayload.self, from: content)
-            return try FoundationModelsSoundPrintValidator.validatedPersona(
-                text: payload.text,
-                input: input
+            let payload = try Self.decodedJSON(CompactSummaryPayload.self, from: content)
+            let outcome = SoundPrintOutputValidator.validateCompactSummary(
+                headline: payload.headline,
+                summary: payload.summary,
+                bullets: payload.bullets
             )
+
+            guard outcome.isValid else {
+                throw FoundationModelsSoundPrintProviderError.validationFailed
+            }
+
+            return CompactSummaryResult(headline: payload.headline, summary: payload.summary, bullets: payload.bullets)
         }
         #endif
 
@@ -152,6 +138,74 @@ private extension FoundationModelsSoundPrintProvider {
 
         return content
     }
+
+    /// Orchestrates persona generation: draft via FM, gate through the always-on local
+    /// validator, then optionally ask the critic prompt for a second opinion. The critic pass
+    /// is best-effort — if it errors, times out, or produces an unusable rewrite, the pipeline
+    /// still resolves to a valid persona (the already-valid draft, or the deterministic
+    /// Mock fallback) rather than surfacing an error.
+    static func generatePersonaViaFoundationModels(input: PersonaInput) async throws -> PersonaResult {
+        let concreteSignals = FoundationModelsSoundPrintValidator.concreteSignals(from: input) + input.avoidanceSignals
+        let context = SoundPrintOutputValidator.PersonaValidationContext(
+            concreteSignals: concreteSignals,
+            logCount: input.totalLogCount
+        )
+
+        let draftText = try await requestPersonaText(input: input)
+
+        guard SoundPrintOutputValidator.validatePersona(draftText, context: context).isValid else {
+            return MockSoundPrintProvider.generatePersona(input: input)
+        }
+
+        guard let critique = await critiquePersona(draftText, input: input) else {
+            return PersonaResult(text: draftText)
+        }
+
+        if critique.passes {
+            return PersonaResult(text: draftText)
+        }
+
+        if let rewrite = critique.suggestedRewrite?.trimmingCharacters(in: .whitespacesAndNewlines), !rewrite.isEmpty,
+           SoundPrintOutputValidator.validatePersona(rewrite, context: context).isValid {
+            return PersonaResult(text: rewrite)
+        }
+
+        return MockSoundPrintProvider.generatePersona(input: input)
+    }
+
+    static func requestPersonaText(input: PersonaInput) async throws -> String {
+        let content = try await generatedContent(
+            instructions: SoundPrintPromptTemplates.personaInstructions(),
+            prompt: SoundPrintPromptTemplates.personaPrompt(
+                totalLogCount: input.totalLogCount,
+                averageRating: input.averageRating,
+                topTasteDimensions: input.dimensions.map(\.label),
+                avoidanceSignals: input.avoidanceSignals,
+                recentLogSummary: input.recentLogs
+                    .map { "\($0.albumTitle) by \($0.artistName), rating \($0.rating)" }
+                    .joined(separator: " | "),
+                evidenceSnippets: input.recentLogs.map(\.reviewSnippet).filter { !$0.isEmpty }
+            )
+        )
+        let payload = try decodedJSON(PersonaPayload.self, from: content)
+        return payload.personaText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Returns nil (rather than throwing) on any failure so a broken/unavailable critic pass
+    /// never blocks the persona update — it's a refinement layer on top of the mandatory local
+    /// validator, not a required pipeline stage.
+    static func critiquePersona(_ personaText: String, input: PersonaInput) async -> CriticPayload? {
+        do {
+            let evidenceSnippets = input.recentLogs.map(\.reviewSnippet).filter { !$0.isEmpty }
+            let content = try await generatedContent(
+                instructions: SoundPrintPromptTemplates.criticInstructions(),
+                prompt: SoundPrintPromptTemplates.criticPrompt(personaText: personaText, evidenceSnippets: evidenceSnippets)
+            )
+            return try decodedJSON(CriticPayload.self, from: content)
+        } catch {
+            return nil
+        }
+    }
 }
 #endif
 
@@ -171,20 +225,37 @@ private extension FoundationModelsSoundPrintProvider {
 
 struct FoundationModelsSoundPrintValidator {
     static let allowedDimensions: [String: String] = [
-        "mood": "Mood",
-        "energy": "Energy",
-        "productionStyle": "Production Style",
-        "vocalFocus": "Vocal Focus",
-        "lyricFocus": "Lyric Focus",
-        "experimentation": "Experimentation",
-        "instrumentalRichness": "Instrumental Richness",
-        "genreOpenness": "Genre Openness",
-        "eraAffinity": "Era Affinity",
-        "replayability": "Replayability"
+        "mood": "Emotional Temperature",
+        "energy": "Energy Bias",
+        "productionStyle": "Production Taste",
+        "vocalFocus": "Vocal Gravity",
+        "lyricFocus": "Lyric Attention",
+        "experimentation": "Experimental Tolerance",
+        "instrumentalRichness": "Arrangement Depth",
+        "genreOpenness": "Genre Flex",
+        "eraAffinity": "Era Pull",
+        "replayability": "Replay Pull",
+        "tracklistConsistency": "Tracklist Patience",
+        "emotionalDirectness": "Emotional Directness",
+        "texturePreference": "Texture Bias"
+    ]
+
+    static let allowedAvoidanceCategories: [String: String] = [
+        "fillerSensitivity": "Filler Sensitivity",
+        "sterileProduction": "Sterile Production",
+        "weakWriting": "Weak Writing",
+        "lowReplayValue": "Low Replay Value",
+        "energyWithoutPayoff": "Energy Without Payoff",
+        "moodMismatch": "Mood Mismatch",
+        "skipHeavyAlbums": "Skip-Heavy Albums"
     ]
 
     static var allowedDimensionNames: [String] {
         allowedDimensions.keys.sorted()
+    }
+
+    static var allowedAvoidanceCategoryNames: [String] {
+        allowedAvoidanceCategories.keys.sorted()
     }
 
     static func validatedSentiment(score: Double, confidence: Double) -> SentimentResult {
@@ -195,31 +266,32 @@ struct FoundationModelsSoundPrintValidator {
     }
 
     static func validatedTasteExtraction(
-        payloadSignals: [FoundationModelsTasteSignalPayload],
+        payload: TasteExtractionPayload,
         input: TasteExtractionInput
     ) throws -> TasteExtractionResult {
-        let sentimentScore = input.sentimentScore ?? MockSoundPrintProvider.baseScore(for: input.rating)
+        let sentimentScore = input.sentimentScore ?? payload.sentiment.score
+        let avoidanceSignals = try validatedAvoidanceSignals(payload.avoidanceSignals)
 
         guard sentimentScore >= 0.0 else {
-            return TasteExtractionResult(signals: [])
+            return TasteExtractionResult(signals: [], avoidanceSignals: avoidanceSignals)
         }
 
-        guard !payloadSignals.isEmpty else {
+        guard !payload.positiveSignals.isEmpty else {
             throw FoundationModelsSoundPrintProviderError.emptyOutput
         }
 
         var seenDimensionNames: Set<String> = []
         var signals: [TasteSignal] = []
 
-        for payload in payloadSignals {
-            let dimensionName = payload.dimensionName.trimmingCharacters(in: .whitespacesAndNewlines)
+        for payloadSignal in payload.positiveSignals.prefix(4) {
+            let dimensionName = payloadSignal.dimensionKey.trimmingCharacters(in: .whitespacesAndNewlines)
 
             guard let label = allowedDimensions[dimensionName], !seenDimensionNames.contains(dimensionName) else {
                 throw FoundationModelsSoundPrintProviderError.validationFailed
             }
 
-            let summary = payload.summary.trimmingCharacters(in: .whitespacesAndNewlines)
-            let evidenceSnippet = payload.evidenceSnippet.trimmingCharacters(in: .whitespacesAndNewlines)
+            let summary = payloadSignal.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+            let evidenceSnippet = payloadSignal.evidenceSnippet.trimmingCharacters(in: .whitespacesAndNewlines)
 
             guard !summary.isEmpty, !evidenceSnippet.isEmpty else {
                 throw FoundationModelsSoundPrintProviderError.validationFailed
@@ -231,34 +303,70 @@ struct FoundationModelsSoundPrintValidator {
                     dimensionName: dimensionName,
                     label: label,
                     summary: summary,
-                    weight: payload.weight.clamped(to: 0.0...1.0),
-                    confidence: payload.confidence.clamped(to: 0.0...1.0),
+                    weight: payloadSignal.strength.clamped(to: 0.0...1.0),
+                    confidence: payloadSignal.confidence.clamped(to: 0.0...1.0),
                     evidenceSnippet: evidenceSnippet,
                     isPositiveEvidence: true
                 )
             )
         }
 
-        return TasteExtractionResult(signals: signals)
+        return TasteExtractionResult(signals: signals, avoidanceSignals: avoidanceSignals)
     }
 
     static func validatedPersona(text: String, input: PersonaInput) throws -> PersonaResult {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let concreteSignals = concreteSignals(from: input)
+        let concreteSignals = concreteSignals(from: input) + input.avoidanceSignals
 
-        guard MockSoundPrintProvider.isValidPersona(trimmed, concreteSignals: concreteSignals) else {
+        guard SoundPrintOutputValidator.isPersonaValid(trimmed, concreteSignals: concreteSignals, logCount: input.totalLogCount) else {
             throw FoundationModelsSoundPrintProviderError.validationFailed
         }
 
         return PersonaResult(text: trimmed)
     }
 
-    private static func concreteSignals(from input: PersonaInput) -> [String] {
+    static func concreteSignals(from input: PersonaInput) -> [String] {
         input.dimensions.map(\.label)
             + input.topTags
             + input.recentLogs.map(\.albumTitle)
             + input.recentLogs.map(\.artistName)
             + input.recentLogs.map(\.reviewSnippet)
+    }
+
+    private static func validatedAvoidanceSignals(
+        _ payloadSignals: [FoundationModelsAvoidanceSignalPayload]
+    ) throws -> [AvoidanceSignal] {
+        var seenSignalNames: Set<String> = []
+        var signals: [AvoidanceSignal] = []
+
+        for payloadSignal in payloadSignals.prefix(3) {
+            let signalName = payloadSignal.signalKey.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            guard let label = allowedAvoidanceCategories[signalName], !seenSignalNames.contains(signalName) else {
+                throw FoundationModelsSoundPrintProviderError.validationFailed
+            }
+
+            let summary = payloadSignal.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+            let evidenceSnippet = payloadSignal.evidenceSnippet.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            guard !summary.isEmpty, !evidenceSnippet.isEmpty else {
+                throw FoundationModelsSoundPrintProviderError.validationFailed
+            }
+
+            seenSignalNames.insert(signalName)
+            signals.append(
+                AvoidanceSignal(
+                    signalName: signalName,
+                    label: label,
+                    summary: summary,
+                    strength: payloadSignal.strength.clamped(to: 0.0...1.0),
+                    confidence: payloadSignal.confidence.clamped(to: 0.0...1.0),
+                    evidenceSnippet: evidenceSnippet
+                )
+            )
+        }
+
+        return signals
     }
 }
 
@@ -267,20 +375,48 @@ private struct SentimentPayload: Decodable {
     let confidence: Double
 }
 
-struct FoundationModelsTasteSignalPayload: Decodable {
-    let dimensionName: String
+struct FoundationModelsPositiveSignalPayload: Decodable {
+    let dimensionKey: String
+    let label: String
     let summary: String
-    let weight: Double
+    let strength: Double
     let confidence: Double
     let evidenceSnippet: String
 }
 
-private struct TastePayload: Decodable {
-    let signals: [FoundationModelsTasteSignalPayload]
+struct FoundationModelsAvoidanceSignalPayload: Decodable {
+    let signalKey: String
+    let label: String
+    let summary: String
+    let strength: Double
+    let confidence: Double
+    let evidenceSnippet: String
+}
+
+struct TasteExtractionPayload: Decodable {
+    struct Sentiment: Decodable {
+        let score: Double
+        let confidence: Double
+    }
+
+    let sentiment: Sentiment
+    let positiveSignals: [FoundationModelsPositiveSignalPayload]
+    let avoidanceSignals: [FoundationModelsAvoidanceSignalPayload]
 }
 
 private struct PersonaPayload: Decodable {
-    let text: String
+    let personaText: String
+}
+
+private struct CompactSummaryPayload: Decodable {
+    let headline: String
+    let summary: String
+    let bullets: [String]
+}
+
+private struct CriticPayload: Decodable {
+    let passes: Bool
+    let suggestedRewrite: String?
 }
 
 private extension String {

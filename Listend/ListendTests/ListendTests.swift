@@ -622,6 +622,195 @@ struct ListendTests {
         #expect(dimensions.contains("genreOpenness"))
     }
 
+    @Test func favoriteTracksContributePositiveReplayabilityEvidence() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let result = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 4.5,
+                reviewText: "",
+                tags: [],
+                sentimentScore: 0.7,
+                favoriteTracks: ["Track One", "Track Two"]
+            )
+        )
+
+        let replayability = try #require(result.signals.first { $0.dimensionName == "replayability" })
+        #expect(replayability.evidenceSnippet.contains("Track One"))
+    }
+
+    @Test func standoutMomentProducesHighConfidencePositiveEvidence() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let withoutStandout = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 4.5,
+                reviewText: "Polished production throughout.",
+                tags: [],
+                sentimentScore: 0.7
+            )
+        )
+        let withStandout = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 4.5,
+                reviewText: "Polished production throughout.",
+                tags: [],
+                sentimentScore: 0.7,
+                standoutMoment: "The polished bridge section really lands."
+            )
+        )
+
+        let baseConfidence = try #require(withoutStandout.signals.first { $0.dimensionName == "productionStyle" }?.confidence)
+        let boostedConfidence = try #require(withStandout.signals.first { $0.dimensionName == "productionStyle" }?.confidence)
+
+        #expect(boostedConfidence > baseConfidence)
+    }
+
+    @Test func twoOrMoreSkipTracksTriggerSkipHeavyAvoidance() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let result = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 3.5,
+                reviewText: "",
+                tags: [],
+                sentimentScore: 0.2,
+                skipTracks: ["Track Three", "Track Four"]
+            )
+        )
+
+        let skipHeavy = try #require(result.avoidanceSignals.first { $0.signalName == "skipHeavyAlbums" })
+        #expect(skipHeavy.evidenceSnippet.contains("Track Three"))
+    }
+
+    @Test func negativeReviewLanguageAloneTriggersSkipHeavyAvoidance() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let result = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 3.0,
+                reviewText: "Feels bloated and inconsistent in the middle.",
+                tags: [],
+                sentimentScore: 0.1
+            )
+        )
+
+        #expect(result.avoidanceSignals.contains { $0.signalName == "skipHeavyAlbums" })
+    }
+
+    @Test func skipCountAndKeywordAgreementIncreasesAvoidanceConfidenceVsEitherAlone() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let countOnly = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 3.0,
+                reviewText: "",
+                tags: [],
+                sentimentScore: 0.1,
+                skipTracks: ["A", "B", "C"]
+            )
+        )
+        let agreement = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 3.0,
+                reviewText: "Feels bloated in the back half.",
+                tags: [],
+                sentimentScore: 0.1,
+                skipTracks: ["A", "B", "C"]
+            )
+        )
+
+        let countOnlyStrength = try #require(countOnly.avoidanceSignals.first { $0.signalName == "skipHeavyAlbums" }?.strength)
+        let agreementStrength = try #require(agreement.avoidanceSignals.first { $0.signalName == "skipHeavyAlbums" }?.strength)
+
+        #expect(agreementStrength > countOnlyStrength)
+    }
+
+    @Test func highRatingWithSkipTracksProducesModestAvoidanceAlongsidePositiveDimensions() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let result = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 4.5,
+                reviewText: "Polished and energetic throughout.",
+                tags: [],
+                sentimentScore: 0.8,
+                skipTracks: ["Track Three", "Track Four"]
+            )
+        )
+
+        let skipHeavy = try #require(result.avoidanceSignals.first { $0.signalName == "skipHeavyAlbums" })
+
+        #expect(!result.signals.isEmpty)
+        #expect(skipHeavy.strength <= 0.4)
+    }
+
+    @Test func lowRatingWithOneFavoriteTrackDoesNotBecomeBroadPositiveClaim() async throws {
+        let provider = MockSoundPrintProvider()
+
+        // An explicit (mildly positive) sentimentScore override is used here so the log clears
+        // the overall positive-signal gate despite the low star rating, letting us exercise the
+        // conflict-dampening logic itself rather than the earlier "negative sentiment" cutoff.
+        let result = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 2.5,
+                reviewText: "",
+                tags: [],
+                sentimentScore: 0.15,
+                favoriteTracks: ["Track One"]
+            )
+        )
+
+        let replayability = try #require(result.signals.first { $0.dimensionName == "replayability" })
+        #expect(replayability.weight <= 0.3)
+        #expect(replayability.confidence <= 0.35)
+    }
+
     @MainActor
     @Test func soundPrintProfileRebuildPersistsPositiveEvidenceAndRemovesStaleData() async throws {
         let container = try makeInMemoryContainer()

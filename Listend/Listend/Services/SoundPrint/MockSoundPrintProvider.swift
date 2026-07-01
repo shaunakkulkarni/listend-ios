@@ -53,18 +53,20 @@ struct MockSoundPrintProvider: SoundPrintProvider {
 
     static func extractTasteSignals(input: TasteExtractionInput) -> TasteExtractionResult {
         let sentimentScore = input.sentimentScore ?? baseScore(for: input.rating)
+        let avoidanceSignals = extractAvoidanceSignals(input: input)
 
         guard sentimentScore >= 0.0 else {
-            return TasteExtractionResult(signals: [])
+            return TasteExtractionResult(signals: [], avoidanceSignals: avoidanceSignals)
         }
 
-        let searchableText = ([input.reviewText] + input.tags).joined(separator: " ")
+        let searchableText = ([input.reviewText, input.standoutMoment ?? ""] + input.tags).joined(separator: " ")
         let normalizedText = searchableText.normalizedSoundPrintText
         let reviewSnippet = input.reviewText.trimmedForSoundPrint
         let fallbackSnippet = input.tags.isEmpty ? input.albumTitle : "Tags: \(input.tags.joined(separator: ", "))"
         let evidenceSnippet = reviewSnippet.isEmpty ? fallbackSnippet : reviewSnippet
+        let hasReviewText = !input.reviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
-        let signals = tasteRules.compactMap { rule -> TasteSignal? in
+        var signals = tasteRules.compactMap { rule -> TasteSignal? in
             let matchCount = rule.keywords.filter { normalizedText.containsNormalizedSoundPrintPhrase($0) }.count
 
             guard matchCount > 0 else {
@@ -72,7 +74,7 @@ struct MockSoundPrintProvider: SoundPrintProvider {
             }
 
             let weight = (0.55 + (sentimentScore * 0.35) + (Double(matchCount - 1) * 0.05)).clamped(to: 0.0...1.0)
-            let confidenceBase = input.reviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.6 : 0.75
+            let confidenceBase = hasReviewText ? 0.75 : 0.6
             let confidence = (confidenceBase + (Double(matchCount - 1) * 0.05)).clamped(to: 0.0...1.0)
 
             return TasteSignal(
@@ -86,7 +88,179 @@ struct MockSoundPrintProvider: SoundPrintProvider {
             )
         }
 
-        return TasteExtractionResult(signals: signals)
+        applyFavoriteTrackEvidence(to: &signals, input: input, normalizedText: normalizedText, sentimentScore: sentimentScore)
+        applyStandoutMomentEvidence(to: &signals, input: input)
+        dampenThinPositiveEvidence(in: &signals, input: input)
+
+        return TasteExtractionResult(signals: signals, avoidanceSignals: avoidanceSignals)
+    }
+
+    /// `favoriteTracks` is treated as positive evidence, primarily for replayability: naming
+    /// specific tracks as favorites is itself a signal the album has real replay pull. When the
+    /// review/tags independently agree (mentions "replay"/"repeat"/"addictive"), confidence gets
+    /// a bonus rather than staying flat, per the agreement rule.
+    private static func applyFavoriteTrackEvidence(
+        to signals: inout [TasteSignal],
+        input: TasteExtractionInput,
+        normalizedText: String,
+        sentimentScore: Double
+    ) {
+        guard !input.favoriteTracks.isEmpty else {
+            return
+        }
+
+        let hasReplayAgreement = ["replay", "repeat", "addictive"]
+            .contains { normalizedText.containsNormalizedSoundPrintPhrase($0) }
+        let agreementBonus = (input.favoriteTracks.count >= 2 && hasReplayAgreement) ? 0.15 : 0.0
+        let trackEvidence = "Favorite tracks: \(input.favoriteTracks.joined(separator: ", "))"
+
+        if let index = signals.firstIndex(where: { $0.dimensionName == "replayability" }) {
+            let existing = signals[index]
+            signals[index] = TasteSignal(
+                dimensionName: existing.dimensionName,
+                label: existing.label,
+                summary: existing.summary,
+                weight: (existing.weight + 0.1 + agreementBonus).clamped(to: 0.0...1.0),
+                confidence: (existing.confidence + 0.1 + agreementBonus).clamped(to: 0.0...1.0),
+                evidenceSnippet: existing.evidenceSnippet,
+                isPositiveEvidence: true
+            )
+        } else {
+            signals.append(
+                TasteSignal(
+                    dimensionName: "replayability",
+                    label: "Replay Pull",
+                    summary: "Leans into replay pull.",
+                    weight: (0.5 + (sentimentScore * 0.2) + agreementBonus).clamped(to: 0.0...1.0),
+                    confidence: (0.55 + agreementBonus).clamped(to: 0.0...1.0),
+                    evidenceSnippet: trackEvidence,
+                    isPositiveEvidence: true
+                )
+            )
+        }
+    }
+
+    /// `standoutMoment` is high-quality positive evidence: it already fed the keyword-matched
+    /// dimensions above via the shared searchable text, so here it just gets a small confidence
+    /// bump on whatever it helped produce, since a user calling out a specific moment is stronger
+    /// signal than generic review language.
+    private static func applyStandoutMomentEvidence(to signals: inout [TasteSignal], input: TasteExtractionInput) {
+        guard let standoutMoment = input.standoutMoment, !standoutMoment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+
+        let normalizedStandout = standoutMoment.normalizedSoundPrintText
+
+        for index in signals.indices {
+            let matchesStandout = tasteRules
+                .first { $0.dimensionName == signals[index].dimensionName }?
+                .keywords
+                .contains { normalizedStandout.containsNormalizedSoundPrintPhrase($0) } ?? false
+
+            guard matchesStandout else {
+                continue
+            }
+
+            let existing = signals[index]
+            signals[index] = TasteSignal(
+                dimensionName: existing.dimensionName,
+                label: existing.label,
+                summary: existing.summary,
+                weight: (existing.weight + 0.05).clamped(to: 0.0...1.0),
+                confidence: (existing.confidence + 0.1).clamped(to: 0.0...1.0),
+                evidenceSnippet: standoutMoment.trimmedForSoundPrint,
+                isPositiveEvidence: true
+            )
+        }
+    }
+
+    /// Conflict dampening: a low rating with exactly one favorite track shouldn't be generalized
+    /// into a broad positive taste claim — cap that scoped signal's weight/confidence low instead
+    /// of letting it seed a high-weight dimension.
+    private static func dampenThinPositiveEvidence(in signals: inout [TasteSignal], input: TasteExtractionInput) {
+        guard input.rating < 3.0, input.favoriteTracks.count == 1 else {
+            return
+        }
+
+        for index in signals.indices where signals[index].dimensionName == "replayability" {
+            let existing = signals[index]
+            signals[index] = TasteSignal(
+                dimensionName: existing.dimensionName,
+                label: existing.label,
+                summary: existing.summary,
+                weight: min(existing.weight, 0.3),
+                confidence: min(existing.confidence, 0.35),
+                evidenceSnippet: existing.evidenceSnippet,
+                isPositiveEvidence: true
+            )
+        }
+    }
+
+    /// `skipTracks` is avoidance/tracklist-consistency evidence, not a blanket negative on the
+    /// album — it coexists with whatever positive dimensions the log otherwise produced.
+    static func extractAvoidanceSignals(input: TasteExtractionInput) -> [AvoidanceSignal] {
+        let searchableText = ([input.reviewText] + input.tags).joined(separator: " ")
+        let normalizedText = searchableText.normalizedSoundPrintText
+        let hasReviewText = !input.reviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let confidenceBase = hasReviewText ? 0.6 : 0.45
+        let reviewSnippet = input.reviewText.trimmedForSoundPrint
+        let fallbackSnippet = input.tags.isEmpty ? input.albumTitle : "Tags: \(input.tags.joined(separator: ", "))"
+        let evidenceSnippet = reviewSnippet.isEmpty ? fallbackSnippet : reviewSnippet
+
+        var signals: [AvoidanceSignal] = avoidanceRules.compactMap { rule -> AvoidanceSignal? in
+            let matchCount = rule.keywords.filter { normalizedText.containsNormalizedSoundPrintPhrase($0) }.count
+
+            guard matchCount > 0 else {
+                return nil
+            }
+
+            let strength = (0.5 + (Double(matchCount - 1) * 0.1)).clamped(to: 0.0...1.0)
+            let confidence = (confidenceBase + (Double(matchCount - 1) * 0.05)).clamped(to: 0.0...1.0)
+
+            return AvoidanceSignal(
+                signalName: rule.signalName,
+                label: rule.label,
+                summary: "Loses patience with \(rule.label.lowercased()).",
+                strength: strength,
+                confidence: confidence,
+                evidenceSnippet: evidenceSnippet
+            )
+        }
+
+        let skipCount = input.skipTracks.count
+        let hasSkipKeywordMatch = skipHeavyKeywords.contains { normalizedText.containsNormalizedSoundPrintPhrase($0) }
+
+        guard skipCount >= 2 || hasSkipKeywordMatch else {
+            return signals
+        }
+
+        // Agreement: track selections plus matching language make this a stronger signal
+        // than either alone.
+        let agreementBonus = (skipCount >= 2 && hasSkipKeywordMatch) ? 0.15 : 0.0
+        var strength = (0.45 + (Double(min(skipCount, 4)) * 0.08) + agreementBonus).clamped(to: 0.0...1.0)
+        var confidence = (confidenceBase + agreementBonus).clamped(to: 0.0...1.0)
+
+        // Conflict dampening: a high rating alongside skip tracks reads as a tracklist-patience
+        // quirk, not a strong overall dislike, so keep this modest rather than suppressing it.
+        if input.rating >= 4.0 {
+            strength = min(strength, 0.4)
+            confidence = min(confidence, 0.45)
+        }
+
+        let skipSnippet = skipCount > 0 ? "Skipped: \(input.skipTracks.joined(separator: ", "))" : evidenceSnippet
+
+        signals.append(
+            AvoidanceSignal(
+                signalName: "skipHeavyAlbums",
+                label: "Skip-Heavy Albums",
+                summary: "Tends to skip through parts of albums like this.",
+                strength: strength,
+                confidence: confidence,
+                evidenceSnippet: skipSnippet
+            )
+        )
+
+        return signals
     }
 
     // TODO(task 7): replace with real deterministic headline/summary/bullet generation.
@@ -287,6 +461,25 @@ struct MockSoundPrintProvider: SoundPrintProvider {
         TasteRule(dimensionName: "emotionalDirectness", label: "Emotional Directness", keywords: ["raw emotion", "direct", "honest", "vulnerable"]),
         TasteRule(dimensionName: "texturePreference", label: "Texture Bias", keywords: ["textured", "grainy", "atmospheric", "warm tone"])
     ]
+
+    private static let avoidanceRules: [AvoidanceRule] = [
+        AvoidanceRule(signalName: "fillerSensitivity", label: "Filler Sensitivity", keywords: ["filler", "padded", "too long", "drags"]),
+        AvoidanceRule(signalName: "sterileProduction", label: "Sterile Production", keywords: ["sterile", "overproduced", "lifeless", "clinical"]),
+        AvoidanceRule(signalName: "weakWriting", label: "Weak Writing", keywords: ["weak lyrics", "lazy writing", "cliche", "generic lyrics"]),
+        AvoidanceRule(signalName: "lowReplayValue", label: "Low Replay Value", keywords: ["one listen", "wont replay", "forgettable", "skip after"]),
+        AvoidanceRule(signalName: "energyWithoutPayoff", label: "Energy Without Payoff", keywords: ["all buildup", "no payoff", "goes nowhere", "never arrives"]),
+        AvoidanceRule(signalName: "moodMismatch", label: "Mood Mismatch", keywords: ["wrong mood", "tonally off", "mismatched"])
+    ]
+
+    private static let skipHeavyKeywords: [String] = [
+        "filler", "pacing", "bloated", "too long", "weak middle", "inconsistent", "uneven", "front-loaded", "skip"
+    ]
+}
+
+private struct AvoidanceRule {
+    let signalName: String
+    let label: String
+    let keywords: [String]
 }
 
 private struct TasteRule {

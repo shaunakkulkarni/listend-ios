@@ -71,6 +71,8 @@ struct AlbumDetailView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Color.listendPaper)
         .navigationTitle("Album")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $albumForLog) { album in

@@ -111,6 +111,8 @@ struct LogEntryDetailView: View {
                 .accessibilityIdentifier("deleteLogButton")
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Color.listendPaper)
         .navigationTitle("Log")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

@@ -50,8 +50,10 @@ struct SearchView: View {
                     }
                     .accessibilityIdentifier("albumSearchResult-\(album.catalogID)")
                 }
+                .scrollContentBackground(.hidden)
             }
         }
+        .background(Color.listendPaper)
         .navigationTitle("Search")
         .searchable(text: $query, prompt: "Album, artist, or genre")
         .task(id: trimmedQuery) {

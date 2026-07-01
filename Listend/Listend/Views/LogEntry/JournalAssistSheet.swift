@@ -84,6 +84,8 @@ struct JournalAssistSheet: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Color.listendPaper)
             .navigationTitle(mode.title)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

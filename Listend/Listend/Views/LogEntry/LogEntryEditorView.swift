@@ -183,6 +183,8 @@ struct LogEntryEditorView: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Color.listendPaper)
             .navigationTitle(log == nil ? "New Log" : "Edit Log")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

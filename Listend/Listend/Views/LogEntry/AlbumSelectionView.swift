@@ -82,6 +82,8 @@ struct AlbumSelectionView: View {
                 searchContent
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Color.listendPaper)
         .navigationTitle("Choose Album")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

@@ -63,6 +63,8 @@ struct ProfileView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Color.listendPaper)
         .navigationTitle("Profile")
     }
 

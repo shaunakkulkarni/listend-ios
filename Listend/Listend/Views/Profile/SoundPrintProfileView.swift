@@ -70,6 +70,8 @@ struct SoundPrintProfileView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Color.listendPaper)
         .navigationTitle("SoundPrint")
     }
 

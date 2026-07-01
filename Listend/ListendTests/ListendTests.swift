@@ -141,15 +141,20 @@ struct ListendTests {
 
         do {
             _ = try FoundationModelsSoundPrintValidator.validatedTasteExtraction(
-                payloadSignals: [
-                    FoundationModelsTasteSignalPayload(
-                        dimensionName: "inventedDimension",
-                        summary: "Invented.",
-                        weight: 0.8,
-                        confidence: 0.8,
-                        evidenceSnippet: "Invented evidence."
-                    )
-                ],
+                payload: TasteExtractionPayload(
+                    sentiment: TasteExtractionPayload.Sentiment(score: 0.8, confidence: 0.8),
+                    positiveSignals: [
+                        FoundationModelsPositiveSignalPayload(
+                            dimensionKey: "inventedDimension",
+                            label: "Invented",
+                            summary: "Invented.",
+                            strength: 0.8,
+                            confidence: 0.8,
+                            evidenceSnippet: "Invented evidence."
+                        )
+                    ],
+                    avoidanceSignals: []
+                ),
                 input: input
             )
             Issue.record("Unknown dimensions should be rejected.")
@@ -160,19 +165,86 @@ struct ListendTests {
 
     @Test func foundationModelsTasteValidationCreatesNoPositiveEvidenceFromNegativeSentiment() throws {
         let result = try FoundationModelsSoundPrintValidator.validatedTasteExtraction(
-            payloadSignals: [
-                FoundationModelsTasteSignalPayload(
-                    dimensionName: "energy",
-                    summary: "Energetic.",
-                    weight: 0.8,
-                    confidence: 0.8,
-                    evidenceSnippet: "Intense momentum."
-                )
-            ],
+            payload: TasteExtractionPayload(
+                sentiment: TasteExtractionPayload.Sentiment(score: -0.4, confidence: 0.8),
+                positiveSignals: [
+                    FoundationModelsPositiveSignalPayload(
+                        dimensionKey: "energy",
+                        label: "Energy Bias",
+                        summary: "Energetic.",
+                        strength: 0.8,
+                        confidence: 0.8,
+                        evidenceSnippet: "Intense momentum."
+                    )
+                ],
+                avoidanceSignals: []
+            ),
             input: tasteExtractionInput(sentimentScore: -0.4)
         )
 
         #expect(result.signals.isEmpty)
+    }
+
+    @Test func foundationModelsTasteValidationRejectsUnknownAvoidanceCategory() throws {
+        let input = tasteExtractionInput(sentimentScore: 0.8)
+
+        do {
+            _ = try FoundationModelsSoundPrintValidator.validatedTasteExtraction(
+                payload: TasteExtractionPayload(
+                    sentiment: TasteExtractionPayload.Sentiment(score: 0.8, confidence: 0.8),
+                    positiveSignals: [],
+                    avoidanceSignals: [
+                        FoundationModelsAvoidanceSignalPayload(
+                            signalKey: "inventedAvoidance",
+                            label: "Invented",
+                            summary: "Invented.",
+                            strength: 0.6,
+                            confidence: 0.6,
+                            evidenceSnippet: "Invented evidence."
+                        )
+                    ]
+                ),
+                input: input
+            )
+            Issue.record("Unknown avoidance categories should be rejected.")
+        } catch let error as FoundationModelsSoundPrintProviderError {
+            #expect(error == .validationFailed)
+        }
+    }
+
+    @Test func foundationModelsTasteValidationCapsPositiveAndAvoidanceSignalCounts() throws {
+        let positiveSignals = FoundationModelsSoundPrintValidator.allowedDimensionNames.prefix(6).map { key in
+            FoundationModelsPositiveSignalPayload(
+                dimensionKey: key,
+                label: key,
+                summary: "Summary.",
+                strength: 0.6,
+                confidence: 0.6,
+                evidenceSnippet: "Evidence."
+            )
+        }
+        let avoidanceSignals = FoundationModelsSoundPrintValidator.allowedAvoidanceCategoryNames.map { key in
+            FoundationModelsAvoidanceSignalPayload(
+                signalKey: key,
+                label: key,
+                summary: "Summary.",
+                strength: 0.5,
+                confidence: 0.5,
+                evidenceSnippet: "Evidence."
+            )
+        }
+
+        let result = try FoundationModelsSoundPrintValidator.validatedTasteExtraction(
+            payload: TasteExtractionPayload(
+                sentiment: TasteExtractionPayload.Sentiment(score: 0.8, confidence: 0.8),
+                positiveSignals: Array(positiveSignals),
+                avoidanceSignals: avoidanceSignals
+            ),
+            input: tasteExtractionInput(sentimentScore: 0.8)
+        )
+
+        #expect(result.signals.count == 4)
+        #expect(result.avoidanceSignals.count == 3)
     }
 
     @Test func foundationModelsPersonaValidationUsesExistingQualityGuard() throws {

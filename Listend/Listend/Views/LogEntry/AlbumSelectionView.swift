@@ -106,7 +106,11 @@ struct AlbumSelectionView: View {
     @ViewBuilder
     private var recentlyPlayedContent: some View {
         if isLoadingRecentlyPlayed {
-            ProgressView("Loading recently played")
+            HStack {
+                Spacer()
+                ProgressView("Loading recently played")
+                Spacer()
+            }
         } else if !displayedRecentlyPlayedAlbums.isEmpty {
             ForEach(displayedRecentlyPlayedAlbums) { album in
                 Button {

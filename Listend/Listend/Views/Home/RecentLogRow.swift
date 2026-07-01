@@ -79,7 +79,6 @@ private struct TagStrip: View {
                 }
             }
         }
-        .scrollClipDisabled()
     }
 }
 

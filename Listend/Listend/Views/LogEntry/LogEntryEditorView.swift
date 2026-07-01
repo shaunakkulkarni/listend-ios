@@ -40,6 +40,7 @@ struct LogEntryEditorView: View {
     @State private var errorMessage: String?
     @State private var isSaving = false
     @State private var activeAssistMode: JournalAssistMode?
+    @FocusState private var focusedField: EditorField?
 
     init(
         log: LogEntry? = nil,
@@ -92,6 +93,7 @@ struct LogEntryEditorView: View {
                     TextField("What did this album leave with you?", text: $reviewText, axis: .vertical)
                         .lineLimit(4...8)
                         .textInputAutocapitalization(.sentences)
+                        .focused($focusedField, equals: .review)
                         .accessibilityIdentifier("reviewTextEditor")
                 }
 
@@ -137,6 +139,7 @@ struct LogEntryEditorView: View {
                     TextField("warm, late night, repeat", text: $tagsText)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .focused($focusedField, equals: .tags)
                         .accessibilityIdentifier("tagsTextField")
 
                     if !suggestedTags.isEmpty {
@@ -209,15 +212,18 @@ struct LogEntryEditorView: View {
 
                             TextField("Snooze, Good Days", text: $favoriteTracksText)
                                 .textInputAutocapitalization(.words)
+                                .focused($focusedField, equals: .favoriteTracks)
                                 .accessibilityIdentifier("favoriteTracksTextField")
 
                             TextField("Less favorite tracks", text: $lessFavoriteTracksText)
                                 .textInputAutocapitalization(.words)
+                                .focused($focusedField, equals: .lessFavoriteTracks)
                                 .accessibilityIdentifier("lessFavoriteTracksTextField")
                         }
 
                         TextField("One short note", text: $standoutMomentText, axis: .vertical)
                             .lineLimit(1...3)
+                            .focused($focusedField, equals: .standoutMoment)
                             .accessibilityIdentifier("standoutMomentTextField")
                     }
                 } footer: {
@@ -232,7 +238,14 @@ struct LogEntryEditorView: View {
                 }
             }
             .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.interactively)
             .background(Color.listendPaper)
+            .safeAreaInset(edge: .bottom) {
+                if focusedField != nil {
+                    Color.clear
+                        .frame(height: 72)
+                }
+            }
             .navigationTitle(log == nil ? "New Log" : "Edit Log")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -249,6 +262,13 @@ struct LogEntryEditorView: View {
                     }
                     .disabled(!canSave || isSaving)
                     .accessibilityIdentifier("saveLogButton")
+                }
+
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        focusedField = nil
+                    }
                 }
             }
             .task(id: tagSuggestionInput) {
@@ -318,6 +338,14 @@ struct LogEntryEditorView: View {
 
     private var parsedTags: [String] {
         ListTextNormalizer.parsedTags(from: tagsText)
+    }
+
+    private enum EditorField: Hashable {
+        case review
+        case tags
+        case favoriteTracks
+        case lessFavoriteTracks
+        case standoutMoment
     }
 
     private var tagSuggestionInput: TagSuggestionInput? {

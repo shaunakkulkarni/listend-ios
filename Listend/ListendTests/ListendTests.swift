@@ -1228,6 +1228,96 @@ struct ListendTests {
         #expect(result.generationSource == .localFallback)
     }
 
+    @Test func soundPrintProviderFactoryPrefersFoundationModelsWhenEnabledAndSupported() {
+        let provider = SoundPrintProviderFactory.makeProvider(
+            preferAppleIntelligence: true,
+            isUITesting: false,
+            isSimulator: false
+        )
+
+        let fallbackProvider = provider as? FallbackSoundPrintProvider
+
+        #expect(fallbackProvider != nil)
+        #expect(fallbackProvider?.primary is FoundationModelsSoundPrintProvider)
+        #expect(fallbackProvider?.fallback is MockSoundPrintProvider)
+    }
+
+    @Test func soundPrintProviderFactoryUsesLocalFallbackWhenPreferenceIsOff() {
+        let provider = SoundPrintProviderFactory.makeProvider(
+            preferAppleIntelligence: false,
+            isUITesting: false,
+            isSimulator: false
+        )
+
+        #expect(provider is MockSoundPrintProvider)
+    }
+
+    @Test func soundPrintProviderFactoryUsesMockProviderForUITesting() {
+        let provider = SoundPrintProviderFactory.makeProvider(
+            preferAppleIntelligence: true,
+            isUITesting: true,
+            isSimulator: false
+        )
+
+        #expect(provider is MockSoundPrintProvider)
+    }
+
+    @Test func soundPrintProviderFactoryUsesMockProviderForSimulator() {
+        let provider = SoundPrintProviderFactory.makeProvider(
+            preferAppleIntelligence: true,
+            isUITesting: false,
+            isSimulator: true
+        )
+
+        #expect(provider is MockSoundPrintProvider)
+    }
+
+    @Test func unsupportedAppleIntelligenceAvailabilityHidesSettingsToggle() {
+        let availability = SoundPrintAppleIntelligenceAvailability(
+            state: .unsupported("Apple Intelligence is not available in Simulator.")
+        )
+
+        #expect(!availability.isToggleVisible)
+        #expect(availability.headline == "SoundPrint is using Local fallback on this device.")
+        #expect(availability.technicalDetail == "Apple Intelligence is not available in Simulator.")
+    }
+
+    @Test func supportedAppleIntelligenceAvailabilityShowsSettingsToggle() {
+        let availability = SoundPrintAppleIntelligenceAvailability(
+            state: .supportedUnavailable("Foundation Models availability: unavailable")
+        )
+
+        #expect(availability.isToggleVisible)
+        #expect(availability.headline == "Apple Intelligence is supported, but not available right now.")
+        #expect(availability.technicalDetail == "Foundation Models availability: unavailable")
+    }
+
+    @Test func soundPrintSettingsDisplayReportsAppleIntelligenceGenerator() {
+        let display = SoundPrintSettingsDisplayState(
+            preferAppleIntelligence: true,
+            latestSource: .foundationModels,
+            availability: SoundPrintAppleIntelligenceAvailability(state: .available)
+        )
+
+        #expect(display.statusTitle == "Apple Intelligence")
+        #expect(display.statusDetail == "Latest SoundPrint was generated with Apple Intelligence.")
+        #expect(display.currentGeneratorTitle == "Apple Intelligence")
+    }
+
+    @Test func soundPrintSettingsDisplayReportsPreferredAppleIntelligenceUsingFallback() {
+        let display = SoundPrintSettingsDisplayState(
+            preferAppleIntelligence: true,
+            latestSource: .localFallback,
+            availability: SoundPrintAppleIntelligenceAvailability(
+                state: .supportedUnavailable("Foundation Models availability: unavailable")
+            )
+        )
+
+        #expect(display.statusTitle == "Apple Intelligence preferred, using Local fallback")
+        #expect(display.statusDetail == "Listend will try Apple Intelligence first and keep SoundPrint available locally when needed.")
+        #expect(display.currentGeneratorTitle == "Local fallback")
+    }
+
     @Test func compactSummaryRespectsHeadlineSummaryBulletLimits() async throws {
         let provider = MockSoundPrintProvider()
 

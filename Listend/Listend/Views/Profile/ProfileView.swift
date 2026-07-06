@@ -121,8 +121,14 @@ private struct PersonaCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Persona")
-                .font(.headline)
+            HStack(alignment: .center, spacing: 8) {
+                Text("Persona")
+                    .font(.headline)
+
+                if let persona, logCount >= SoundPrintProfileThresholds.personaMinimumLogCount {
+                    SoundPrintGenerationSourceBadge(source: persona.generationSource)
+                }
+            }
 
             if let persona, logCount >= SoundPrintProfileThresholds.personaMinimumLogCount {
                 Text(persona.personaText)
@@ -197,5 +203,21 @@ private struct StatRow: View {
         ProfileView()
     }
     .modelContainer(PreviewData.unlockedPersonaContainer)
+    .environment(SoundPrintProfileRefreshCoordinator())
+}
+
+#Preview("Apple Intelligence Persona") {
+    NavigationStack {
+        ProfileView()
+    }
+    .modelContainer(PreviewData.appleIntelligencePersonaContainer)
+    .environment(SoundPrintProfileRefreshCoordinator())
+}
+
+#Preview("Local Fallback Persona") {
+    NavigationStack {
+        ProfileView()
+    }
+    .modelContainer(PreviewData.localFallbackPersonaContainer)
     .environment(SoundPrintProfileRefreshCoordinator())
 }

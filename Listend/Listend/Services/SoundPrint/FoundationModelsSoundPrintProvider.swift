@@ -158,16 +158,16 @@ private extension FoundationModelsSoundPrintProvider {
         }
 
         guard let critique = await critiquePersona(draftText, input: input) else {
-            return PersonaResult(text: draftText)
+            return PersonaResult(text: draftText, generationSource: .foundationModels)
         }
 
         if critique.passes {
-            return PersonaResult(text: draftText)
+            return PersonaResult(text: draftText, generationSource: .foundationModels)
         }
 
         if let rewrite = critique.suggestedRewrite?.trimmingCharacters(in: .whitespacesAndNewlines), !rewrite.isEmpty,
            SoundPrintOutputValidator.validatePersona(rewrite, context: context).isValid {
-            return PersonaResult(text: rewrite)
+            return PersonaResult(text: rewrite, generationSource: .foundationModels)
         }
 
         return MockSoundPrintProvider.generatePersona(input: input)
@@ -322,7 +322,7 @@ struct FoundationModelsSoundPrintValidator {
             throw FoundationModelsSoundPrintProviderError.validationFailed
         }
 
-        return PersonaResult(text: trimmed)
+        return PersonaResult(text: trimmed, generationSource: .foundationModels)
     }
 
     static func concreteSignals(from input: PersonaInput) -> [String] {

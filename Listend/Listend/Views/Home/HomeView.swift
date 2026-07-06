@@ -350,6 +350,7 @@ private struct SoundPrintSummaryModule: View {
                         .foregroundStyle(.secondary)
                     Text("SoundPrint")
                         .font(.headline)
+                    SoundPrintGenerationSourceBadge(source: persona.generationSource)
 
                     Spacer(minLength: 8)
 
@@ -647,6 +648,14 @@ private struct RecentlyPlayedAlbumRow: View {
         HomeView()
     }
     .modelContainer(PreviewData.activeRecommendationContainer)
+    .environment(SoundPrintProfileRefreshCoordinator())
+}
+
+#Preview("Apple Intelligence SoundPrint") {
+    NavigationStack {
+        HomeView()
+    }
+    .modelContainer(PreviewData.appleIntelligencePersonaContainer)
     .environment(SoundPrintProfileRefreshCoordinator())
 }
 

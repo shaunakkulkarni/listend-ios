@@ -25,6 +25,20 @@ enum PreviewData {
     @MainActor
     static let unlockedPersonaContainer: ModelContainer = makeContainer(logCount: 5, includePersona: true)
 
+    @MainActor
+    static let appleIntelligencePersonaContainer: ModelContainer = makeContainer(
+        logCount: 5,
+        includePersona: true,
+        personaGenerationSource: .foundationModels
+    )
+
+    @MainActor
+    static let localFallbackPersonaContainer: ModelContainer = makeContainer(
+        logCount: 5,
+        includePersona: true,
+        personaGenerationSource: .localFallback
+    )
+
     /// 10+ logs: fuller profile with dimensions, avoidance signals, and evidence receipts.
     @MainActor
     static let fullerProfileContainer: ModelContainer = makeContainer(
@@ -41,7 +55,8 @@ enum PreviewData {
         logCount: Int,
         includePersona: Bool,
         includeRecommendation: Bool = false,
-        includeAvoidanceSignals: Bool = false
+        includeAvoidanceSignals: Bool = false,
+        personaGenerationSource: SoundPrintGenerationSource = .localFallback
     ) -> ModelContainer {
         let schema = Schema([
             Album.self,
@@ -66,6 +81,7 @@ enum PreviewData {
                 includePersona: includePersona,
                 includeRecommendation: includeRecommendation,
                 includeAvoidanceSignals: includeAvoidanceSignals,
+                personaGenerationSource: personaGenerationSource,
                 in: container.mainContext
             )
             return container
@@ -80,6 +96,7 @@ enum PreviewData {
         includePersona: Bool,
         includeRecommendation: Bool,
         includeAvoidanceSignals: Bool,
+        personaGenerationSource: SoundPrintGenerationSource,
         in modelContext: ModelContext
     ) {
         let albums = [
@@ -200,7 +217,8 @@ enum PreviewData {
                     logCountAtGeneration: logCount,
                     headline: "Vocal Gravity Leads The Pattern",
                     summaryText: "You tend to reward vocal gravity and lose patience with skip-heavy albums.",
-                    bullets: ["Rewards Vocal Gravity", "Loses patience with Skip-Heavy Albums", "High replay value overall"]
+                    bullets: ["Rewards Vocal Gravity", "Loses patience with Skip-Heavy Albums", "High replay value overall"],
+                    generationSource: personaGenerationSource
                 )
             )
         }

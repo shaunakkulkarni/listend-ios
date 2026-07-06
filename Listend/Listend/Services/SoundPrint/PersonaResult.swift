@@ -7,4 +7,5 @@
 
 struct PersonaResult {
     let text: String
+    let generationSource: SoundPrintGenerationSource
 }

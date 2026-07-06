@@ -11,9 +11,9 @@ import SwiftData
 @main
 struct ListendApp: App {
     @State private var soundPrintRefreshCoordinator = SoundPrintProfileRefreshCoordinator()
+    @AppStorage(SoundPrintPreferenceKey.preferAppleIntelligence) private var preferAppleIntelligence = true
     private let catalogService: AlbumCatalogServiceProtocol
     private let recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol
-    private let soundPrintProvider: SoundPrintProvider
     private let albumPreviewService: AlbumPreviewServiceProtocol
     private let tagSuggestionProvider: TagSuggestionProvider
     private let journalAssistService: JournalAssistServiceProtocol
@@ -63,7 +63,6 @@ struct ListendApp: App {
     init() {
         catalogService = Self.makeCatalogService()
         recentlyPlayedAlbumService = Self.makeRecentlyPlayedAlbumService()
-        soundPrintProvider = Self.makeSoundPrintProvider()
         albumPreviewService = Self.makeAlbumPreviewService()
         tagSuggestionProvider = Self.makeTagSuggestionProvider()
         journalAssistService = Self.makeJournalAssistService()
@@ -79,7 +78,7 @@ struct ListendApp: App {
                 appleMusicRecommendationService: appleMusicRecommendationService
             )
                 .environment(soundPrintRefreshCoordinator)
-                .environment(\.soundPrintProvider, soundPrintProvider)
+                .environment(\.soundPrintProvider, Self.makeSoundPrintProvider(preferAppleIntelligence: preferAppleIntelligence))
                 .environment(\.albumPreviewService, albumPreviewService)
                 .environment(\.tagSuggestionProvider, tagSuggestionProvider)
                 .environment(\.journalAssistService, journalAssistService)
@@ -118,21 +117,20 @@ struct ListendApp: App {
         return AppleMusicRecommendationService()
     }
 
-    private static func makeSoundPrintProvider() -> SoundPrintProvider {
+    private static func makeSoundPrintProvider(preferAppleIntelligence: Bool) -> SoundPrintProvider {
         let arguments = ProcessInfo.processInfo.arguments
 
-        if arguments.contains("-ui-testing") {
-            return MockSoundPrintProvider()
-        }
-
         #if targetEnvironment(simulator)
-        return MockSoundPrintProvider()
+        let isSimulator = true
         #else
-        return FallbackSoundPrintProvider(
-            primary: FoundationModelsSoundPrintProvider(),
-            fallback: MockSoundPrintProvider()
-        )
+        let isSimulator = false
         #endif
+
+        return SoundPrintProviderFactory.makeProvider(
+            preferAppleIntelligence: preferAppleIntelligence,
+            isUITesting: arguments.contains("-ui-testing"),
+            isSimulator: isSimulator
+        )
     }
 
     private static func makeAlbumPreviewService() -> AlbumPreviewServiceProtocol {

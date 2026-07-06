@@ -9,6 +9,8 @@ import SwiftUI
 import SwiftData
 
 struct ProfileView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.soundPrintProvider) private var soundPrintProvider
     @Environment(SoundPrintProfileRefreshCoordinator.self) private var soundPrintRefreshCoordinator
     @Query private var logs: [LogEntry]
     @Query(sort: \TasteDimension.weight, order: .reverse) private var dimensions: [TasteDimension]
@@ -36,6 +38,20 @@ struct ProfileView: View {
                     Label(lastError, systemImage: "exclamationmark.triangle")
                         .foregroundStyle(.red)
                 }
+
+                NavigationLink {
+                    SoundPrintSettingsView()
+                } label: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("SoundPrint Settings")
+                            .font(.headline)
+                        Text("Apple Intelligence preference and current generator")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+                .accessibilityIdentifier("soundPrintSettingsLink")
 
                 if canShowSoundPrintProfile {
                     NavigationLink {
@@ -66,6 +82,13 @@ struct ProfileView: View {
         .scrollContentBackground(.hidden)
         .background(Color.listendPaper)
         .navigationTitle("Profile")
+        .task(id: needsSourceMetadataRefresh) {
+            guard needsSourceMetadataRefresh else {
+                return
+            }
+
+            await soundPrintRefreshCoordinator.refreshProfile(in: modelContext, provider: soundPrintProvider)
+        }
     }
 
     private var averageRatingText: String {
@@ -112,6 +135,14 @@ struct ProfileView: View {
 
     private var currentPersona: SoundPrintPersona? {
         personas.first
+    }
+
+    private var needsSourceMetadataRefresh: Bool {
+        guard logs.count >= SoundPrintProfileThresholds.personaMinimumLogCount else {
+            return false
+        }
+
+        return currentPersona?.generationSource.userFacingTitle == nil
     }
 }
 

@@ -937,6 +937,115 @@ struct ListendTests {
         #expect(evidence.isEmpty)
     }
 
+    @Test func positiveReceiptDisplayExcludesNegativeLogs() {
+        let positiveAlbum = Album(title: "Positive Album", artistName: "Positive Artist")
+        let negativeAlbum = Album(title: "Negative Album", artistName: "Negative Artist")
+        let positiveLog = LogEntry(album: positiveAlbum, rating: 4.5, reviewText: "Polished replay value.", tags: ["repeat"], sentimentScore: 0.8)
+        let negativeLog = LogEntry(album: negativeAlbum, rating: 1.5, reviewText: "Bloated and uneven.", tags: ["uneven"], sentimentScore: -0.6)
+        let evidence = [
+            TasteEvidence(
+                dimensionName: "replayability",
+                logEntryID: positiveLog.id,
+                snippet: "Polished replay value.",
+                evidenceType: "reviewOrTag",
+                strength: 0.8,
+                confidence: 0.8,
+                isPositiveEvidence: true
+            ),
+            TasteEvidence(
+                dimensionName: "replayability",
+                logEntryID: negativeLog.id,
+                snippet: "Bloated and uneven.",
+                evidenceType: "reviewOrTag",
+                strength: 0.8,
+                confidence: 0.8,
+                isPositiveEvidence: true
+            )
+        ]
+
+        let receipts = SoundPrintReceiptDisplay.positiveReceipts(
+            from: evidence,
+            logsByID: [positiveLog.id: positiveLog, negativeLog.id: negativeLog]
+        )
+
+        #expect(receipts.count == 1)
+        #expect(receipts[0].albumTitle == "Positive Album")
+        #expect(!receipts.contains { $0.albumTitle == "Negative Album" })
+    }
+
+    @Test func positiveReceiptDisplayIncludesStoredContext() throws {
+        let album = Album(title: "Blonde", artistName: "Frank Ocean")
+        let log = LogEntry(
+            album: album,
+            rating: 4.5,
+            reviewText: "Sparse intimate vocals that still feel huge.",
+            tags: ["vocals", "late night"],
+            sentimentScore: 0.8
+        )
+        let evidence = TasteEvidence(
+            dimensionName: "vocalFocus",
+            logEntryID: log.id,
+            snippet: "Sparse intimate vocals.",
+            evidenceType: "reviewOrTag",
+            strength: 0.8,
+            confidence: 0.8,
+            isPositiveEvidence: true
+        )
+
+        let receipt = try #require(
+            SoundPrintReceiptDisplay.positiveReceipts(from: [evidence], logsByID: [log.id: log]).first
+        )
+
+        #expect(receipt.sectionTitle == "You reward...")
+        #expect(receipt.albumTitle == "Blonde")
+        #expect(receipt.artistName == "Frank Ocean")
+        #expect(receipt.ratingText == "4.5 stars")
+        #expect(receipt.contextText.contains("Tagged vocals, late night"))
+        #expect(receipt.snippet == "Sparse intimate vocals.")
+    }
+
+    @Test func avoidanceReceiptDisplayUsesSeparateLabelAndShortContext() throws {
+        let album = Album(title: "Skip Heavy Album", artistName: "Some Artist")
+        let log = LogEntry(
+            album: album,
+            rating: 2.0,
+            reviewText: "This starts strong but becomes bloated, repetitive, uneven, and exhausting across a very long back half.",
+            tags: ["uneven"],
+            skipTracks: ["Track A", "Track B"],
+            sentimentScore: -0.5
+        )
+
+        let receipt = try #require(
+            SoundPrintReceiptDisplay.avoidanceReceipts(logIDs: [log.id], logsByID: [log.id: log]).first
+        )
+
+        #expect(receipt.sectionTitle == "You tend to avoid...")
+        #expect(receipt.ratingText == "2 stars")
+        #expect(receipt.contextText.contains("Tagged uneven"))
+        #expect(receipt.contextText.contains("Skipped Track A, Track B"))
+        #expect(receipt.snippet.count <= 96)
+        #expect(receipt.snippet.hasSuffix("..."))
+    }
+
+    @Test func receiptDisplayShowsSafeCopyForMissingLog() throws {
+        let evidence = TasteEvidence(
+            dimensionName: "vocalFocus",
+            logEntryID: UUID(),
+            snippet: "Sparse intimate vocals.",
+            evidenceType: "reviewOrTag",
+            strength: 0.8,
+            confidence: 0.8,
+            isPositiveEvidence: true
+        )
+
+        let receipt = try #require(SoundPrintReceiptDisplay.positiveReceipts(from: [evidence], logsByID: [:]).first)
+
+        #expect(receipt.albumTitle == "Original log unavailable")
+        #expect(receipt.artistName == nil)
+        #expect(receipt.contextText == "Original log unavailable")
+        #expect(receipt.snippet == "Sparse intimate vocals.")
+    }
+
     @MainActor
     @Test func soundPrintExtractionFailurePreservesExistingProfileData() async throws {
         let container = try makeInMemoryContainer()

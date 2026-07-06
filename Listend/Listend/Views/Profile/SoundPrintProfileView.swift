@@ -247,8 +247,16 @@ private struct DimensionCard: View {
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
             VStack(alignment: .leading, spacing: 12) {
-                ForEach(evidence) { item in
-                    ReceiptRow(snippet: item.snippet, log: logsByID[item.logEntryID])
+                ReceiptSectionTitle(text: "You reward...")
+
+                if receipts.isEmpty {
+                    Text("No usable receipts for this dimension yet.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(receipts) { receipt in
+                        ReceiptRow(receipt: receipt)
+                    }
                 }
             }
             .padding(.top, 8)
@@ -268,6 +276,10 @@ private struct DimensionCard: View {
             .padding(.vertical, 6)
         }
     }
+
+    private var receipts: [SoundPrintReceiptDisplay] {
+        SoundPrintReceiptDisplay.positiveReceipts(from: evidence, logsByID: logsByID)
+    }
 }
 
 private struct AvoidanceSignalCard: View {
@@ -279,8 +291,16 @@ private struct AvoidanceSignalCard: View {
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
             VStack(alignment: .leading, spacing: 12) {
-                ForEach(contributingLogs, id: \.id) { log in
-                    ReceiptRow(snippet: log.reviewText, log: log)
+                ReceiptSectionTitle(text: "You tend to avoid...")
+
+                if receipts.isEmpty {
+                    Text("Original log unavailable")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(receipts) { receipt in
+                        ReceiptRow(receipt: receipt)
+                    }
                 }
             }
             .padding(.top, 8)
@@ -301,8 +321,8 @@ private struct AvoidanceSignalCard: View {
         }
     }
 
-    private var contributingLogs: [LogEntry] {
-        signal.evidenceLogEntryIDs.compactMap { logsByID[$0] }
+    private var receipts: [SoundPrintReceiptDisplay] {
+        SoundPrintReceiptDisplay.avoidanceReceipts(logIDs: signal.evidenceLogEntryIDs, logsByID: logsByID)
     }
 }
 
@@ -327,27 +347,177 @@ private struct MetricBar: View {
     }
 }
 
-private struct ReceiptRow: View {
-    let snippet: String
-    let log: LogEntry?
+private struct ReceiptSectionTitle: View {
+    let text: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(snippet)
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+    }
+}
+
+private struct ReceiptRow: View {
+    let receipt: SoundPrintReceiptDisplay
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(receipt.albumTitle)
+                    .font(.subheadline.weight(.semibold))
+
+                if let artistName = receipt.artistName {
+                    Text(artistName)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Text(receipt.snippet)
                 .font(.subheadline)
 
-            Text(albumContext)
+            Text(receipt.contextText)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
     }
+}
 
-    private var albumContext: String {
-        guard let album = log?.album else {
-            return "Log no longer available"
+struct SoundPrintReceiptDisplay: Identifiable, Equatable {
+    enum Kind: Equatable {
+        case positive
+        case avoidance
+    }
+
+    let id: String
+    let kind: Kind
+    let snippet: String
+    let albumTitle: String
+    let artistName: String?
+    let ratingText: String?
+    let contextText: String
+
+    var sectionTitle: String {
+        switch kind {
+        case .positive:
+            return "You reward..."
+        case .avoidance:
+            return "You tend to avoid..."
+        }
+    }
+
+    static func positiveReceipts(
+        from evidence: [TasteEvidence],
+        logsByID: [UUID: LogEntry]
+    ) -> [SoundPrintReceiptDisplay] {
+        evidence.filter(\.isPositiveEvidence).compactMap { item in
+            let log = logsByID[item.logEntryID]
+
+            if log?.isNegativeSignal == true {
+                return nil
+            }
+
+            return SoundPrintReceiptDisplay(
+                id: item.id.uuidString,
+                kind: .positive,
+                snippet: item.snippet.receiptSnippet(fallback: bestSnippet(from: log, kind: .positive)),
+                log: log
+            )
+        }
+    }
+
+    static func avoidanceReceipts(
+        logIDs: [UUID],
+        logsByID: [UUID: LogEntry]
+    ) -> [SoundPrintReceiptDisplay] {
+        logIDs.map { logID in
+            let log = logsByID[logID]
+
+            return SoundPrintReceiptDisplay(
+                id: logID.uuidString,
+                kind: .avoidance,
+                snippet: bestSnippet(from: log, kind: .avoidance),
+                log: log
+            )
+        }
+    }
+
+    private init(id: String, kind: Kind, snippet: String, log: LogEntry?) {
+        self.id = id
+        self.kind = kind
+        self.snippet = snippet
+
+        guard let log else {
+            albumTitle = "Original log unavailable"
+            artistName = nil
+            ratingText = nil
+            contextText = "Original log unavailable"
+            return
         }
 
-        return "\(album.title) - \(album.artistName)"
+        albumTitle = log.album?.title ?? "Original log unavailable"
+        artistName = log.album?.artistName
+        ratingText = Self.ratingText(for: log.rating)
+        contextText = Self.contextText(for: log, kind: kind)
+    }
+
+    private static func bestSnippet(from log: LogEntry?, kind: Kind) -> String {
+        guard let log else {
+            return "Original log unavailable"
+        }
+
+        let review = log.reviewText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !review.isEmpty {
+            return review.receiptSnippet(fallback: "Review unavailable")
+        }
+
+        switch kind {
+        case .positive:
+            return log.tags.isEmpty ? "Positive log evidence" : "Tagged \(log.tags.joined(separator: ", "))"
+        case .avoidance:
+            if !log.skipTracks.isEmpty {
+                return "Skipped \(log.skipTracks.joined(separator: ", "))"
+            }
+
+            return log.tags.isEmpty ? "Avoidance signal evidence" : "Tagged \(log.tags.joined(separator: ", "))"
+        }
+    }
+
+    private static func contextText(for log: LogEntry, kind: Kind) -> String {
+        var parts = [ratingText(for: log.rating)]
+
+        if !log.tags.isEmpty {
+            parts.append("Tagged \(log.tags.joined(separator: ", "))")
+        }
+
+        if kind == .avoidance, !log.skipTracks.isEmpty {
+            parts.append("Skipped \(log.skipTracks.joined(separator: ", "))")
+        }
+
+        return parts.joined(separator: " - ")
+    }
+
+    private static func ratingText(for rating: Double) -> String {
+        let value = rating.rounded(.towardZero) == rating
+            ? Int(rating).formatted()
+            : rating.formatted(.number.precision(.fractionLength(1)))
+
+        return "\(value) stars"
+    }
+}
+
+private extension String {
+    func receiptSnippet(fallback: String) -> String {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        let source = trimmed.isEmpty ? fallback : trimmed
+        let limit = 96
+
+        guard source.count > limit else {
+            return source
+        }
+
+        let endIndex = source.index(source.startIndex, offsetBy: limit - 3)
+        return String(source[..<endIndex]).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
     }
 }
 

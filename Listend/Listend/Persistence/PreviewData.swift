@@ -140,22 +140,23 @@ enum PreviewData {
             modelContext.insert(album)
         }
 
+        var logs: [LogEntry] = []
         for index in 0..<min(logCount, albums.count) {
-            modelContext.insert(
-                LogEntry(
-                    album: albums[index],
-                    rating: index == 2 ? 4.0 : (index == 7 ? 3.0 : 4.5),
-                    reviewText: reviews[index],
-                    tags: tags[index],
-                    favoriteTracks: index == 0 ? ["Nights"] : [],
-                    skipTracks: index == 7 ? ["Track 4", "Track 5"] : [],
-                    standoutMoment: index == 1 ? "The strings that come in on the bridge." : nil,
-                    sentimentScore: index == 7 ? 0.1 : 0.7,
-                    sentimentConfidence: 0.8,
-                    loggedAt: Date().addingTimeInterval(TimeInterval(-index * 86_400)),
-                    updatedAt: Date().addingTimeInterval(TimeInterval(-index * 86_400))
-                )
+            let log = LogEntry(
+                album: albums[index],
+                rating: index == 2 ? 4.0 : (index == 7 ? 3.0 : 4.5),
+                reviewText: reviews[index],
+                tags: tags[index],
+                favoriteTracks: index == 0 ? ["Nights"] : [],
+                skipTracks: index == 7 ? ["Track 4", "Track 5"] : [],
+                standoutMoment: index == 1 ? "The strings that come in on the bridge." : nil,
+                sentimentScore: index == 7 ? 0.1 : 0.7,
+                sentimentConfidence: 0.8,
+                loggedAt: Date().addingTimeInterval(TimeInterval(-index * 86_400)),
+                updatedAt: Date().addingTimeInterval(TimeInterval(-index * 86_400))
             )
+            logs.append(log)
+            modelContext.insert(log)
         }
 
         let vocalFocusDimension = TasteDimension(
@@ -169,7 +170,7 @@ enum PreviewData {
         modelContext.insert(
             TasteEvidence(
                 dimensionName: "vocalFocus",
-                logEntryID: UUID(),
+                logEntryID: logs.first?.id ?? UUID(),
                 snippet: "Sparse, intimate vocals that still feel huge.",
                 evidenceType: "reviewOrTag",
                 strength: 0.82,
@@ -190,7 +191,7 @@ enum PreviewData {
             modelContext.insert(
                 TasteEvidence(
                     dimensionName: "replayability",
-                    logEntryID: UUID(),
+                    logEntryID: logs.count > 8 ? logs[8].id : UUID(),
                     snippet: "Sparse vocals with real replay value.",
                     evidenceType: "reviewOrTag",
                     strength: 0.7,
@@ -205,7 +206,7 @@ enum PreviewData {
                     summary: "Tends to skip through parts of albums like this.",
                     strength: 0.55,
                     confidence: 0.6,
-                    evidenceLogEntryIDs: []
+                    evidenceLogEntryIDs: logs.count > 7 ? [logs[7].id] : []
                 )
             )
         }

@@ -14,6 +14,7 @@ struct SearchView: View {
     @State private var results: [AlbumSearchResult] = []
     @State private var isSearching = false
     @State private var errorMessage: String?
+    @State private var isShowingShareIntake = false
 
     init(catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService()) {
         self.catalogService = catalogService
@@ -55,6 +56,19 @@ struct SearchView: View {
         }
         .background(Color.listendPaper)
         .navigationTitle("Search")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    isShowingShareIntake = true
+                } label: {
+                    Label("Import from Link", systemImage: "link")
+                }
+                .accessibilityIdentifier("importFromLinkButton")
+            }
+        }
+        .sheet(isPresented: $isShowingShareIntake) {
+            ShareIntakeView(catalogService: catalogService)
+        }
         .searchable(text: $query, prompt: "Album, artist, or genre")
         .task(id: trimmedQuery) {
             let query = trimmedQuery

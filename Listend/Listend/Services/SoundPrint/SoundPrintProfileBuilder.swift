@@ -281,9 +281,14 @@ struct SoundPrintProfileBuilder {
                 existing.personaText = result.text
                 existing.generatedAt = Date()
                 existing.logCountAtGeneration = logs.count
+                existing.generationSource = result.generationSource
                 currentPersona = existing
             } else {
-                let inserted = SoundPrintPersona(personaText: result.text, logCountAtGeneration: logs.count)
+                let inserted = SoundPrintPersona(
+                    personaText: result.text,
+                    logCountAtGeneration: logs.count,
+                    generationSource: result.generationSource
+                )
                 modelContext.insert(inserted)
                 currentPersona = inserted
             }

@@ -372,11 +372,12 @@ struct MockSoundPrintProvider: SoundPrintProvider {
         ) + input.avoidanceSignals
 
         if SoundPrintOutputValidator.isPersonaValid(draft, concreteSignals: concreteSignals, logCount: input.totalLogCount) {
-            return PersonaResult(text: draft)
+            return PersonaResult(text: draft, generationSource: .localFallback)
         }
 
         return PersonaResult(
-            text: fallbackPersona(primaryDimension: primaryDimension, favoriteLog: favoriteLog)
+            text: fallbackPersona(primaryDimension: primaryDimension, favoriteLog: favoriteLog),
+            generationSource: .localFallback
         )
     }
 

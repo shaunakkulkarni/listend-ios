@@ -1089,6 +1089,36 @@ struct ListendTests {
         #expect(result.text.lowercased().contains("titanic rising"))
     }
 
+    @Test func mockPersonaGenerationReportsLocalFallbackSource() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let result = try await provider.generatePersona(input: personaInput())
+
+        #expect(result.generationSource == .localFallback)
+    }
+
+    @Test func fallbackProviderPreservesPrimaryPersonaSourceWhenPrimarySucceeds() async throws {
+        let provider = FallbackSoundPrintProvider(
+            primary: SourceTrackingSoundPrintProvider(source: .foundationModels),
+            fallback: SourceTrackingSoundPrintProvider(source: .localFallback)
+        )
+
+        let result = try await provider.generatePersona(input: personaInput())
+
+        #expect(result.generationSource == .foundationModels)
+    }
+
+    @Test func fallbackProviderPreservesFallbackPersonaSourceWhenPrimaryFails() async throws {
+        let provider = FallbackSoundPrintProvider(
+            primary: SourceTrackingSoundPrintProvider(source: .foundationModels, failsPersonaGeneration: true),
+            fallback: SourceTrackingSoundPrintProvider(source: .localFallback)
+        )
+
+        let result = try await provider.generatePersona(input: personaInput())
+
+        #expect(result.generationSource == .localFallback)
+    }
+
     @Test func compactSummaryRespectsHeadlineSummaryBulletLimits() async throws {
         let provider = MockSoundPrintProvider()
 
@@ -1151,6 +1181,34 @@ struct ListendTests {
         #expect(personas[0].logCountAtGeneration == 5)
         #expect(personas[0].personaText.count >= 80)
         #expect(!personas[0].personaText.contains("Old persona"))
+    }
+
+    @MainActor
+    @Test func soundPrintProfileRebuildPersistsPersonaGenerationSource() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+
+        insertPersonaReadyLogs(in: modelContext, count: 5)
+        try modelContext.save()
+
+        try await SoundPrintProfileBuilder(
+            provider: SourceTrackingSoundPrintProvider(source: .foundationModels)
+        ).rebuildProfile(in: modelContext)
+
+        let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
+        let persona = try #require(personas.first)
+
+        #expect(persona.generationSource == .foundationModels)
+        #expect(persona.generationSourceRawValue == SoundPrintGenerationSource.foundationModels.rawValue)
+    }
+
+    @Test func soundPrintPersonaUnknownSourceCoversOldAndInvalidRawValues() {
+        let oldPersona = SoundPrintPersona(personaText: "Old persona", logCountAtGeneration: 5)
+        let invalidPersona = SoundPrintPersona(personaText: "Invalid persona", logCountAtGeneration: 5)
+        invalidPersona.generationSourceRawValue = "not-a-source"
+
+        #expect(oldPersona.generationSource == .unknown)
+        #expect(invalidPersona.generationSource == .unknown)
     }
 
     @MainActor
@@ -2942,7 +3000,10 @@ private struct SuccessfulSoundPrintProvider: SoundPrintProvider {
     }
 
     func generatePersona(input: PersonaInput) async throws -> PersonaResult {
-        PersonaResult(text: "Across five logs, Blonde by Frank Ocean anchors a vocal focus profile with enough concrete detail to pass the existing quality guard.")
+        PersonaResult(
+            text: "You tend to reward vocal focus. Blonde by Frank Ocean is the clearest example so far.",
+            generationSource: .localFallback
+        )
     }
 
     func generateCompactSummary(input: CompactSummaryInput) async throws -> CompactSummaryResult {
@@ -2951,6 +3012,34 @@ private struct SuccessfulSoundPrintProvider: SoundPrintProvider {
             summary: "You tend to reward vocal focus and lose patience with filler.",
             bullets: ["Rewards vocal focus", "Loses patience with filler", "High replay value"]
         )
+    }
+}
+
+private struct SourceTrackingSoundPrintProvider: SoundPrintProvider {
+    let source: SoundPrintGenerationSource
+    var failsPersonaGeneration = false
+
+    func analyzeSentiment(input: SentimentInput) async throws -> SentimentResult {
+        try await MockSoundPrintProvider().analyzeSentiment(input: input)
+    }
+
+    func extractTasteSignals(input: TasteExtractionInput) async throws -> TasteExtractionResult {
+        try await MockSoundPrintProvider().extractTasteSignals(input: input)
+    }
+
+    func generatePersona(input: PersonaInput) async throws -> PersonaResult {
+        if failsPersonaGeneration {
+            throw ThrowingSoundPrintError.failed
+        }
+
+        return PersonaResult(
+            text: "You tend to reward vocal focus. Blonde by Frank Ocean is the clearest example so far.",
+            generationSource: source
+        )
+    }
+
+    func generateCompactSummary(input: CompactSummaryInput) async throws -> CompactSummaryResult {
+        try await MockSoundPrintProvider().generateCompactSummary(input: input)
     }
 }
 

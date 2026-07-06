@@ -111,9 +111,13 @@ struct SoundPrintProfileView: View {
     private func personaSection(_ persona: SoundPrintPersona) -> some View {
         ListendObjectCard {
             VStack(alignment: .leading, spacing: ListendSpacing.sm) {
-                Text("Persona")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                HStack(alignment: .center, spacing: 8) {
+                    Text("Persona")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    SoundPrintGenerationSourceBadge(source: persona.generationSource)
+                }
 
                 Text(persona.personaText)
                     .font(.system(.title3, design: .serif))
@@ -379,6 +383,20 @@ private extension Double {
         SoundPrintProfileView()
     }
     .modelContainer(PreviewData.unlockedPersonaContainer)
+}
+
+#Preview("Persona Apple Intelligence") {
+    NavigationStack {
+        SoundPrintProfileView()
+    }
+    .modelContainer(PreviewData.appleIntelligencePersonaContainer)
+}
+
+#Preview("Persona Local Fallback") {
+    NavigationStack {
+        SoundPrintProfileView()
+    }
+    .modelContainer(PreviewData.localFallbackPersonaContainer)
 }
 
 #Preview("Fuller Profile") {

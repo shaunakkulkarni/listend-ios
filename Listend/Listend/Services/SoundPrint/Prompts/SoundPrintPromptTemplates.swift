@@ -87,6 +87,12 @@ enum SoundPrintPromptTemplates {
         Existing SoundPrint dimensions:
         \(existingDimensionsText)
 
+        Supported positive dimensionKey values:
+        \(FoundationModelsSoundPrintValidator.allowedDimensionNames.joined(separator: ", "))
+
+        Supported avoidance signalKey values:
+        \(FoundationModelsSoundPrintValidator.allowedAvoidanceCategoryNames.joined(separator: ", "))
+
         Return JSON with this shape:
 
         {
@@ -121,6 +127,8 @@ enum SoundPrintPromptTemplates {
 
         Rules:
         - If the log has little detail, return fewer signals with lower confidence.
+        - dimensionKey must be one of the supported positive dimensionKey values.
+        - signalKey must be one of the supported avoidance signalKey values.
         - Do not infer genre preferences from one album.
         - Do not create a positive signal from a negative review.
         - Do not create more than 4 positive signals.

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 
 #if canImport(FoundationModels)
 import FoundationModels
@@ -19,6 +20,8 @@ enum FoundationModelsSoundPrintProviderError: Error, Equatable {
 }
 
 struct FoundationModelsSoundPrintProvider: SoundPrintProvider {
+    private static let logger = Logger(subsystem: "com.shaunakkulkarni.Listend", category: "SoundPrint")
+
     init() {}
 
     func analyzeSentiment(input: SentimentInput) async throws -> SentimentResult {
@@ -128,15 +131,37 @@ private extension FoundationModelsSoundPrintProvider {
             throw FoundationModelsSoundPrintProviderError.unavailable
         }
 
-        let session = LanguageModelSession(instructions: instructions)
-        let response = try await session.respond(to: prompt)
-        let content = String(describing: response.content).trimmingCharacters(in: .whitespacesAndNewlines)
+        let content = try await generatedResponseContent(instructions: instructions, prompt: prompt)
 
         guard !content.isEmpty else {
             throw FoundationModelsSoundPrintProviderError.emptyOutput
         }
 
         return content
+    }
+
+    static func generatedResponseContent(instructions: String, prompt: String) async throws -> String {
+        var lastError: Error?
+
+        for attempt in 1...2 {
+            do {
+                let session = LanguageModelSession(instructions: instructions)
+                let response = try await session.respond(to: prompt)
+                return String(describing: response.content).trimmingCharacters(in: .whitespacesAndNewlines)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                lastError = error
+                guard attempt == 1 else {
+                    break
+                }
+
+                FoundationModelsSoundPrintProvider.logger.error("FoundationModels response failed; retrying once: \(String(describing: error), privacy: .public)")
+                try await Task.sleep(nanoseconds: 300_000_000)
+            }
+        }
+
+        throw lastError ?? FoundationModelsSoundPrintProviderError.unavailable
     }
 
     /// Orchestrates persona generation: draft via FM, gate through the always-on local
@@ -153,7 +178,14 @@ private extension FoundationModelsSoundPrintProvider {
 
         let draftText = try await requestPersonaText(input: input)
 
-        guard SoundPrintOutputValidator.validatePersona(draftText, context: context).isValid else {
+        let draftOutcome = SoundPrintOutputValidator.validatePersona(draftText, context: context)
+        if !draftOutcome.isValid {
+            FoundationModelsSoundPrintProvider.logger.error("FoundationModels persona rejected; trying critic rewrite: \(String(describing: draftOutcome), privacy: .public)")
+            if let rewrite = await validCriticRewrite(for: draftText, input: input, context: context) {
+                return PersonaResult(text: rewrite, generationSource: .foundationModels)
+            }
+
+            FoundationModelsSoundPrintProvider.logger.error("FoundationModels critic could not repair persona; using local fallback")
             return MockSoundPrintProvider.generatePersona(input: input)
         }
 
@@ -170,7 +202,23 @@ private extension FoundationModelsSoundPrintProvider {
             return PersonaResult(text: rewrite, generationSource: .foundationModels)
         }
 
+        FoundationModelsSoundPrintProvider.logger.error("FoundationModels persona critic rejected output; using local fallback. suggestedRewrite: \(String(describing: critique.suggestedRewrite), privacy: .public)")
         return MockSoundPrintProvider.generatePersona(input: input)
+    }
+
+    static func validCriticRewrite(
+        for personaText: String,
+        input: PersonaInput,
+        context: SoundPrintOutputValidator.PersonaValidationContext
+    ) async -> String? {
+        guard let critique = await critiquePersona(personaText, input: input),
+              let rewrite = critique.suggestedRewrite?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rewrite.isEmpty,
+              SoundPrintOutputValidator.validatePersona(rewrite, context: context).isValid else {
+            return nil
+        }
+
+        return rewrite
     }
 
     static func requestPersonaText(input: PersonaInput) async throws -> String {
@@ -284,9 +332,11 @@ struct FoundationModelsSoundPrintValidator {
         var signals: [TasteSignal] = []
 
         for payloadSignal in payload.positiveSignals.prefix(4) {
-            let dimensionName = payloadSignal.dimensionKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            let rawDimensionName = payloadSignal.dimensionKey.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            guard let label = allowedDimensions[dimensionName], !seenDimensionNames.contains(dimensionName) else {
+            guard let dimensionName = allowedKey(rawDimensionName, in: allowedDimensions),
+                  let label = allowedDimensions[dimensionName],
+                  !seenDimensionNames.contains(dimensionName) else {
                 throw FoundationModelsSoundPrintProviderError.validationFailed
             }
 
@@ -340,9 +390,11 @@ struct FoundationModelsSoundPrintValidator {
         var signals: [AvoidanceSignal] = []
 
         for payloadSignal in payloadSignals.prefix(3) {
-            let signalName = payloadSignal.signalKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            let rawSignalName = payloadSignal.signalKey.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            guard let label = allowedAvoidanceCategories[signalName], !seenSignalNames.contains(signalName) else {
+            guard let signalName = allowedKey(rawSignalName, in: allowedAvoidanceCategories),
+                  let label = allowedAvoidanceCategories[signalName],
+                  !seenSignalNames.contains(signalName) else {
                 throw FoundationModelsSoundPrintProviderError.validationFailed
             }
 
@@ -367,6 +419,17 @@ struct FoundationModelsSoundPrintValidator {
         }
 
         return signals
+    }
+
+    private static func allowedKey(_ value: String, in allowedValues: [String: String]) -> String? {
+        if allowedValues[value] != nil {
+            return value
+        }
+
+        let normalized = value.normalizedSoundPrintText
+        return allowedValues.first { key, label in
+            key.normalizedSoundPrintText == normalized || label.normalizedSoundPrintText == normalized
+        }?.key
     }
 }
 

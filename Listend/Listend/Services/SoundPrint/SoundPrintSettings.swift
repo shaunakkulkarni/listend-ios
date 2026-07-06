@@ -47,7 +47,19 @@ struct SoundPrintAppleIntelligenceAvailability: Equatable {
             switch SystemLanguageModel.default.availability {
             case .available:
                 return SoundPrintAppleIntelligenceAvailability(state: .available)
-            default:
+            case .unavailable(.appleIntelligenceNotEnabled):
+                return SoundPrintAppleIntelligenceAvailability(
+                    state: .supportedUnavailable("Apple Intelligence is off. Turn it on in Settings > Apple Intelligence & Siri.")
+                )
+            case .unavailable(.modelNotReady):
+                return SoundPrintAppleIntelligenceAvailability(
+                    state: .supportedUnavailable("Apple Intelligence models are not ready yet. Keep the device on Wi-Fi and power, then try again.")
+                )
+            case .unavailable(.deviceNotEligible):
+                return SoundPrintAppleIntelligenceAvailability(
+                    state: .unsupported("This device, OS, language, region, or Apple Account is not eligible for Apple Intelligence.")
+                )
+            @unknown default:
                 return SoundPrintAppleIntelligenceAvailability(
                     state: .supportedUnavailable("Foundation Models availability: \(String(describing: SystemLanguageModel.default.availability))")
                 )
@@ -114,6 +126,8 @@ struct SoundPrintSettingsDisplayState: Equatable {
         switch latestSource {
         case .foundationModels:
             return "Latest SoundPrint was generated with Apple Intelligence."
+        case .localFallback where preferAppleIntelligence && availability.state == .available:
+            return "Apple Intelligence is available, but the latest SoundPrint fell back locally after generation did not produce a valid profile."
         case .localFallback where preferAppleIntelligence:
             return "Listend will try Apple Intelligence first and keep SoundPrint available locally when needed."
         case .localFallback:

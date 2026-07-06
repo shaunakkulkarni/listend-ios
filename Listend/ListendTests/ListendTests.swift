@@ -185,6 +185,38 @@ struct ListendTests {
         #expect(result.signals.isEmpty)
     }
 
+    @Test func foundationModelsTasteValidationAcceptsKnownLabelsAsKeys() throws {
+        let result = try FoundationModelsSoundPrintValidator.validatedTasteExtraction(
+            payload: TasteExtractionPayload(
+                sentiment: TasteExtractionPayload.Sentiment(score: 0.8, confidence: 0.8),
+                positiveSignals: [
+                    FoundationModelsPositiveSignalPayload(
+                        dimensionKey: "Energy Bias",
+                        label: "Energy Bias",
+                        summary: "Energetic.",
+                        strength: 0.8,
+                        confidence: 0.8,
+                        evidenceSnippet: "Intense momentum."
+                    )
+                ],
+                avoidanceSignals: [
+                    FoundationModelsAvoidanceSignalPayload(
+                        signalKey: "Skip-Heavy Albums",
+                        label: "Skip-Heavy Albums",
+                        summary: "Too many skips.",
+                        strength: 0.6,
+                        confidence: 0.6,
+                        evidenceSnippet: "Several weaker tracks."
+                    )
+                ]
+            ),
+            input: tasteExtractionInput(sentimentScore: 0.8)
+        )
+
+        #expect(result.signals.map(\.dimensionName) == ["energy"])
+        #expect(result.avoidanceSignals.map(\.signalName) == ["skipHeavyAlbums"])
+    }
+
     @Test func foundationModelsTasteValidationRejectsUnknownAvoidanceCategory() throws {
         let input = tasteExtractionInput(sentimentScore: 0.8)
 
@@ -795,6 +827,27 @@ struct ListendTests {
         #expect(result.avoidanceSignals.contains { $0.signalName == "skipHeavyAlbums" })
     }
 
+    @Test func positiveNoSkipReviewDoesNotTriggerSkipHeavyAvoidance() async throws {
+        let provider = MockSoundPrintProvider()
+
+        let result = try await provider.extractTasteSignals(
+            input: TasteExtractionInput(
+                logID: UUID(),
+                albumTitle: "Test Album",
+                artistName: "Test Artist",
+                genreName: nil,
+                releaseYear: nil,
+                rating: 4.5,
+                reviewText: "Not a single skip on here.",
+                tags: [],
+                sentimentScore: 0.8
+            )
+        )
+
+        #expect(result.signals.contains { $0.dimensionName == "tracklistConsistency" })
+        #expect(!result.avoidanceSignals.contains { $0.signalName == "skipHeavyAlbums" })
+    }
+
     @Test func skipCountAndKeywordAgreementIncreasesAvoidanceConfidenceVsEitherAlone() async throws {
         let provider = MockSoundPrintProvider()
 
@@ -1316,6 +1369,17 @@ struct ListendTests {
         #expect(display.statusTitle == "Apple Intelligence preferred, using Local fallback")
         #expect(display.statusDetail == "Listend will try Apple Intelligence first and keep SoundPrint available locally when needed.")
         #expect(display.currentGeneratorTitle == "Local fallback")
+    }
+
+    @Test func soundPrintSettingsDisplayReportsAvailableAppleIntelligenceRejectedOutput() {
+        let display = SoundPrintSettingsDisplayState(
+            preferAppleIntelligence: true,
+            latestSource: .localFallback,
+            availability: SoundPrintAppleIntelligenceAvailability(state: .available)
+        )
+
+        #expect(display.statusTitle == "Apple Intelligence preferred, using Local fallback")
+        #expect(display.statusDetail == "Apple Intelligence is available, but the latest SoundPrint fell back locally after generation did not produce a valid profile.")
     }
 
     @Test func compactSummaryRespectsHeadlineSummaryBulletLimits() async throws {

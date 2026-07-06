@@ -5,9 +5,12 @@
 //  Created by Codex on 5/3/26.
 //
 
+import os
+
 struct FallbackSoundPrintProvider: SoundPrintProvider {
     let primary: SoundPrintProvider
     let fallback: SoundPrintProvider
+    private static let logger = Logger(subsystem: "com.shaunakkulkarni.Listend", category: "SoundPrint")
 
     init(
         primary: SoundPrintProvider = FoundationModelsSoundPrintProvider(),
@@ -23,6 +26,7 @@ struct FallbackSoundPrintProvider: SoundPrintProvider {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            Self.logger.error("SoundPrint sentiment primary failed; using local fallback: \(String(describing: error), privacy: .public)")
             return try await fallback.analyzeSentiment(input: input)
         }
     }
@@ -33,6 +37,7 @@ struct FallbackSoundPrintProvider: SoundPrintProvider {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            Self.logger.error("SoundPrint extraction primary failed; using local fallback: \(String(describing: error), privacy: .public)")
             return try await fallback.extractTasteSignals(input: input)
         }
     }
@@ -43,6 +48,7 @@ struct FallbackSoundPrintProvider: SoundPrintProvider {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            Self.logger.error("SoundPrint persona primary failed; using local fallback: \(String(describing: error), privacy: .public)")
             return try await fallback.generatePersona(input: input)
         }
     }
@@ -53,6 +59,7 @@ struct FallbackSoundPrintProvider: SoundPrintProvider {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            Self.logger.error("SoundPrint compact summary primary failed; using local fallback: \(String(describing: error), privacy: .public)")
             return try await fallback.generateCompactSummary(input: input)
         }
     }

@@ -228,7 +228,11 @@ struct MockSoundPrintProvider: SoundPrintProvider {
         }
 
         let skipCount = input.skipTracks.count
-        let hasSkipKeywordMatch = skipHeavyKeywords.contains { normalizedText.containsNormalizedSoundPrintPhrase($0) }
+        let hasPositiveSkipLanguage = positiveSkipPhrases.contains { normalizedText.containsNormalizedSoundPrintPhrase($0) }
+        let hasSkipKeywordMatch = skipHeavyKeywords.contains { keyword in
+            (keyword != "skip" || !hasPositiveSkipLanguage)
+                && normalizedText.containsNormalizedSoundPrintPhrase(keyword)
+        }
 
         guard skipCount >= 2 || hasSkipKeywordMatch else {
             return signals
@@ -482,7 +486,7 @@ struct MockSoundPrintProvider: SoundPrintProvider {
         TasteRule(dimensionName: "genreOpenness", label: "Genre Flex", keywords: ["genre-bending", "fusion"]),
         TasteRule(dimensionName: "eraAffinity", label: "Era Pull", keywords: ["classic", "old-school", "90s", "2000s"]),
         TasteRule(dimensionName: "replayability", label: "Replay Pull", keywords: ["replay", "repeat", "addictive"]),
-        TasteRule(dimensionName: "tracklistConsistency", label: "Tracklist Patience", keywords: ["consistent", "cohesive", "no filler", "tight tracklist"]),
+        TasteRule(dimensionName: "tracklistConsistency", label: "Tracklist Patience", keywords: ["consistent", "cohesive", "no filler", "no skips", "not a single skip", "tight tracklist"]),
         TasteRule(dimensionName: "emotionalDirectness", label: "Emotional Directness", keywords: ["raw emotion", "direct", "honest", "vulnerable"]),
         TasteRule(dimensionName: "texturePreference", label: "Texture Bias", keywords: ["textured", "grainy", "atmospheric", "warm tone"])
     ]
@@ -498,6 +502,10 @@ struct MockSoundPrintProvider: SoundPrintProvider {
 
     private static let skipHeavyKeywords: [String] = [
         "filler", "pacing", "bloated", "too long", "weak middle", "inconsistent", "uneven", "front-loaded", "skip"
+    ]
+
+    private static let positiveSkipPhrases: [String] = [
+        "no skips", "not a single skip", "not one skip", "zero skips", "never skipped", "didnt skip", "didn't skip"
     ]
 }
 

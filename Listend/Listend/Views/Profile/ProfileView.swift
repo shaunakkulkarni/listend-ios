@@ -158,6 +158,7 @@ private struct PersonaCard: View {
 
                 if let persona, logCount >= SoundPrintProfileThresholds.personaMinimumLogCount {
                     SoundPrintGenerationSourceBadge(source: persona.generationSource)
+                    SoundPrintPersonaToneBadge(tone: persona.tone)
                 }
             }
 

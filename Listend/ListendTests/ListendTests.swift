@@ -244,6 +244,66 @@ struct ListendTests {
         }
     }
 
+    @Test func foundationModelsTasteValidationSkipsDuplicateDimensionsInsteadOfFailing() throws {
+        let duplicatedSignal = FoundationModelsPositiveSignalPayload(
+            dimensionKey: "energy",
+            label: "Energy Bias",
+            summary: "Energetic.",
+            strength: 0.8,
+            confidence: 0.8,
+            evidenceSnippet: "Intense momentum."
+        )
+        let distinctSignal = FoundationModelsPositiveSignalPayload(
+            dimensionKey: "mood",
+            label: "Emotional Temperature",
+            summary: "Moody.",
+            strength: 0.7,
+            confidence: 0.7,
+            evidenceSnippet: "Late night listening."
+        )
+
+        let result = try FoundationModelsSoundPrintValidator.validatedTasteExtraction(
+            payload: TasteExtractionPayload(
+                sentiment: TasteExtractionPayload.Sentiment(score: 0.8, confidence: 0.8),
+                positiveSignals: [duplicatedSignal, duplicatedSignal, distinctSignal],
+                avoidanceSignals: []
+            ),
+            input: tasteExtractionInput(sentimentScore: 0.8)
+        )
+
+        #expect(result.signals.map(\.dimensionName) == ["energy", "mood"])
+    }
+
+    @Test func foundationModelsTasteValidationSkipsSignalsWithBlankFieldsInsteadOfFailing() throws {
+        let blankSummarySignal = FoundationModelsPositiveSignalPayload(
+            dimensionKey: "energy",
+            label: "Energy Bias",
+            summary: "   ",
+            strength: 0.8,
+            confidence: 0.8,
+            evidenceSnippet: "Intense momentum."
+        )
+        let completeSignal = FoundationModelsPositiveSignalPayload(
+            dimensionKey: "mood",
+            label: "Emotional Temperature",
+            summary: "Moody.",
+            strength: 0.7,
+            confidence: 0.7,
+            evidenceSnippet: "Late night listening."
+        )
+
+        let result = try FoundationModelsSoundPrintValidator.validatedTasteExtraction(
+            payload: TasteExtractionPayload(
+                sentiment: TasteExtractionPayload.Sentiment(score: 0.8, confidence: 0.8),
+                positiveSignals: [blankSummarySignal, completeSignal],
+                avoidanceSignals: []
+            ),
+            input: tasteExtractionInput(sentimentScore: 0.8)
+        )
+
+        #expect(result.signals.map(\.dimensionName) == ["mood"])
+    }
+
     @Test func foundationModelsTasteValidationCapsPositiveAndAvoidanceSignalCounts() throws {
         let positiveSignals = FoundationModelsSoundPrintValidator.allowedDimensionNames.prefix(6).map { key in
             FoundationModelsPositiveSignalPayload(
@@ -1463,6 +1523,28 @@ struct ListendTests {
 
         #expect(persona.generationSource == .foundationModels)
         #expect(persona.generationSourceRawValue == SoundPrintGenerationSource.foundationModels.rawValue)
+    }
+
+    @Test func soundPrintProfileRebuildPersistsPersonaTone() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+
+        insertPersonaReadyLogs(in: modelContext, count: 5)
+        try modelContext.save()
+
+        let previousRawValue = UserDefaults.standard.string(forKey: SoundPrintPreferenceKey.personaTone)
+        UserDefaults.standard.set(SoundPrintPersonaTone.wrapped.rawValue, forKey: SoundPrintPreferenceKey.personaTone)
+        defer { UserDefaults.standard.set(previousRawValue, forKey: SoundPrintPreferenceKey.personaTone) }
+
+        try await SoundPrintProfileBuilder(
+            provider: SourceTrackingSoundPrintProvider(source: .foundationModels)
+        ).rebuildProfile(in: modelContext)
+
+        let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
+        let persona = try #require(personas.first)
+
+        #expect(persona.tone == .wrapped)
+        #expect(persona.toneRawValue == SoundPrintPersonaTone.wrapped.rawValue)
     }
 
     @Test func soundPrintPersonaUnknownSourceCoversOldAndInvalidRawValues() {
@@ -2859,7 +2941,7 @@ struct ListendTests {
         #expect(!outcome.isValid)
     }
 
-    @Test func soundPrintOutputValidatorRejectsWrongSentenceCount() {
+    @Test func soundPrintOutputValidatorAcceptsAnySentenceCountUnderWordLimit() {
         let oneSentence = SoundPrintOutputValidator.validatePersona(
             "You tend to reward records with a clear emotional temperature and real replay value throughout.",
             context: .init(concreteSignals: ["emotional temperature"])
@@ -2869,8 +2951,8 @@ struct ListendTests {
             context: .init(concreteSignals: ["emotional temperature"])
         )
 
-        #expect(!oneSentence.isValid)
-        #expect(!threeSentences.isValid)
+        #expect(oneSentence.isValid)
+        #expect(threeSentences.isValid)
     }
 
     @Test func soundPrintOutputValidatorRejectsYouAreOpener() {
@@ -2907,6 +2989,156 @@ struct ListendTests {
         )
 
         #expect(!outcome.isValid)
+    }
+
+    @Test func soundPrintPersonaToneDecodesRawValuesAndDefaultsToBalanced() {
+        // Typed as String? so overload resolution picks the custom init(rawValue: String?)
+        // rather than the enum's synthesized init?(rawValue: String).
+        func decode(_ rawValue: String?) -> SoundPrintPersonaTone {
+            SoundPrintPersonaTone(rawValue: rawValue)
+        }
+
+        #expect(decode(nil) == .balanced)
+        #expect(decode("not-a-tone") == .balanced)
+        #expect(decode("analyst") == .analyst)
+        #expect(decode("wrapped") == .wrapped)
+
+        for tone in SoundPrintPersonaTone.allCases {
+            #expect(!tone.userFacingTitle.isEmpty)
+            #expect(!tone.userFacingDescription.isEmpty)
+        }
+    }
+
+    @Test func soundPrintOutputValidatorBannedPhrasesAreToneAware() {
+        let vibesText = "You keep chasing big Energy Bias vibes. Filler tracks never make the cut."
+
+        let underWrapped = SoundPrintOutputValidator.validatePersona(
+            vibesText,
+            context: .init(concreteSignals: ["Energy Bias"], tone: .wrapped)
+        )
+        let underAnalyst = SoundPrintOutputValidator.validatePersona(
+            vibesText,
+            context: .init(concreteSignals: ["Energy Bias"], tone: .analyst)
+        )
+        let underBalanced = SoundPrintOutputValidator.validatePersona(
+            vibesText,
+            context: .init(concreteSignals: ["Energy Bias"], tone: .balanced)
+        )
+
+        #expect(underWrapped.isValid)
+        #expect(!underAnalyst.isValid)
+        #expect(!underBalanced.isValid)
+
+        // Core filler phrases stay banned in every tone, including Wrapped.
+        let eclecticText = "You have eclectic taste around Energy Bias. Filler tracks never make the cut."
+        let eclecticUnderWrapped = SoundPrintOutputValidator.validatePersona(
+            eclecticText,
+            context: .init(concreteSignals: ["Energy Bias"], tone: .wrapped)
+        )
+        #expect(!eclecticUnderWrapped.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorAnalystToneEnforcesOverconfidenceRegardlessOfLogCount() {
+        let text = "You never settle unless Energy Bias runs high. Filler always drops your patience fast."
+
+        let underAnalystHighLogCount = SoundPrintOutputValidator.validatePersona(
+            text,
+            context: .init(concreteSignals: ["Energy Bias"], logCount: 50, tone: .analyst)
+        )
+        let underBalancedHighLogCount = SoundPrintOutputValidator.validatePersona(
+            text,
+            context: .init(concreteSignals: ["Energy Bias"], logCount: 50, tone: .balanced)
+        )
+
+        #expect(!underAnalystHighLogCount.isValid)
+        #expect(underBalancedHighLogCount.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorRejectsCriticStyleMetaCommentary() {
+        // The exact text observed leaking from a misused critic-rewrite field in production.
+        let leakedCritique = "This persona conflates genre preferences with unsupported claims about skip-free listening and vague lyrical praise. Energy Bias should reflect concrete production choices, not emotional claims. Avoid generic language like 'futurist' or 'type of country music.'"
+
+        for tone in SoundPrintPersonaTone.allCases {
+            let outcome = SoundPrintOutputValidator.validatePersona(
+                leakedCritique,
+                context: .init(concreteSignals: ["Energy Bias"], tone: tone)
+            )
+            #expect(!outcome.isValid, "Expected critique leakage to be rejected under \(tone)")
+        }
+
+        let thirdPerson = SoundPrintOutputValidator.validatePersona(
+            "The user rewards Energy Bias and loses patience with filler tracks quickly.",
+            context: .init(concreteSignals: ["Energy Bias"])
+        )
+        #expect(!thirdPerson.isValid)
+
+        let normalPersona = SoundPrintOutputValidator.validatePersona(
+            "You reward Energy Bias above almost everything else. Filler tracks lose your patience fast.",
+            context: .init(concreteSignals: ["Energy Bias"])
+        )
+        #expect(normalPersona.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorRejectsVagueUnnamedAlbumReference() {
+        let vagueThis = SoundPrintOutputValidator.validatePersona(
+            "You reward Energy Bias most of the time, but this album didn't land the way your other picks do.",
+            context: .init(concreteSignals: ["Energy Bias"])
+        )
+        let vagueThat = SoundPrintOutputValidator.validatePersona(
+            "You reward Energy Bias most of the time, but that album didn't land the way your other picks do.",
+            context: .init(concreteSignals: ["Energy Bias"])
+        )
+        let named = SoundPrintOutputValidator.validatePersona(
+            "You reward Energy Bias most of the time, but Blonde didn't land the way your other picks do.",
+            context: .init(concreteSignals: ["Energy Bias", "Blonde"])
+        )
+
+        #expect(!vagueThis.isValid)
+        #expect(!vagueThat.isValid)
+        #expect(named.isValid)
+    }
+
+    @Test func mockPersonaTemplatesRespectTone() async throws {
+        let provider = MockSoundPrintProvider()
+
+        var textsByTone: [SoundPrintPersonaTone: String] = [:]
+        for tone in SoundPrintPersonaTone.allCases {
+            let result = try await provider.generatePersona(input: personaInput(tone: tone))
+            let concreteSignals = FoundationModelsSoundPrintValidator.concreteSignals(from: personaInput(tone: tone))
+            let outcome = SoundPrintOutputValidator.validatePersona(
+                result.text,
+                context: .init(concreteSignals: concreteSignals, tone: tone)
+            )
+
+            #expect(outcome.isValid, "Expected \(tone) persona to validate: \(String(describing: outcome))")
+            textsByTone[tone] = result.text
+        }
+
+        #expect(Set(textsByTone.values).count == SoundPrintPersonaTone.allCases.count)
+    }
+
+    @Test func mockCompactSummaryTemplatesRespectTone() {
+        let dimensions = [
+            TasteDimension(name: "energy", label: "Energy Bias", weight: 0.9, confidence: 0.8, summary: "Leans energetic.")
+        ]
+
+        var headlinesByTone: [SoundPrintPersonaTone: String] = [:]
+        for tone in SoundPrintPersonaTone.allCases {
+            let result = MockSoundPrintProvider.generateCompactSummary(
+                input: CompactSummaryInput(dimensions: dimensions, avoidanceSignals: [], tone: tone)
+            )
+            let outcome = SoundPrintOutputValidator.validateCompactSummary(
+                headline: result.headline,
+                summary: result.summary,
+                bullets: result.bullets,
+                tone: tone
+            )
+
+            #expect(outcome.isValid, "Expected \(tone) compact summary to validate: \(String(describing: outcome))")
+            headlinesByTone[tone] = result.headline
+        }
+
+        #expect(Set(headlinesByTone.values).count == SoundPrintPersonaTone.allCases.count)
     }
 
     @Test func soundPrintOutputValidatorCompactSummaryRespectsLimits() {
@@ -2951,7 +3183,7 @@ struct ListendTests {
         return try ModelContainer(for: schema, configurations: [configuration])
     }
 
-    private func personaInput() -> PersonaInput {
+    private func personaInput(tone: SoundPrintPersonaTone = .balanced) -> PersonaInput {
         PersonaInput(
             dimensions: [
                 TasteDimension(
@@ -2989,7 +3221,8 @@ struct ListendTests {
             ],
             totalLogCount: 5,
             topTags: ["vocals", "late night"],
-            averageRating: 4.4
+            averageRating: 4.4,
+            tone: tone
         )
     }
 

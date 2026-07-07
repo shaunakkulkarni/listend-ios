@@ -272,56 +272,109 @@ struct MockSoundPrintProvider: SoundPrintProvider {
         let sortedAvoidance = input.avoidanceSignals.sorted { $0.strength > $1.strength }
 
         let result = CompactSummaryResult(
-            headline: compactSummaryHeadline(topDimension: sortedDimensions.first),
-            summary: compactSummarySentence(topDimension: sortedDimensions.first, topAvoidance: sortedAvoidance.first),
-            bullets: compactSummaryBullets(dimensions: sortedDimensions, avoidanceSignals: sortedAvoidance)
+            headline: compactSummaryHeadline(topDimension: sortedDimensions.first, tone: input.tone),
+            summary: compactSummarySentence(topDimension: sortedDimensions.first, topAvoidance: sortedAvoidance.first, tone: input.tone),
+            bullets: compactSummaryBullets(dimensions: sortedDimensions, avoidanceSignals: sortedAvoidance, tone: input.tone)
         )
 
         guard SoundPrintOutputValidator.validateCompactSummary(
             headline: result.headline,
             summary: result.summary,
-            bullets: result.bullets
+            bullets: result.bullets,
+            tone: input.tone
         ).isValid else {
-            return fallbackCompactSummary()
+            return fallbackCompactSummary(tone: input.tone)
         }
 
         return result
     }
 
-    private static func compactSummaryHeadline(topDimension: TasteDimension?) -> String {
+    private static func compactSummaryHeadline(topDimension: TasteDimension?, tone: SoundPrintPersonaTone) -> String {
         guard let topDimension else {
-            return "Still Building The Pattern"
+            switch tone {
+            case .analyst: return "Insufficient Data For A Finding"
+            case .balanced: return "Still Building The Pattern"
+            case .wrapped: return "Plot Still Loading"
+            }
         }
 
-        return "\(topDimension.label) Leads The Pattern"
+        switch tone {
+        case .analyst:
+            return "\(topDimension.label) Leads The Findings"
+        case .balanced:
+            return "\(topDimension.label) Leads The Pattern"
+        case .wrapped:
+            return "Certified \(topDimension.label) Champion"
+        }
     }
 
-    private static func compactSummarySentence(topDimension: TasteDimension?, topAvoidance: TasteAvoidanceSignal?) -> String {
+    private static func compactSummarySentence(topDimension: TasteDimension?, topAvoidance: TasteAvoidanceSignal?, tone: SoundPrintPersonaTone) -> String {
         guard let topDimension else {
             return "Log a few more albums to start seeing a pattern here."
         }
 
-        guard let topAvoidance else {
-            return "You tend to reward \(topDimension.label.lowercased())."
+        switch tone {
+        case .analyst:
+            guard let topAvoidance else {
+                return "The data points to \(topDimension.label.lowercased()) as the leading reward signal."
+            }
+            return "The data points to \(topDimension.label.lowercased()) as a reward signal, with \(topAvoidance.label.lowercased()) as the leading detractor."
+        case .balanced:
+            guard let topAvoidance else {
+                return "You tend to reward \(topDimension.label.lowercased())."
+            }
+            return "You tend to reward \(topDimension.label.lowercased()) and lose patience with \(topAvoidance.label.lowercased())."
+        case .wrapped:
+            guard let topAvoidance else {
+                return "This was your \(topDimension.label.lowercased()) era!"
+            }
+            return "This was your \(topDimension.label.lowercased()) era, and \(topAvoidance.label.lowercased()) never stood a chance."
         }
-
-        return "You tend to reward \(topDimension.label.lowercased()) and lose patience with \(topAvoidance.label.lowercased())."
     }
 
-    private static func compactSummaryBullets(dimensions: [TasteDimension], avoidanceSignals: [TasteAvoidanceSignal]) -> [String] {
+    private static func compactSummaryBullets(dimensions: [TasteDimension], avoidanceSignals: [TasteAvoidanceSignal], tone: SoundPrintPersonaTone) -> [String] {
         var bullets: [String] = []
 
-        for dimension in dimensions.prefix(2) {
-            bullets.append("Rewards \(dimension.label)")
+        switch tone {
+        case .analyst:
+            for dimension in dimensions.prefix(2) {
+                bullets.append("Rewards: \(dimension.label)")
+            }
+            if let topAvoidance = avoidanceSignals.first {
+                bullets.append("Docks: \(topAvoidance.label)")
+            } else if let thirdDimension = dimensions.dropFirst(2).first {
+                bullets.append("Trend: \(thirdDimension.label)")
+            }
+        case .balanced:
+            for dimension in dimensions.prefix(2) {
+                bullets.append("Rewards \(dimension.label)")
+            }
+            if let topAvoidance = avoidanceSignals.first {
+                bullets.append("Loses patience with \(topAvoidance.label)")
+            } else if let thirdDimension = dimensions.dropFirst(2).first {
+                bullets.append("Also leans into \(thirdDimension.label)")
+            }
+        case .wrapped:
+            for dimension in dimensions.prefix(2) {
+                bullets.append("Award: Top \(dimension.label) Fan")
+            }
+            if let topAvoidance = avoidanceSignals.first {
+                bullets.append("Zero patience for \(topAvoidance.label)")
+            } else if let thirdDimension = dimensions.dropFirst(2).first {
+                bullets.append("Bonus round: \(thirdDimension.label)")
+            }
         }
 
-        if let topAvoidance = avoidanceSignals.first {
-            bullets.append("Loses patience with \(topAvoidance.label)")
-        } else if let thirdDimension = dimensions.dropFirst(2).first {
-            bullets.append("Also leans into \(thirdDimension.label)")
+        let modestFillers: [String]
+        switch tone {
+        case .analyst:
+            modestFillers = ["Sample size still small", "More logs will sharpen this", "Pattern still forming"]
+        case .balanced:
+            modestFillers = ["Still gathering evidence", "More logs will sharpen this", "Pattern still forming"]
+        case .wrapped:
+            modestFillers = ["More logs, more bragging rights", "The plot is still thickening", "Sequel loading"]
         }
 
-        let modestFillers = ["Still gathering evidence", "More logs will sharpen this", "Pattern still forming"]
         var fillerIndex = 0
         while bullets.count < 3, fillerIndex < modestFillers.count {
             bullets.append(modestFillers[fillerIndex])
@@ -331,12 +384,27 @@ struct MockSoundPrintProvider: SoundPrintProvider {
         return Array(bullets.prefix(3))
     }
 
-    private static func fallbackCompactSummary() -> CompactSummaryResult {
-        CompactSummaryResult(
-            headline: "Still Building The Pattern",
-            summary: "Log a few more albums to start seeing a pattern here.",
-            bullets: ["Still gathering evidence", "More logs will sharpen this", "Pattern still forming"]
-        )
+    private static func fallbackCompactSummary(tone: SoundPrintPersonaTone) -> CompactSummaryResult {
+        switch tone {
+        case .analyst:
+            return CompactSummaryResult(
+                headline: "Insufficient Data For A Finding",
+                summary: "Log a few more albums to start seeing a pattern here.",
+                bullets: ["Sample size still small", "More logs will sharpen this", "Pattern still forming"]
+            )
+        case .balanced:
+            return CompactSummaryResult(
+                headline: "Still Building The Pattern",
+                summary: "Log a few more albums to start seeing a pattern here.",
+                bullets: ["Still gathering evidence", "More logs will sharpen this", "Pattern still forming"]
+            )
+        case .wrapped:
+            return CompactSummaryResult(
+                headline: "Plot Still Loading",
+                summary: "Log a few more albums to start seeing a pattern here.",
+                bullets: ["More logs, more bragging rights", "The plot is still thickening", "Sequel loading"]
+            )
+        }
     }
 
     static func generatePersona(input: PersonaInput) -> PersonaResult {
@@ -367,7 +435,8 @@ struct MockSoundPrintProvider: SoundPrintProvider {
             primaryDimension: primaryDimension,
             secondaryDimension: secondaryDimension,
             topAvoidanceLabel: topAvoidanceLabel,
-            favoriteLog: favoriteLog
+            favoriteLog: favoriteLog,
+            tone: input.tone
         )
         let concreteSignals = concreteSignals(
             dimensions: strongestDimensions,
@@ -375,12 +444,12 @@ struct MockSoundPrintProvider: SoundPrintProvider {
             logs: input.recentLogs
         ) + input.avoidanceSignals
 
-        if SoundPrintOutputValidator.isPersonaValid(draft, concreteSignals: concreteSignals, logCount: input.totalLogCount) {
+        if SoundPrintOutputValidator.isPersonaValid(draft, concreteSignals: concreteSignals, logCount: input.totalLogCount, tone: input.tone) {
             return PersonaResult(text: draft, generationSource: .localFallback)
         }
 
         return PersonaResult(
-            text: fallbackPersona(primaryDimension: primaryDimension, favoriteLog: favoriteLog),
+            text: fallbackPersona(primaryDimension: primaryDimension, favoriteLog: favoriteLog, tone: input.tone),
             generationSource: .localFallback
         )
     }
@@ -392,50 +461,103 @@ struct MockSoundPrintProvider: SoundPrintProvider {
         primaryDimension: String?,
         secondaryDimension: String?,
         topAvoidanceLabel: String?,
-        favoriteLog: PersonaLogInput?
+        favoriteLog: PersonaLogInput?,
+        tone: SoundPrintPersonaTone
     ) -> String {
-        "\(personaRewardClause(primaryDimension: primaryDimension, secondaryDimension: secondaryDimension)) \(personaEvidenceClause(topAvoidanceLabel: topAvoidanceLabel, favoriteLog: favoriteLog))"
+        "\(personaRewardClause(primaryDimension: primaryDimension, secondaryDimension: secondaryDimension, tone: tone)) \(personaEvidenceClause(topAvoidanceLabel: topAvoidanceLabel, favoriteLog: favoriteLog, tone: tone))"
     }
 
-    private static func personaRewardClause(primaryDimension: String?, secondaryDimension: String?) -> String {
+    private static func personaRewardClause(primaryDimension: String?, secondaryDimension: String?, tone: SoundPrintPersonaTone) -> String {
         guard let primaryDimension else {
-            return "Your logs point toward records with real staying power."
+            switch tone {
+            case .analyst: return "Your data so far points to records with real staying power."
+            case .balanced: return "Your logs point toward records with real staying power."
+            case .wrapped: return "Your logs are still writing this chapter."
+            }
         }
 
-        if let secondaryDimension {
-            return "You tend to reward \(primaryDimension.lowercased()) and \(secondaryDimension.lowercased())."
+        switch tone {
+        case .analyst:
+            if let secondaryDimension {
+                return "Your data points to \(primaryDimension.lowercased()) and \(secondaryDimension.lowercased()) as reward signals."
+            }
+            return "Your data points to \(primaryDimension.lowercased()) as the leading reward signal."
+        case .balanced:
+            if let secondaryDimension {
+                return "You tend to reward \(primaryDimension.lowercased()) and \(secondaryDimension.lowercased())."
+            }
+            return "You tend to reward \(primaryDimension.lowercased())."
+        case .wrapped:
+            if let secondaryDimension {
+                return "This was your \(primaryDimension.lowercased()) and \(secondaryDimension.lowercased()) era!"
+            }
+            return "This was your \(primaryDimension.lowercased()) era!"
         }
-
-        return "You tend to reward \(primaryDimension.lowercased())."
     }
 
-    private static func personaEvidenceClause(topAvoidanceLabel: String?, favoriteLog: PersonaLogInput?) -> String {
+    private static func personaEvidenceClause(topAvoidanceLabel: String?, favoriteLog: PersonaLogInput?, tone: SoundPrintPersonaTone) -> String {
         if let topAvoidanceLabel {
-            return "You lose patience with \(topAvoidanceLabel.lowercased())."
+            switch tone {
+            case .analyst: return "\(topAvoidanceLabel) is where your patience runs out."
+            case .balanced: return "You lose patience with \(topAvoidanceLabel.lowercased())."
+            case .wrapped: return "\(topAvoidanceLabel) never stood a chance."
+            }
         }
 
         guard let favoriteLog else {
-            return "The pattern so far is still taking shape."
+            switch tone {
+            case .analyst: return "Your sample so far is too small for a clear secondary signal."
+            case .balanced: return "The pattern so far is still taking shape."
+            case .wrapped: return "The plot is still thickening."
+            }
         }
 
         if favoriteLog.hasStandoutMoment {
-            return "The moment you flagged in \(favoriteLog.albumTitle) says it best."
+            switch tone {
+            case .analyst: return "The moment you flagged in \(favoriteLog.albumTitle) is the clearest data point."
+            case .balanced: return "The moment you flagged in \(favoriteLog.albumTitle) says it best."
+            case .wrapped: return "The moment you flagged in \(favoriteLog.albumTitle) said it all."
+            }
         }
 
         if let favoriteTrack = favoriteLog.favoriteTracks.first {
-            return "\"\(favoriteTrack)\" off \(favoriteLog.albumTitle) is the clearest example so far."
+            switch tone {
+            case .analyst: return "\"\(favoriteTrack)\" off \(favoriteLog.albumTitle) is the clearest example in your logs so far."
+            case .balanced: return "\"\(favoriteTrack)\" off \(favoriteLog.albumTitle) is the clearest example so far."
+            case .wrapped: return "\"\(favoriteTrack)\" off \(favoriteLog.albumTitle) was on repeat all year."
+            }
         }
 
-        return "\(favoriteLog.albumTitle) by \(favoriteLog.artistName) is the clearest example so far."
+        switch tone {
+        case .analyst: return "\(favoriteLog.albumTitle) by \(favoriteLog.artistName) is the clearest example in your logs so far."
+        case .balanced: return "\(favoriteLog.albumTitle) by \(favoriteLog.artistName) is the clearest example so far."
+        case .wrapped: return "\(favoriteLog.albumTitle) by \(favoriteLog.artistName) was your headliner."
+        }
     }
 
-    private static func fallbackPersona(primaryDimension: String?, favoriteLog: PersonaLogInput?) -> String {
+    private static func fallbackPersona(primaryDimension: String?, favoriteLog: PersonaLogInput?, tone: SoundPrintPersonaTone) -> String {
         guard let primaryDimension else {
-            let albumText = favoriteLog.map { "\($0.albumTitle) is the clearest example so far." } ?? "The ratings alone are doing the talking so far."
-            return "Your logs point toward records with real staying power. \(albumText)"
+            switch tone {
+            case .analyst:
+                let albumText = favoriteLog.map { "\($0.albumTitle) is the clearest example in your logs so far." } ?? "Your ratings alone are doing the talking so far."
+                return "Your data so far points to records with real staying power. \(albumText)"
+            case .balanced:
+                let albumText = favoriteLog.map { "\($0.albumTitle) is the clearest example so far." } ?? "The ratings alone are doing the talking so far."
+                return "Your logs point toward records with real staying power. \(albumText)"
+            case .wrapped:
+                let albumText = favoriteLog.map { "\($0.albumTitle) was the headliner." } ?? "The ratings alone are telling the story so far."
+                return "Your logs are still writing this chapter. \(albumText)"
+            }
         }
 
-        return "Your logs point toward \(primaryDimension.lowercased()). That pattern is the clearest signal so far."
+        switch tone {
+        case .analyst:
+            return "Your data points to \(primaryDimension.lowercased()) as the clearest signal so far."
+        case .balanced:
+            return "Your logs point toward \(primaryDimension.lowercased()). That pattern is the clearest signal so far."
+        case .wrapped:
+            return "This was your \(primaryDimension.lowercased()) era, and the pattern is only getting stronger."
+        }
     }
 
     private static func concreteSignals(

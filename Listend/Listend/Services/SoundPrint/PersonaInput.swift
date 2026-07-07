@@ -12,6 +12,7 @@ struct PersonaInput {
     let topTags: [String]
     let averageRating: Double?
     let avoidanceSignals: [String]
+    let tone: SoundPrintPersonaTone
 
     init(
         dimensions: [TasteDimension],
@@ -19,7 +20,8 @@ struct PersonaInput {
         totalLogCount: Int,
         topTags: [String],
         averageRating: Double?,
-        avoidanceSignals: [String] = []
+        avoidanceSignals: [String] = [],
+        tone: SoundPrintPersonaTone = .balanced
     ) {
         self.dimensions = dimensions
         self.recentLogs = recentLogs
@@ -27,6 +29,7 @@ struct PersonaInput {
         self.topTags = topTags
         self.averageRating = averageRating
         self.avoidanceSignals = avoidanceSignals
+        self.tone = tone
     }
 }
 

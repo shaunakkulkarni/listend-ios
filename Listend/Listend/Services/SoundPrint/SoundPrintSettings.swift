@@ -11,6 +11,7 @@ import FoundationModels
 
 enum SoundPrintPreferenceKey {
     static let preferAppleIntelligence = "soundPrint.preferAppleIntelligence"
+    static let personaTone = "soundPrint.personaTone"
 }
 
 enum SoundPrintProviderFactory {

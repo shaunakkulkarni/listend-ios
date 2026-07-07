@@ -359,6 +359,8 @@ private struct SoundPrintSummaryModule: View {
                         .foregroundStyle(.tertiary)
                 }
 
+                SoundPrintPersonaToneBadge(tone: persona.tone)
+
                 Text(persona.personaText)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

@@ -13,10 +13,12 @@ enum SoundPrintOutputValidator {
     struct PersonaValidationContext {
         let concreteSignals: [String]
         let logCount: Int
+        let tone: SoundPrintPersonaTone
 
-        init(concreteSignals: [String], logCount: Int = Int.max) {
+        init(concreteSignals: [String], logCount: Int = Int.max, tone: SoundPrintPersonaTone = .balanced) {
             self.concreteSignals = concreteSignals
             self.logCount = logCount
+            self.tone = tone
         }
     }
 
@@ -34,7 +36,6 @@ enum SoundPrintOutputValidator {
     }
 
     static let maxPersonaWordCount = 55
-    static let requiredPersonaSentenceCount = 2
     static let minimumPersonaCharacterCount = 40
 
     static let maxHeadlineWordCount = 7
@@ -43,17 +44,13 @@ enum SoundPrintOutputValidator {
     static let requiredBulletCount = 3
     static let maxBulletWordCount = 12
 
-    /// Union of every banned/discouraged phrase from the tone spec (persona, summary,
-    /// and critic banned-term lists), plus the handful already caught by the original
-    /// MockSoundPrintProvider generic-phrase check.
-    static let bannedPhrases: [String] = [
+    /// Phrases banned in every tone: vague filler and identity-flattery that say
+    /// nothing regardless of voice.
+    static let coreBannedPhrases: [String] = [
         "eclectic taste", "eclectic",
         "sonic journey", "sonic",
-        "journey",
         "soundscape",
-        "vibes",
         "genre-bending",
-        "hidden gem",
         "masterpiece",
         "connoisseur",
         "tastemaker",
@@ -61,16 +58,52 @@ enum SoundPrintOutputValidator {
         "curator",
         "audiophile",
         "soundtrack to your life",
-        "you contain multitudes",
-        "your taste knows no bounds",
-        "immaculate vibes",
-        "emotional rollercoaster",
         "wide range of genres",
         "something for everyone",
         "diverse taste",
         "varied taste",
         "diverse",
         "unique"
+    ]
+
+    /// Cliché-but-charming recap vocabulary: additionally banned in Analyst and
+    /// Balanced, but part of the bit in Wrapped.
+    static let playfulPhrases: [String] = [
+        "vibes",
+        "immaculate vibes",
+        "journey",
+        "emotional rollercoaster",
+        "hidden gem",
+        "you contain multitudes",
+        "your taste knows no bounds"
+    ]
+
+    /// The strictest list (all tones' bans combined). Kept for callers that don't
+    /// have a tone in hand.
+    static let bannedPhrases: [String] = coreBannedPhrases + playfulPhrases
+
+    static func bannedPhrases(for tone: SoundPrintPersonaTone) -> [String] {
+        tone == .wrapped ? coreBannedPhrases : coreBannedPhrases + playfulPhrases
+    }
+
+    /// Words that only ever appear when a model is talking *about* the persona
+    /// text instead of writing it — critique leakage. Matched on word boundaries
+    /// so "personal"/"critical" don't false-positive.
+    private static let metaCommentaryWords: Set<String> = [
+        "persona", "personas", "rewrite", "critic", "critique", "unsupported", "conflates"
+    ]
+
+    private static let metaCommentaryPhrases: [String] = [
+        "the user",
+        "this text"
+    ]
+
+    /// A persona is a holistic cross-log summary, never anchored to one album on
+    /// screen — so an unnamed "this/that album" is always a dangling, ambiguous
+    /// reference rather than a legitimate grounded claim.
+    private static let vagueAlbumReferencePhrases: [String] = [
+        "this album",
+        "that album"
     ]
 
     private static let overconfidentPhrases: [String] = [
@@ -82,6 +115,22 @@ enum SoundPrintOutputValidator {
         "your favorite genre is"
     ]
 
+    private static func overconfidentPhrases(for tone: SoundPrintPersonaTone) -> [String] {
+        switch tone {
+        case .wrapped:
+            // "You were obsessed with Replay Pull this year" is the genre's idiom.
+            return overconfidentPhrases.filter { $0 != "obsessed with" }
+        case .analyst, .balanced:
+            return overconfidentPhrases
+        }
+    }
+
+    /// Log count below which overconfident language is rejected. Analyst never
+    /// overclaims, regardless of how much evidence exists.
+    private static func overconfidenceLogCountThreshold(for tone: SoundPrintPersonaTone) -> Int {
+        tone == .analyst ? Int.max : 10
+    }
+
     static func validatePersona(_ text: String, context: PersonaValidationContext) -> ValidationOutcome {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -91,8 +140,15 @@ enum SoundPrintOutputValidator {
 
         var reasons: [String] = []
         let normalized = trimmed.normalizedSoundPrintText
+        let words = trimmed.normalizedSoundPrintWords
 
-        reasons.append(contentsOf: bannedPhraseReasons(in: normalized))
+        reasons.append(contentsOf: bannedPhraseReasons(in: normalized, tone: context.tone))
+        reasons.append(contentsOf: metaCommentaryReasons(in: normalized, words: words))
+        reasons.append(contentsOf: vagueAlbumReferenceReasons(in: normalized))
+
+        if !words.contains(where: { $0 == "you" || $0 == "your" || $0 == "yours" }) {
+            reasons.append("not written in second person")
+        }
 
         if normalized.hasPrefix("you are") {
             reasons.append("starts with a \"You are...\" opener")
@@ -102,32 +158,27 @@ enum SoundPrintOutputValidator {
             reasons.append("too short")
         }
 
-        let wordCount = trimmed.normalizedSoundPrintWords.count
+        let wordCount = words.count
         if wordCount > maxPersonaWordCount {
             reasons.append("too many words (\(wordCount) > \(maxPersonaWordCount))")
-        }
-
-        let sentenceCount = trimmed.soundPrintSentences.count
-        if sentenceCount != requiredPersonaSentenceCount {
-            reasons.append("expected \(requiredPersonaSentenceCount) sentences, found \(sentenceCount)")
         }
 
         if !containsConcreteSignal(normalized, concreteSignals: context.concreteSignals) {
             reasons.append("no concrete signal referenced (generic filler)")
         }
 
-        if context.logCount < 10 {
-            reasons.append(contentsOf: overconfidenceReasons(in: normalized))
+        if context.logCount < overconfidenceLogCountThreshold(for: context.tone) {
+            reasons.append(contentsOf: overconfidenceReasons(in: normalized, tone: context.tone))
         }
 
         return reasons.isEmpty ? .valid : .invalid(reasons: reasons)
     }
 
-    static func isPersonaValid(_ text: String, concreteSignals: [String], logCount: Int = Int.max) -> Bool {
-        validatePersona(text, context: PersonaValidationContext(concreteSignals: concreteSignals, logCount: logCount)).isValid
+    static func isPersonaValid(_ text: String, concreteSignals: [String], logCount: Int = Int.max, tone: SoundPrintPersonaTone = .balanced) -> Bool {
+        validatePersona(text, context: PersonaValidationContext(concreteSignals: concreteSignals, logCount: logCount, tone: tone)).isValid
     }
 
-    static func validateCompactSummary(headline: String, summary: String, bullets: [String]) -> ValidationOutcome {
+    static func validateCompactSummary(headline: String, summary: String, bullets: [String], tone: SoundPrintPersonaTone = .balanced) -> ValidationOutcome {
         var reasons: [String] = []
 
         let trimmedHeadline = headline.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -141,7 +192,7 @@ enum SoundPrintOutputValidator {
             if headlineWordCount > maxHeadlineWordCount {
                 reasons.append("headline too long (\(headlineWordCount) > \(maxHeadlineWordCount) words)")
             }
-            reasons.append(contentsOf: bannedPhraseReasons(in: trimmedHeadline.normalizedSoundPrintText, context: "headline"))
+            reasons.append(contentsOf: bannedPhraseReasons(in: trimmedHeadline.normalizedSoundPrintText, tone: tone, context: "headline"))
         }
 
         if trimmedSummary.isEmpty {
@@ -156,7 +207,7 @@ enum SoundPrintOutputValidator {
             if summarySentenceCount != requiredSummarySentenceCount {
                 reasons.append("expected \(requiredSummarySentenceCount) summary sentence, found \(summarySentenceCount)")
             }
-            reasons.append(contentsOf: bannedPhraseReasons(in: trimmedSummary.normalizedSoundPrintText, context: "summary"))
+            reasons.append(contentsOf: bannedPhraseReasons(in: trimmedSummary.normalizedSoundPrintText, tone: tone, context: "summary"))
         }
 
         let nonEmptyBullets = trimmedBullets.filter { !$0.isEmpty }
@@ -169,14 +220,14 @@ enum SoundPrintOutputValidator {
             if bulletWordCount > maxBulletWordCount {
                 reasons.append("bullet too long (\(bulletWordCount) > \(maxBulletWordCount) words): \(bullet)")
             }
-            reasons.append(contentsOf: bannedPhraseReasons(in: bullet.normalizedSoundPrintText, context: "bullet"))
+            reasons.append(contentsOf: bannedPhraseReasons(in: bullet.normalizedSoundPrintText, tone: tone, context: "bullet"))
         }
 
         return reasons.isEmpty ? .valid : .invalid(reasons: reasons)
     }
 
-    private static func bannedPhraseReasons(in normalizedText: String, context: String? = nil) -> [String] {
-        bannedPhrases
+    private static func bannedPhraseReasons(in normalizedText: String, tone: SoundPrintPersonaTone = .balanced, context: String? = nil) -> [String] {
+        bannedPhrases(for: tone)
             .filter { normalizedText.containsNormalizedSoundPrintPhrase($0) }
             .map { phrase in
                 if let context {
@@ -187,8 +238,26 @@ enum SoundPrintOutputValidator {
             }
     }
 
-    private static func overconfidenceReasons(in normalizedText: String) -> [String] {
-        overconfidentPhrases
+    private static func metaCommentaryReasons(in normalizedText: String, words: [String]) -> [String] {
+        var reasons = words
+            .filter { metaCommentaryWords.contains($0) }
+            .map { "critique-style meta language: \($0)" }
+
+        reasons.append(contentsOf: metaCommentaryPhrases
+            .filter { normalizedText.containsNormalizedSoundPrintPhrase($0) }
+            .map { "critique-style meta language: \($0)" })
+
+        return reasons
+    }
+
+    private static func vagueAlbumReferenceReasons(in normalizedText: String) -> [String] {
+        vagueAlbumReferencePhrases
+            .filter { normalizedText.containsNormalizedSoundPrintPhrase($0) }
+            .map { "vague unnamed album reference: \($0)" }
+    }
+
+    private static func overconfidenceReasons(in normalizedText: String, tone: SoundPrintPersonaTone) -> [String] {
+        overconfidentPhrases(for: tone)
             .filter { normalizedText.containsNormalizedSoundPrintPhrase($0) }
             .map { "overconfident language for low log count: \($0)" }
     }

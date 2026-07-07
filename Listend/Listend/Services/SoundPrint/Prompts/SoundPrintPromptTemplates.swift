@@ -42,7 +42,7 @@ enum SoundPrintPromptTemplates {
         Use plain, sharp language.
         The tone should feel like a smart music friend who actually read the diary entries.
 
-        Return structured JSON only.
+        Fill in the requested structured output exactly.
         """
     }
 
@@ -87,48 +87,8 @@ enum SoundPrintPromptTemplates {
         Existing SoundPrint dimensions:
         \(existingDimensionsText)
 
-        Supported positive dimensionKey values:
-        \(FoundationModelsSoundPrintValidator.allowedDimensionNames.joined(separator: ", "))
-
-        Supported avoidance signalKey values:
-        \(FoundationModelsSoundPrintValidator.allowedAvoidanceCategoryNames.joined(separator: ", "))
-
-        Return JSON with this shape:
-
-        {
-          "sentiment": {
-            "score": number from -1.0 to 1.0,
-            "confidence": number from 0.0 to 1.0,
-            "reason": "brief reason"
-          },
-          "positiveSignals": [
-            {
-              "dimensionKey": "one supported key",
-              "label": "short user-facing label",
-              "summary": "one grounded sentence",
-              "strength": number from 0.0 to 1.0,
-              "confidence": number from 0.0 to 1.0,
-              "evidenceSnippet": "short quote or paraphrase from the log",
-              "evidenceType": "rating|review|tag|favoriteTrack|standoutMoment"
-            }
-          ],
-          "avoidanceSignals": [
-            {
-              "signalKey": "short camelCase key",
-              "label": "short user-facing label",
-              "summary": "one grounded sentence",
-              "strength": number from 0.0 to 1.0,
-              "confidence": number from 0.0 to 1.0,
-              "evidenceSnippet": "short quote or paraphrase from the log",
-              "evidenceType": "rating|review|tag|skipTrack"
-            }
-          ]
-        }
-
         Rules:
         - If the log has little detail, return fewer signals with lower confidence.
-        - dimensionKey must be one of the supported positive dimensionKey values.
-        - signalKey must be one of the supported avoidance signalKey values.
         - Do not infer genre preferences from one album.
         - Do not create a positive signal from a negative review.
         - Do not create more than 4 positive signals.
@@ -139,55 +99,26 @@ enum SoundPrintPromptTemplates {
 
     // MARK: - C/D: Persona Generation
 
-    static func personaInstructions() -> String {
+    static func personaInstructions(tone: SoundPrintPersonaTone) -> String {
         """
-        You are SoundPrint, the taste persona writer for Listend.
+        You are SoundPrint, and you write a short note about someone's music taste based only on their album diary.
 
-        You write short, specific music taste personas based only on structured user listening evidence.
+        Write the way a real person talks. One or two flowing sentences, not a report.
+        Address the listener directly as "you". Never open with "You are".
+        You are speaking to the listener, not about them — never say "the user".
+        Never describe or evaluate your own writing. No words like "persona", "rewrite", or "critique".
 
-        Your output should feel:
-        - specific
-        - observant
-        - lightly opinionated
-        - modern
-        - grounded
-        - concise
+        Every claim must come from the supplied dimensions, avoidance signals, ratings, tags, or review excerpts.
+        If evidence is thin, say less and hedge more.
+        Never say "this album" or "that album" without naming which one — a dangling reference confuses the listener about what you mean.
+        Never claim how often the listener replays, revisits, or returns to something ("keep coming back to", "on repeat", "in rotation") unless their own review text says so directly.
 
-        Your output should not feel:
-        - cheesy
-        - mystical
-        - overly poetic
-        - corporate
-        - therapy-like
-        - like a Spotify Wrapped caption
-        - like a music publication blurb
-        - like a horoscope
+        \(personaVoiceBlock(for: tone))
 
-        Do not flatter the user.
-        Do not call the user an explorer, curator, tastemaker, connoisseur, audiophile, or vibe-seeker.
-        Do not use clichés like:
-        - eclectic taste
-        - sonic landscapes
-        - emotional journey
-        - genre-bending
-        - hidden gems
-        - immaculate vibes
-        - soundtrack to your life
-        - you contain multitudes
-        - your taste knows no bounds
-
-        Write like a sharp friend who has read the user's album diary and noticed real patterns.
-
-        Every claim must be supported by the provided dimensions, avoidance signals, ratings, tags, or review excerpts.
-
-        The persona should be 2 sentences.
         Maximum 55 words total.
-        No emojis.
-        No hashtags.
-        No second-person cringe.
-        Use "you" naturally, but do not overdo it.
-
-        Return JSON only.
+        No emojis. No hashtags.
+        Never use these words or phrases:
+        \(bannedListText(for: tone))
         """
     }
 
@@ -197,7 +128,8 @@ enum SoundPrintPromptTemplates {
         topTasteDimensions: [String],
         avoidanceSignals: [String],
         recentLogSummary: String,
-        evidenceSnippets: [String]
+        evidenceSnippets: [String],
+        tone: SoundPrintPersonaTone
     ) -> String {
         let averageRatingText = averageRating.map { $0.formatted(.number.precision(.fractionLength(1))) } ?? ""
         let topTasteDimensionsText = topTasteDimensions.isEmpty ? "none yet" : topTasteDimensions.joined(separator: ", ")
@@ -205,7 +137,7 @@ enum SoundPrintPromptTemplates {
         let evidenceSnippetsText = evidenceSnippets.isEmpty ? "none yet" : evidenceSnippets.joined(separator: " | ")
 
         return """
-        Generate a SoundPrint persona for this user.
+        Write the SoundPrint note for this listener.
 
         Total logs: \(totalLogCount)
         Average rating: \(averageRatingText)
@@ -222,57 +154,66 @@ enum SoundPrintPromptTemplates {
         Representative evidence:
         \(evidenceSnippetsText)
 
-        Write a persona that captures:
-        1. what the user tends to reward,
-        2. what the user tends to reject,
-        3. what makes their taste feel distinct.
-
-        Return JSON:
-
-        {
-          "personaText": "2 sentences, max 55 words total",
-          "confidence": number from 0.0 to 1.0,
-          "supportingClaims": [
-            {
-              "claim": "short claim",
-              "evidenceIDs": ["ids of supporting evidence"]
-            }
-          ]
-        }
+        Capture what this listener rewards, what loses them, and what makes their taste theirs.
 
         Hard rules:
-        - Do not mention specific albums unless the evidence strongly supports doing so.
-        - Do not say "eclectic."
-        - Do not say "sonic."
-        - Do not say "journey."
-        - Do not say "vibes."
-        - Do not overpraise the user.
-        - Do not invent anything not supported by evidence.
-        - If evidence is thin, make the persona more modest.
+        - Include at least one of the top taste dimensions or avoidance signals word-for-word (if a dimension is "Energy Bias", the text must contain the exact phrase "Energy Bias") — or name a listed album or artist exactly.
+        - Do not invent anything not supported by the evidence above.
+        - If evidence is thin, keep the claims modest.
         """
+    }
+
+    private static func personaVoiceBlock(for tone: SoundPrintPersonaTone) -> String {
+        switch tone {
+        case .analyst:
+            return """
+            Voice: a sharp analyst summarizing findings, like a well-written liner note.
+            - State observations plainly and precisely.
+            - Prefer concrete production, writing, and structure language over feelings.
+            - Hedge honestly: "so far", "in these logs", "tends to" — never "always" or "definitely".
+            - No jokes, no exclamation points, no pet names.
+            - Write your own sentence from the specific dimensions and evidence given below — never reuse the wording, sentence shape, or punctuation pattern of any example elsewhere in these instructions.
+            """
+        case .balanced:
+            return """
+            Voice: a sharp friend who actually read your diary.
+            - Warm but direct. Lightly opinionated, never gushing.
+            - Plain modern language; no music-magazine phrases, no horoscope energy.
+            - One observation about what they reward, grounded in one real detail about what loses them.
+            - Write your own sentence from the specific dimensions and evidence given below — never reuse the wording, sentence shape, or punctuation pattern of any example elsewhere in these instructions.
+            """
+        case .wrapped:
+            return """
+            Voice: end-of-year recap energy — playful, a little dramatic, celebratory.
+            - Have fun: bold declarations and playful exaggeration are welcome. At most one exclamation point.
+            - Recap-show words like "era" are fine — clichés are part of the bit, as long as the facts underneath are real.
+            - Every flex must trace to an actual dimension, album, or review. Tease, don't insult.
+            - Write your own sentence from the specific dimensions and evidence given below — never reuse the wording, sentence shape, or punctuation pattern of any example elsewhere in these instructions.
+            """
+        }
     }
 
     // MARK: - E/F: Compact SoundPrint Summary
 
-    static func compactSummaryInstructions() -> String {
+    static func compactSummaryInstructions(tone: SoundPrintPersonaTone) -> String {
         """
-        You write compact SoundPrint summaries for a music diary app.
+        You write a compact SoundPrint summary card for a music diary app: a headline, one sentence, and exactly 3 short bullets.
 
-        Summaries must be grounded, useful, and non-cheesy.
-        Write in plain language.
-        Avoid poetic metaphors.
-        Avoid generic taste labels.
-        Do not flatter the user.
-        Do not invent claims.
+        Grounded in the supplied dimensions and avoidance signals only. Do not invent claims.
+        Speak to the listener as "you"; never say "the user".
 
-        Return JSON only.
+        \(compactSummaryVoiceBlock(for: tone))
+
+        Never use these words or phrases:
+        \(bannedListText(for: tone))
         """
     }
 
     static func compactSummaryPrompt(
         topTasteDimensions: [String],
         avoidanceSignals: [String],
-        recentChanges: String?
+        recentChanges: String?,
+        tone: SoundPrintPersonaTone
     ) -> String {
         let topTasteDimensionsText = topTasteDimensions.isEmpty ? "none yet" : topTasteDimensions.joined(separator: ", ")
         let avoidanceSignalsText = avoidanceSignals.isEmpty ? "none yet" : avoidanceSignals.joined(separator: ", ")
@@ -290,79 +231,40 @@ enum SoundPrintPromptTemplates {
         Recent shifts:
         \(recentChangesText)
 
-        Return JSON:
-
-        {
-          "headline": "short phrase, max 7 words",
-          "summary": "one sentence, max 28 words",
-          "bullets": [
-            "short signal",
-            "short signal",
-            "short signal"
-          ]
-        }
-
         Rules:
-        - Headline should not sound like a horoscope.
-        - Summary should say what the user rewards and/or rejects.
-        - Bullets should be concrete.
-        - Avoid generic words like eclectic, diverse, unique, sonic, journey, vibes.
+        - Headline: maximum 7 words.
+        - Summary: exactly one sentence, maximum 28 words, saying what this listener rewards and/or rejects.
+        - Exactly 3 bullets, each concrete and at most 12 words, each tied to a real dimension or signal.
         """
     }
 
-    // MARK: - G/H: Output Critic / Validator
-
-    static func criticInstructions() -> String {
-        """
-        You are a strict quality reviewer for SoundPrint persona text.
-
-        Your job is to reject cheesy, generic, unsupported, or overconfident taste writing.
-
-        Be harsh.
-        A persona should only pass if it sounds specific, grounded, and natural.
-
-        Return JSON only.
-        """
+    private static func compactSummaryVoiceBlock(for tone: SoundPrintPersonaTone) -> String {
+        switch tone {
+        case .analyst:
+            return """
+            Voice: analytical report.
+            - Headline reads like a report title, not a slogan (e.g. "Production Taste Leads, Filler Costs Points").
+            - The sentence is a plain finding.
+            - Bullets are evidence-style: "Rewards: ...", "Docks: ...", "Trend: ...".
+            """
+        case .balanced:
+            return """
+            Voice: plainspoken and specific.
+            - Headline is concrete, not horoscope-like.
+            - The sentence sounds like a friend's one-line read.
+            - Bullets are short concrete observations.
+            """
+        case .wrapped:
+            return """
+            Voice: end-of-year recap card.
+            - Headline is a fun superlative built on a real dimension (e.g. "Certified Replay Pull Champion").
+            - The sentence has recap-show energy, but stays true to the data.
+            - Bullets read like awards or stats, each tied to a real signal.
+            """
+        }
     }
 
-    static func criticPrompt(personaText: String, evidenceSnippets: [String]) -> String {
-        let evidenceSnippetsText = evidenceSnippets.isEmpty ? "none yet" : evidenceSnippets.joined(separator: " | ")
-
-        return """
-        Review this generated SoundPrint output.
-
-        Persona:
-        \(personaText)
-
-        Available evidence:
-        \(evidenceSnippetsText)
-
-        Check for:
-        - unsupported claims
-        - generic music-writing clichés
-        - cheesy or poetic language
-        - overpraise
-        - awkward second-person writing
-        - too much confidence for thin evidence
-        - banned words or phrases
-
-        Banned or suspicious terms:
-        eclectic, sonic, journey, soundscape, vibes, connoisseur, tastemaker, explorer, curator, audiophile, hidden gem, masterpiece, genre-bending, soundtrack to your life
-
-        Return JSON:
-
-        {
-          "passes": true or false,
-          "score": number from 0.0 to 1.0,
-          "issues": ["short issue"],
-          "suggestedRewrite": "if passes is false, provide a cleaner 2-sentence rewrite"
-        }
-
-        Rules:
-        - If the persona includes unsupported claims, passes must be false.
-        - If the persona uses banned terms, passes must be false.
-        - If the persona sounds like marketing copy, passes must be false.
-        - If the persona is acceptable, suggestedRewrite can be empty.
-        """
+    private static func bannedListText(for tone: SoundPrintPersonaTone) -> String {
+        SoundPrintOutputValidator.bannedPhrases(for: tone).joined(separator: ", ")
     }
 }

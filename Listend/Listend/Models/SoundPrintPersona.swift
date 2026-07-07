@@ -18,6 +18,7 @@ final class SoundPrintPersona {
     var summaryText: String?
     var bulletsRawValue: String?
     var generationSourceRawValue: String?
+    var toneRawValue: String?
 
     var bullets: [String] {
         get {
@@ -46,6 +47,15 @@ final class SoundPrintPersona {
         }
     }
 
+    var tone: SoundPrintPersonaTone {
+        get {
+            SoundPrintPersonaTone(rawValue: toneRawValue)
+        }
+        set {
+            toneRawValue = newValue == .default ? nil : newValue.rawValue
+        }
+    }
+
     init(
         id: UUID = UUID(),
         personaText: String,
@@ -54,7 +64,8 @@ final class SoundPrintPersona {
         headline: String? = nil,
         summaryText: String? = nil,
         bullets: [String] = [],
-        generationSource: SoundPrintGenerationSource = .unknown
+        generationSource: SoundPrintGenerationSource = .unknown,
+        tone: SoundPrintPersonaTone = .default
     ) {
         self.id = id
         self.personaText = personaText
@@ -64,5 +75,6 @@ final class SoundPrintPersona {
         self.summaryText = summaryText
         self.bulletsRawValue = bullets.isEmpty ? nil : (try? String(data: JSONEncoder().encode(bullets), encoding: .utf8))
         self.generationSourceRawValue = generationSource == .unknown ? nil : generationSource.rawValue
+        self.toneRawValue = tone == .default ? nil : tone.rawValue
     }
 }

@@ -8,6 +8,7 @@ import SwiftData
 
 struct SoundPrintSettingsView: View {
     @AppStorage(SoundPrintPreferenceKey.preferAppleIntelligence) private var preferAppleIntelligence = true
+    @AppStorage(SoundPrintPreferenceKey.personaTone) private var personaToneRawValue = SoundPrintPersonaTone.default.rawValue
     @Environment(\.modelContext) private var modelContext
     @Environment(\.soundPrintProvider) private var soundPrintProvider
     @Environment(SoundPrintProfileRefreshCoordinator.self) private var soundPrintRefreshCoordinator
@@ -52,6 +53,31 @@ struct SoundPrintSettingsView: View {
                 .padding(.vertical, 4)
             }
             .accessibilityIdentifier("soundPrintSettingsStatusSection")
+
+            Section {
+                Picker("Persona tone", selection: $personaToneRawValue) {
+                    ForEach(SoundPrintPersonaTone.allCases) { tone in
+                        Text(tone.userFacingTitle).tag(tone.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("personaTonePicker")
+
+                Text(selectedTone.userFacingDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Voice")
+            }
+            .onChange(of: personaToneRawValue) {
+                guard personas.first?.tone.rawValue != personaToneRawValue else {
+                    return
+                }
+
+                Task {
+                    await soundPrintRefreshCoordinator.refreshProfile(in: modelContext, provider: soundPrintProvider)
+                }
+            }
 
             Section {
                 if availability.isToggleVisible {
@@ -99,6 +125,10 @@ struct SoundPrintSettingsView: View {
 
     private var latestSource: SoundPrintGenerationSource {
         personas.first?.generationSource ?? .unknown
+    }
+
+    private var selectedTone: SoundPrintPersonaTone {
+        SoundPrintPersonaTone(rawValue: personaToneRawValue)
     }
 
     private var displayState: SoundPrintSettingsDisplayState {

@@ -246,6 +246,7 @@ struct SoundPrintProfileBuilder {
             let topTags = topTags(from: logs)
             let averageRating = logs.isEmpty ? nil : logs.map(\.rating).average
             let avoidanceLabels = pendingAvoidanceSignals.map(\.label)
+            let tone = SoundPrintPersonaTone.current
             let result = try await provider.generatePersona(
                 input: PersonaInput(
                     dimensions: pendingDimensions.map(\.tasteDimension),
@@ -253,7 +254,8 @@ struct SoundPrintProfileBuilder {
                     totalLogCount: logs.count,
                     topTags: topTags,
                     averageRating: averageRating,
-                    avoidanceSignals: avoidanceLabels
+                    avoidanceSignals: avoidanceLabels,
+                    tone: tone
                 )
             )
 
@@ -263,7 +265,8 @@ struct SoundPrintProfileBuilder {
                     + recentLogs.map(\.albumTitle)
                     + recentLogs.map(\.artistName)
                     + avoidanceLabels,
-                logCount: logs.count
+                logCount: logs.count,
+                tone: tone
             )
 
             // Defense in depth: even a provider that returns a technically-successful
@@ -282,12 +285,14 @@ struct SoundPrintProfileBuilder {
                 existing.generatedAt = Date()
                 existing.logCountAtGeneration = logs.count
                 existing.generationSource = result.generationSource
+                existing.tone = tone
                 currentPersona = existing
             } else {
                 let inserted = SoundPrintPersona(
                     personaText: result.text,
                     logCountAtGeneration: logs.count,
-                    generationSource: result.generationSource
+                    generationSource: result.generationSource,
+                    tone: tone
                 )
                 modelContext.insert(inserted)
                 currentPersona = inserted
@@ -316,17 +321,20 @@ struct SoundPrintProfileBuilder {
         avoidanceSignals pendingAvoidanceSignals: [PendingTasteAvoidanceSignal]
     ) async {
         do {
+            let tone = SoundPrintPersonaTone.current
             let result = try await provider.generateCompactSummary(
                 input: CompactSummaryInput(
                     dimensions: pendingDimensions.map(\.tasteDimension),
-                    avoidanceSignals: pendingAvoidanceSignals.map(\.tasteAvoidanceSignal)
+                    avoidanceSignals: pendingAvoidanceSignals.map(\.tasteAvoidanceSignal),
+                    tone: tone
                 )
             )
 
             guard SoundPrintOutputValidator.validateCompactSummary(
                 headline: result.headline,
                 summary: result.summary,
-                bullets: result.bullets
+                bullets: result.bullets,
+                tone: tone
             ).isValid else {
                 return
             }

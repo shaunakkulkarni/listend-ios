@@ -6,12 +6,15 @@
 //
 
 import Foundation
+import os
 
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
 
 struct FoundationModelsTagSuggestionProvider: TagSuggestionProvider {
+    private static let logger = Logger(subsystem: "com.shaunakkulkarni.Listend", category: "TagSuggestion")
+
     init() {}
 
     func suggestedTags(for input: TagSuggestionInput) async throws -> [String] {
@@ -20,14 +23,13 @@ struct FoundationModelsTagSuggestionProvider: TagSuggestionProvider {
             let genreName = input.genreName ?? ""
             let releaseYear = input.releaseYear.map { String($0) } ?? ""
             let existingTags = input.existingTags.joined(separator: ", ")
-            let content = try await Self.generatedContent(
+            let generated = try await Self.guidedResponse(
                 instructions: """
-                You suggest concise music log tags for Listend. Return only compact JSON.
-                Do not include markdown, prose, or extra keys.
+                You suggest concise music log tags for Listend, a personal music diary.
+                Use only the supplied review, existing tags, and album metadata.
                 """,
                 prompt: """
                 Suggest up to 6 short tags for this album log.
-                JSON schema: {"tags":[String]}
                 Rules: lowercase tags; 1-3 words each; no commas; do not repeat existing tags; do not use only the album title or artist name.
                 Album: \(input.albumTitle)
                 Artist: \(input.artistName)
@@ -35,16 +37,13 @@ struct FoundationModelsTagSuggestionProvider: TagSuggestionProvider {
                 Release year: \(releaseYear)
                 Review: \(input.reviewText)
                 Existing tags: \(existingTags)
-                """
+                """,
+                generating: GeneratedTagSuggestions.self
             )
-            let payload = try Self.decodedJSON(TagSuggestionPayload.self, from: content)
-            let tags = TagSuggestionValidator.validatedTags(payload.tags, input: input)
-
-            guard !tags.isEmpty else {
-                throw TagSuggestionProviderError.validationFailed
-            }
-
-            return tags
+            return try FoundationModelsTagSuggestionValidator.validatedTags(
+                FoundationModelsTagSuggestionPayload(tags: generated.tags),
+                input: input
+            )
         }
         #endif
 
@@ -53,25 +52,105 @@ struct FoundationModelsTagSuggestionProvider: TagSuggestionProvider {
 }
 
 #if canImport(FoundationModels)
+
+// MARK: - Guided generation schema
+
+@available(iOS 26.0, macOS 26.0, *)
+@Generable(description: "Short tags for one album log")
+struct GeneratedTagSuggestions {
+    @Guide(description: "Lowercase tags, 1-3 words each, no commas; never just the album title or artist name; never a repeat of an existing tag", .maximumCount(6))
+    var tags: [String]
+}
+
+// MARK: - Generation plumbing
+
 @available(iOS 26.0, macOS 26.0, *)
 private extension FoundationModelsTagSuggestionProvider {
-    static func generatedContent(instructions: String, prompt: String) async throws -> String {
-        switch SystemLanguageModel.default.availability {
-        case .available:
-            break
-        default:
+    /// Runs one guided-generation request. Constrained decoding guarantees the result
+    /// matches the schema, so there is no JSON parsing and no malformed-output path.
+    /// Retries once, but only for failures that can plausibly succeed on a second
+    /// attempt (asset loading, rate limits, beta ModelManagerServices flakes) — a
+    /// guardrail violation or oversized prompt will fail identically every time.
+    static func guidedResponse<Content: Generable>(
+        instructions: String,
+        prompt: String,
+        generating type: Content.Type
+    ) async throws -> Content {
+        guard case .available = SystemLanguageModel.default.availability else {
             throw TagSuggestionProviderError.unavailable
         }
 
-        let session = LanguageModelSession(instructions: instructions)
-        let response = try await session.respond(to: prompt)
-        let content = String(describing: response.content).trimmingCharacters(in: .whitespacesAndNewlines)
+        var lastError: Error?
 
-        guard !content.isEmpty else {
-            throw TagSuggestionProviderError.emptyOutput
+        for attempt in 1...2 {
+            do {
+                let session = LanguageModelSession(instructions: instructions)
+                let response = try await session.respond(to: prompt, generating: type)
+                return response.content
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                lastError = error
+                let description = describeGenerationFailure(error)
+                let contentName = String(describing: type)
+
+                guard attempt == 1, isTransientGenerationFailure(error) else {
+                    logger.error("FoundationModels \(contentName, privacy: .public) generation failed: \(description, privacy: .public)")
+                    break
+                }
+
+                logger.error("FoundationModels \(contentName, privacy: .public) generation failed; retrying once: \(description, privacy: .public)")
+                try await Task.sleep(nanoseconds: 400_000_000)
+            }
         }
 
-        return content
+        throw lastError ?? TagSuggestionProviderError.unavailable
+    }
+
+    static func describeGenerationFailure(_ error: Error) -> String {
+        guard let generationError = error as? LanguageModelSession.GenerationError else {
+            return String(describing: error)
+        }
+
+        let caseName: String
+        switch generationError {
+        case .assetsUnavailable:
+            caseName = "assetsUnavailable — model assets are not ready on this device"
+        case .decodingFailure:
+            caseName = "decodingFailure — output could not be decoded into the guided schema"
+        case .exceededContextWindowSize:
+            caseName = "exceededContextWindowSize — prompt is too long for the context window"
+        case .guardrailViolation:
+            caseName = "guardrailViolation — safety guardrails flagged the prompt or output"
+        case .rateLimited:
+            caseName = "rateLimited"
+        case .concurrentRequests:
+            caseName = "concurrentRequests"
+        case .unsupportedGuide:
+            caseName = "unsupportedGuide"
+        case .unsupportedLanguageOrLocale:
+            caseName = "unsupportedLanguageOrLocale"
+        case .refusal:
+            caseName = "refusal — the model declined this request"
+        @unknown default:
+            caseName = "unknown GenerationError case"
+        }
+
+        return "\(caseName) (\(String(describing: generationError)))"
+    }
+
+    static func isTransientGenerationFailure(_ error: Error) -> Bool {
+        guard let generationError = error as? LanguageModelSession.GenerationError else {
+            // Opaque failures (e.g. beta ModelManagerServices errors) are worth one retry.
+            return true
+        }
+
+        switch generationError {
+        case .assetsUnavailable, .rateLimited, .concurrentRequests, .decodingFailure:
+            return true
+        default:
+            return false
+        }
     }
 }
 #endif
@@ -88,47 +167,6 @@ enum FoundationModelsTagSuggestionValidator {
     }
 }
 
-struct FoundationModelsTagSuggestionPayload: Decodable {
+struct FoundationModelsTagSuggestionPayload {
     let tags: [String]
 }
-
-private typealias TagSuggestionPayload = FoundationModelsTagSuggestionPayload
-
-private extension FoundationModelsTagSuggestionProvider {
-    static func decodedJSON<T: Decodable>(_ type: T.Type, from content: String) throws -> T {
-        guard let data = content.tagSuggestionJSONData else {
-            throw TagSuggestionProviderError.malformedOutput
-        }
-
-        do {
-            return try JSONDecoder().decode(T.self, from: data)
-        } catch {
-            throw TagSuggestionProviderError.malformedOutput
-        }
-    }
-}
-
-private extension String {
-    var tagSuggestionJSONData: Data? {
-        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if let data = trimmed.data(using: .utf8), isLikelyJSONObject(trimmed) {
-            return data
-        }
-
-        guard
-            let startIndex = trimmed.firstIndex(of: "{"),
-            let endIndex = trimmed.lastIndex(of: "}"),
-            startIndex <= endIndex
-        else {
-            return nil
-        }
-
-        return String(trimmed[startIndex...endIndex]).data(using: .utf8)
-    }
-
-    private func isLikelyJSONObject(_ value: String) -> Bool {
-        value.first == "{" && value.last == "}"
-    }
-}
-

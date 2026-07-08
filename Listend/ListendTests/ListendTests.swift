@@ -2225,6 +2225,55 @@ struct ListendTests {
         #expect(tags == ["late night", "r&b", "repeat"])
     }
 
+    @Test func reflectionPromptInsertsIntoEmptyReview() {
+        let updated = LogReflectionPromptInserter.insert("What stood out: ", into: "")
+
+        #expect(updated == "What stood out: ")
+    }
+
+    @Test func reflectionPromptInsertsIntoWhitespaceOnlyReview() {
+        let updated = LogReflectionPromptInserter.insert("Favorite moment: ", into: "   \n  ")
+
+        #expect(updated == "Favorite moment: ")
+    }
+
+    @Test func reflectionPromptAppendsOnNewLine() {
+        let updated = LogReflectionPromptInserter.insert("Favorite moment: ", into: "Already wrote something.")
+
+        #expect(updated == "Already wrote something.\nFavorite moment: ")
+    }
+
+    @Test func reflectionPromptAppendsWithoutExtraBlankLineWhenReviewEndsWithNewline() {
+        let updated = LogReflectionPromptInserter.insert("Replay value: ", into: "Already wrote something.\n")
+
+        #expect(updated == "Already wrote something.\nReplay value: ")
+    }
+
+    @Test func reflectionPromptPreservesExistingReviewBody() {
+        let existing = "  Already wrote something.  \n"
+        let updated = LogReflectionPromptInserter.insert("How it felt: ", into: existing)
+
+        #expect(updated == "  Already wrote something.  \nHow it felt: ")
+    }
+
+    @Test func reflectionPromptDoesNotDuplicateSamePrompt() {
+        let unchanged = LogReflectionPromptInserter.insert("What stood out: ", into: "What stood out: great")
+
+        #expect(unchanged == "What stood out: great")
+    }
+
+    @Test func reflectionPromptDoesNotDuplicateWithDifferentCasing() {
+        let unchanged = LogReflectionPromptInserter.insert("What stood out: ", into: "WHAT STOOD OUT: great")
+
+        #expect(unchanged == "WHAT STOOD OUT: great")
+    }
+
+    @Test func reflectionPromptAllowsDifferentPrompts() {
+        let updated = LogReflectionPromptInserter.insert("Replay value: ", into: "What stood out: great")
+
+        #expect(updated == "What stood out: great\nReplay value: ")
+    }
+
     @Test func acceptingJournalAssistDraftUpdatesReviewText() {
         let updated = JournalAssistValidator.applyDraft("  I rated SOS by SZA 4.5/5.  ", to: "Original review.")
 

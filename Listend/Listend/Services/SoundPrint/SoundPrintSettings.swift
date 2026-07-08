@@ -20,6 +20,7 @@ enum SoundPrintProviderFactory {
         isUITesting: Bool,
         isSimulator: Bool
     ) -> SoundPrintProvider {
+        #if canImport(FoundationModels)
         if isUITesting || isSimulator || !preferAppleIntelligence {
             return MockSoundPrintProvider()
         }
@@ -28,6 +29,9 @@ enum SoundPrintProviderFactory {
             primary: FoundationModelsSoundPrintProvider(),
             fallback: MockSoundPrintProvider()
         )
+        #else
+        return MockSoundPrintProvider()
+        #endif
     }
 }
 

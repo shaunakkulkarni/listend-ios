@@ -23,7 +23,7 @@ struct FoundationModelsTagSuggestionProvider: TagSuggestionProvider {
             let genreName = input.genreName ?? ""
             let releaseYear = input.releaseYear.map { String($0) } ?? ""
             let existingTags = input.existingTags.joined(separator: ", ")
-            let generated = try await Self.guidedResponse(
+            let generated = try await Self.textResponse(
                 instructions: """
                 You suggest concise music log tags for Listend, a personal music diary.
                 Use only the supplied review, existing tags, and album metadata.
@@ -37,11 +37,10 @@ struct FoundationModelsTagSuggestionProvider: TagSuggestionProvider {
                 Release year: \(releaseYear)
                 Review: \(input.reviewText)
                 Existing tags: \(existingTags)
-                """,
-                generating: GeneratedTagSuggestions.self
+                """
             )
             return try FoundationModelsTagSuggestionValidator.validatedTags(
-                FoundationModelsTagSuggestionPayload(tags: generated.tags),
+                FoundationModelsTagSuggestionPayload(tags: Self.tags(from: generated)),
                 input: input
             )
         }
@@ -52,30 +51,12 @@ struct FoundationModelsTagSuggestionProvider: TagSuggestionProvider {
 }
 
 #if canImport(FoundationModels)
-
-// MARK: - Guided generation schema
-
-@available(iOS 26.0, macOS 26.0, *)
-@Generable(description: "Short tags for one album log")
-struct GeneratedTagSuggestions {
-    @Guide(description: "Lowercase tags, 1-3 words each, no commas; never just the album title or artist name; never a repeat of an existing tag", .maximumCount(6))
-    var tags: [String]
-}
-
-// MARK: - Generation plumbing
-
 @available(iOS 26.0, macOS 26.0, *)
 private extension FoundationModelsTagSuggestionProvider {
-    /// Runs one guided-generation request. Constrained decoding guarantees the result
-    /// matches the schema, so there is no JSON parsing and no malformed-output path.
-    /// Retries once, but only for failures that can plausibly succeed on a second
-    /// attempt (asset loading, rate limits, beta ModelManagerServices flakes) — a
-    /// guardrail violation or oversized prompt will fail identically every time.
-    static func guidedResponse<Content: Generable>(
+    static func textResponse(
         instructions: String,
-        prompt: String,
-        generating type: Content.Type
-    ) async throws -> Content {
+        prompt: String
+    ) async throws -> String {
         guard case .available = SystemLanguageModel.default.availability else {
             throw TagSuggestionProviderError.unavailable
         }
@@ -85,21 +66,24 @@ private extension FoundationModelsTagSuggestionProvider {
         for attempt in 1...2 {
             do {
                 let session = LanguageModelSession(instructions: instructions)
-                let response = try await session.respond(to: prompt, generating: type)
-                return response.content
+                let response = try await session.respond(to: prompt)
+                let text = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.isEmpty else {
+                    throw TagSuggestionProviderError.validationFailed
+                }
+                return text
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
                 lastError = error
                 let description = describeGenerationFailure(error)
-                let contentName = String(describing: type)
 
                 guard attempt == 1, isTransientGenerationFailure(error) else {
-                    logger.error("FoundationModels \(contentName, privacy: .public) generation failed: \(description, privacy: .public)")
+                    logger.error("FoundationModels text generation failed: \(description, privacy: .public)")
                     break
                 }
 
-                logger.error("FoundationModels \(contentName, privacy: .public) generation failed; retrying once: \(description, privacy: .public)")
+                logger.error("FoundationModels text generation failed; retrying once: \(description, privacy: .public)")
                 try await Task.sleep(nanoseconds: 400_000_000)
             }
         }
@@ -151,6 +135,17 @@ private extension FoundationModelsTagSuggestionProvider {
         default:
             return false
         }
+    }
+
+    static func tags(from text: String) -> [String] {
+        text
+            .split { $0.isNewline || $0 == "," || $0 == ";" }
+            .map { line in
+                String(line)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "-*0123456789. "))
+            }
+            .filter { !$0.isEmpty }
     }
 }
 #endif

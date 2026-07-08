@@ -28,7 +28,7 @@ struct FoundationModelsJournalAssistService: JournalAssistServiceProtocol {
 
         #if canImport(FoundationModels)
         if #available(iOS 26.0, macOS 26.0, *) {
-            let generated = try await Self.guidedResponse(
+            let generated = try await Self.textResponse(
                 instructions: """
                 You are a thoughtful music diarist helping a Listend user capture their honest
                 listening experience. Write with emotional specificity and personal warmth.
@@ -52,10 +52,9 @@ struct FoundationModelsJournalAssistService: JournalAssistServiceProtocol {
                 Existing tags: \(input.existingTags.joined(separator: ", "))
                 Notes: \(input.notes)
                 Prompt answers: \(Self.promptAnswerText(from: input.promptAnswers))
-                """,
-                generating: GeneratedJournalDraft.self
+                """
             )
-            let draft = try JournalAssistValidator.validatedDraft(generated.review, input: input)
+            let draft = try JournalAssistValidator.validatedDraft(generated, input: input)
             return .draft(draft)
         }
         #endif
@@ -70,7 +69,7 @@ struct FoundationModelsJournalAssistService: JournalAssistServiceProtocol {
 
         #if canImport(FoundationModels)
         if #available(iOS 26.0, macOS 26.0, *) {
-            let generated = try await Self.guidedResponse(
+            let generated = try await Self.textResponse(
                 instructions: """
                 You suggest concise music journal tags for Listend, a personal music diary.
                 Use only the user's notes, review, prompt answers, rating, existing tags, and album metadata.
@@ -87,10 +86,9 @@ struct FoundationModelsJournalAssistService: JournalAssistServiceProtocol {
                 Existing tags: \(input.existingTags.joined(separator: ", "))
                 Notes: \(input.notes)
                 Prompt answers: \(Self.promptAnswerText(from: input.promptAnswers))
-                """,
-                generating: GeneratedJournalTags.self
+                """
             )
-            let tags = JournalAssistValidator.validatedTags(generated.tags, input: input)
+            let tags = JournalAssistValidator.validatedTags(Self.tags(from: generated), input: input)
 
             guard !tags.isEmpty else {
                 throw JournalAssistServiceError.validationFailed
@@ -105,37 +103,12 @@ struct FoundationModelsJournalAssistService: JournalAssistServiceProtocol {
 }
 
 #if canImport(FoundationModels)
-
-// MARK: - Guided generation schemas
-
-@available(iOS 26.0, macOS 26.0, *)
-@Generable(description: "A first-person album journal draft")
-struct GeneratedJournalDraft {
-    @Guide(description: "The draft review: 2-4 conversational first-person sentences grounded in the user's own words and concrete details")
-    var review: String
-}
-
-@available(iOS 26.0, macOS 26.0, *)
-@Generable(description: "Short tags for one album journal entry")
-struct GeneratedJournalTags {
-    @Guide(description: "Lowercase tags, 1-3 words each, no commas; never just the album title or artist name; never a repeat of an existing tag", .maximumCount(6))
-    var tags: [String]
-}
-
-// MARK: - Generation plumbing
-
 @available(iOS 26.0, macOS 26.0, *)
 private extension FoundationModelsJournalAssistService {
-    /// Runs one guided-generation request. Constrained decoding guarantees the result
-    /// matches the schema, so there is no JSON parsing and no malformed-output path.
-    /// Retries once, but only for failures that can plausibly succeed on a second
-    /// attempt (asset loading, rate limits, beta ModelManagerServices flakes) — a
-    /// guardrail violation or oversized prompt will fail identically every time.
-    static func guidedResponse<Content: Generable>(
+    static func textResponse(
         instructions: String,
-        prompt: String,
-        generating type: Content.Type
-    ) async throws -> Content {
+        prompt: String
+    ) async throws -> String {
         guard case .available = SystemLanguageModel.default.availability else {
             throw JournalAssistServiceError.unavailable
         }
@@ -145,21 +118,24 @@ private extension FoundationModelsJournalAssistService {
         for attempt in 1...2 {
             do {
                 let session = LanguageModelSession(instructions: instructions)
-                let response = try await session.respond(to: prompt, generating: type)
-                return response.content
+                let response = try await session.respond(to: prompt)
+                let text = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.isEmpty else {
+                    throw JournalAssistServiceError.validationFailed
+                }
+                return text
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
                 lastError = error
                 let description = describeGenerationFailure(error)
-                let contentName = String(describing: type)
 
                 guard attempt == 1, isTransientGenerationFailure(error) else {
-                    logger.error("FoundationModels \(contentName, privacy: .public) generation failed: \(description, privacy: .public)")
+                    logger.error("FoundationModels text generation failed: \(description, privacy: .public)")
                     break
                 }
 
-                logger.error("FoundationModels \(contentName, privacy: .public) generation failed; retrying once: \(description, privacy: .public)")
+                logger.error("FoundationModels text generation failed; retrying once: \(description, privacy: .public)")
                 try await Task.sleep(nanoseconds: 400_000_000)
             }
         }
@@ -211,6 +187,17 @@ private extension FoundationModelsJournalAssistService {
         default:
             return false
         }
+    }
+
+    static func tags(from text: String) -> [String] {
+        text
+            .split { $0.isNewline || $0 == "," || $0 == ";" }
+            .map { line in
+                String(line)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "-*0123456789. "))
+            }
+            .filter { !$0.isEmpty }
     }
 }
 #endif

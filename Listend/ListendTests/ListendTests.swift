@@ -1348,18 +1348,22 @@ struct ListendTests {
         #expect(result.generationSource == .localFallback)
     }
 
-    @Test func soundPrintProviderFactoryPrefersFoundationModelsWhenEnabledAndSupported() {
+    @Test func soundPrintProviderFactoryUsesDefaultProviderForAppleIntelligencePreference() {
         let provider = SoundPrintProviderFactory.makeProvider(
             preferAppleIntelligence: true,
             isUITesting: false,
             isSimulator: false
         )
 
+        #if canImport(FoundationModels)
         let fallbackProvider = provider as? FallbackSoundPrintProvider
 
         #expect(fallbackProvider != nil)
         #expect(fallbackProvider?.primary is FoundationModelsSoundPrintProvider)
         #expect(fallbackProvider?.fallback is MockSoundPrintProvider)
+        #else
+        #expect(provider is MockSoundPrintProvider)
+        #endif
     }
 
     @Test func soundPrintProviderFactoryUsesLocalFallbackWhenPreferenceIsOff() {

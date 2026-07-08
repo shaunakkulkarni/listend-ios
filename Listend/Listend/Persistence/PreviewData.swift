@@ -214,11 +214,11 @@ enum PreviewData {
         if includePersona {
             modelContext.insert(
                 SoundPrintPersona(
-                    personaText: "You tend to reward vocal gravity and replay pull. Blonde by Frank Ocean is the clearest example so far.",
+                    personaText: "You tend to reward standout vocal performances and albums that hold up past the first impression. Blonde by Frank Ocean is the clearest example so far.",
                     logCountAtGeneration: logCount,
-                    headline: "Vocal Gravity Leads The Pattern",
-                    summaryText: "You tend to reward vocal gravity and lose patience with skip-heavy albums.",
-                    bullets: ["Rewards Vocal Gravity", "Loses patience with Skip-Heavy Albums", "High replay value overall"],
+                    headline: "Clear Reward Pattern",
+                    summaryText: "You tend to reward standout vocals and lose patience with albums that drag.",
+                    bullets: ["Example: Blonde", "Rewards standout vocals", "Avoids dead weight"],
                     generationSource: personaGenerationSource
                 )
             )

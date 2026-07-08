@@ -1216,8 +1216,9 @@ struct ListendTests {
         let normalizedText = result.text.lowercased()
 
         #expect(result.text.count >= 80)
-        #expect(normalizedText.contains("vocal focus") || normalizedText.contains("vocals"))
         #expect(normalizedText.contains("blonde") || normalizedText.contains("frank ocean"))
+        #expect(!normalizedText.contains("vocal focus"))
+        #expect(!normalizedText.contains("production style"))
         #expect(!normalizedText.contains("eclectic taste"))
         #expect(!normalizedText.contains("wide range of genres"))
     }
@@ -1231,7 +1232,7 @@ struct ListendTests {
         #expect(!result.text.normalizedSoundPrintText.hasPrefix("you are"))
     }
 
-    @Test func personaGenerationPrioritizesAvoidanceSignalOverAlbumMention() async throws {
+    @Test func personaGenerationTranslatesAvoidanceSignal() async throws {
         let provider = MockSoundPrintProvider()
         var input = personaInput()
         input = PersonaInput(
@@ -1244,8 +1245,14 @@ struct ListendTests {
         )
 
         let result = try await provider.generatePersona(input: input)
+        let normalizedText = result.text.lowercased()
 
-        #expect(result.text.lowercased().contains("skip-heavy albums") || result.text.lowercased().contains("skip heavy albums"))
+        #expect(!normalizedText.contains("skip-heavy albums"))
+        #expect(!normalizedText.contains("skip heavy albums"))
+        #expect(normalizedText.contains("reward"))
+        #expect(normalizedText.contains("dead weight"))
+        #expect(normalizedText.contains("patience"))
+        #expect(normalizedText.contains("blonde"))
     }
 
     @Test func personaGenerationUsesFavoriteTrackWhenPresent() async throws {
@@ -2982,6 +2989,34 @@ struct ListendTests {
         #expect(!outcome.isValid)
     }
 
+    @Test func soundPrintOutputValidatorRejectsInternalLabelsAsPersonaGrounding() {
+        let labelOnly = SoundPrintOutputValidator.validatePersona(
+            "You keep chasing Energy Bias, while Skip-Heavy Albums lose your patience quickly.",
+            context: .init(
+                userFacingSignals: ["Blonde", "Frank Ocean", "vocals"],
+                internalAnalysisLabels: ["Energy Bias", "Replay Pull", "Skip-Heavy Albums"]
+            )
+        )
+        let albumGrounded = SoundPrintOutputValidator.validatePersona(
+            "You keep chasing high-energy records, and Blonde is the clearest example so far.",
+            context: .init(
+                userFacingSignals: ["Blonde", "Frank Ocean", "vocals"],
+                internalAnalysisLabels: ["Energy Bias", "Replay Pull", "Skip-Heavy Albums"]
+            )
+        )
+        let userAuthoredLabel = SoundPrintOutputValidator.validatePersona(
+            "You keep using Energy Bias as your own shorthand, and Blonde is where it shows up clearest.",
+            context: .init(
+                userFacingSignals: ["Energy Bias", "Blonde"],
+                internalAnalysisLabels: ["Energy Bias"]
+            )
+        )
+
+        #expect(!labelOnly.isValid)
+        #expect(albumGrounded.isValid)
+        #expect(userAuthoredLabel.isValid)
+    }
+
     @Test func soundPrintOutputValidatorRejectsOverconfidenceForLowLogCount() {
         let outcome = SoundPrintOutputValidator.validatePersona(
             "You are never satisfied unless emotional temperature runs high. Filler always drops your patience fast.",
@@ -3010,19 +3045,19 @@ struct ListendTests {
     }
 
     @Test func soundPrintOutputValidatorBannedPhrasesAreToneAware() {
-        let vibesText = "You keep chasing big Energy Bias vibes. Filler tracks never make the cut."
+        let vibesText = "You keep chasing big late night vibes. Filler tracks never make the cut."
 
         let underWrapped = SoundPrintOutputValidator.validatePersona(
             vibesText,
-            context: .init(concreteSignals: ["Energy Bias"], tone: .wrapped)
+            context: .init(concreteSignals: ["late night"], tone: .wrapped)
         )
         let underAnalyst = SoundPrintOutputValidator.validatePersona(
             vibesText,
-            context: .init(concreteSignals: ["Energy Bias"], tone: .analyst)
+            context: .init(concreteSignals: ["late night"], tone: .analyst)
         )
         let underBalanced = SoundPrintOutputValidator.validatePersona(
             vibesText,
-            context: .init(concreteSignals: ["Energy Bias"], tone: .balanced)
+            context: .init(concreteSignals: ["late night"], tone: .balanced)
         )
 
         #expect(underWrapped.isValid)
@@ -3030,24 +3065,24 @@ struct ListendTests {
         #expect(!underBalanced.isValid)
 
         // Core filler phrases stay banned in every tone, including Wrapped.
-        let eclecticText = "You have eclectic taste around Energy Bias. Filler tracks never make the cut."
+        let eclecticText = "You have eclectic taste around late night logs. Filler tracks never make the cut."
         let eclecticUnderWrapped = SoundPrintOutputValidator.validatePersona(
             eclecticText,
-            context: .init(concreteSignals: ["Energy Bias"], tone: .wrapped)
+            context: .init(concreteSignals: ["late night"], tone: .wrapped)
         )
         #expect(!eclecticUnderWrapped.isValid)
     }
 
     @Test func soundPrintOutputValidatorAnalystToneEnforcesOverconfidenceRegardlessOfLogCount() {
-        let text = "You never settle unless Energy Bias runs high. Filler always drops your patience fast."
+        let text = "You never settle unless vocals hit hard. Filler always drops your patience fast."
 
         let underAnalystHighLogCount = SoundPrintOutputValidator.validatePersona(
             text,
-            context: .init(concreteSignals: ["Energy Bias"], logCount: 50, tone: .analyst)
+            context: .init(concreteSignals: ["vocals"], logCount: 50, tone: .analyst)
         )
         let underBalancedHighLogCount = SoundPrintOutputValidator.validatePersona(
             text,
-            context: .init(concreteSignals: ["Energy Bias"], logCount: 50, tone: .balanced)
+            context: .init(concreteSignals: ["vocals"], logCount: 50, tone: .balanced)
         )
 
         #expect(!underAnalystHighLogCount.isValid)
@@ -3067,30 +3102,30 @@ struct ListendTests {
         }
 
         let thirdPerson = SoundPrintOutputValidator.validatePersona(
-            "The user rewards Energy Bias and loses patience with filler tracks quickly.",
-            context: .init(concreteSignals: ["Energy Bias"])
+            "The user rewards vocals and loses patience with filler tracks quickly.",
+            context: .init(concreteSignals: ["vocals"])
         )
         #expect(!thirdPerson.isValid)
 
         let normalPersona = SoundPrintOutputValidator.validatePersona(
-            "You reward Energy Bias above almost everything else. Filler tracks lose your patience fast.",
-            context: .init(concreteSignals: ["Energy Bias"])
+            "You reward vocals above almost everything else. Filler tracks lose your patience fast.",
+            context: .init(concreteSignals: ["vocals"])
         )
         #expect(normalPersona.isValid)
     }
 
     @Test func soundPrintOutputValidatorRejectsVagueUnnamedAlbumReference() {
         let vagueThis = SoundPrintOutputValidator.validatePersona(
-            "You reward Energy Bias most of the time, but this album didn't land the way your other picks do.",
-            context: .init(concreteSignals: ["Energy Bias"])
+            "You reward vocals most of the time, but this album didn't land the way your other picks do.",
+            context: .init(concreteSignals: ["vocals"])
         )
         let vagueThat = SoundPrintOutputValidator.validatePersona(
-            "You reward Energy Bias most of the time, but that album didn't land the way your other picks do.",
-            context: .init(concreteSignals: ["Energy Bias"])
+            "You reward vocals most of the time, but that album didn't land the way your other picks do.",
+            context: .init(concreteSignals: ["vocals"])
         )
         let named = SoundPrintOutputValidator.validatePersona(
-            "You reward Energy Bias most of the time, but Blonde didn't land the way your other picks do.",
-            context: .init(concreteSignals: ["Energy Bias", "Blonde"])
+            "You reward vocals most of the time, but Blonde didn't land the way your other picks do.",
+            context: .init(concreteSignals: ["vocals", "Blonde"])
         )
 
         #expect(!vagueThis.isValid)
@@ -3100,45 +3135,74 @@ struct ListendTests {
 
     @Test func mockPersonaTemplatesRespectTone() async throws {
         let provider = MockSoundPrintProvider()
+        let forbiddenWrappedPhrases = ["certified", "award", "winner", "champion", "top listener", "on repeat", "in rotation", "sessions", "hooked"]
 
         var textsByTone: [SoundPrintPersonaTone: String] = [:]
         for tone in SoundPrintPersonaTone.allCases {
-            let result = try await provider.generatePersona(input: personaInput(tone: tone))
-            let concreteSignals = FoundationModelsSoundPrintValidator.concreteSignals(from: personaInput(tone: tone))
+            let input = personaInput(tone: tone)
+            let result = try await provider.generatePersona(input: input)
             let outcome = SoundPrintOutputValidator.validatePersona(
                 result.text,
-                context: .init(concreteSignals: concreteSignals, tone: tone)
+                context: .init(
+                    userFacingSignals: FoundationModelsSoundPrintValidator.userFacingSignals(from: input),
+                    internalAnalysisLabels: FoundationModelsSoundPrintValidator.internalAnalysisLabels(from: input),
+                    tone: tone
+                )
             )
+            let normalizedText = result.text.lowercased()
 
             #expect(outcome.isValid, "Expected \(tone) persona to validate: \(String(describing: outcome))")
+            #expect(!normalizedText.contains("vocal focus"))
+            #expect(!normalizedText.contains("production style"))
+            #expect(!normalizedText.contains("replay pull"))
             textsByTone[tone] = result.text
         }
 
         #expect(Set(textsByTone.values).count == SoundPrintPersonaTone.allCases.count)
+        #expect(textsByTone[.analyst]?.normalizedSoundPrintText.contains("data") == true)
+        #expect(textsByTone[.analyst]?.normalizedSoundPrintText.contains("so far") == true)
+
+        let wrappedText = textsByTone[.wrapped]?.normalizedSoundPrintText ?? ""
+        #expect(wrappedText.contains("your logs wanted"))
+        for phrase in forbiddenWrappedPhrases {
+            #expect(!wrappedText.containsNormalizedSoundPrintPhrase(phrase), "Wrapped persona should avoid: \(phrase)")
+        }
     }
 
     @Test func mockCompactSummaryTemplatesRespectTone() {
         let dimensions = [
             TasteDimension(name: "energy", label: "Energy Bias", weight: 0.9, confidence: 0.8, summary: "Leans energetic.")
         ]
+        let forbiddenWrappedPhrases = ["certified", "award", "winner", "champion", "top listener", "on repeat", "in rotation", "sessions", "hooked"]
 
         var headlinesByTone: [SoundPrintPersonaTone: String] = [:]
+        var combinedByTone: [SoundPrintPersonaTone: String] = [:]
         for tone in SoundPrintPersonaTone.allCases {
             let result = MockSoundPrintProvider.generateCompactSummary(
-                input: CompactSummaryInput(dimensions: dimensions, avoidanceSignals: [], tone: tone)
+                input: CompactSummaryInput(dimensions: dimensions, avoidanceSignals: [], userFacingSignals: ["Blonde"], tone: tone)
             )
             let outcome = SoundPrintOutputValidator.validateCompactSummary(
                 headline: result.headline,
                 summary: result.summary,
                 bullets: result.bullets,
-                tone: tone
+                tone: tone,
+                userFacingSignals: ["Blonde"],
+                internalAnalysisLabels: ["Energy Bias"]
             )
+            let combined = ([result.headline, result.summary] + result.bullets).joined(separator: " ").lowercased()
 
             #expect(outcome.isValid, "Expected \(tone) compact summary to validate: \(String(describing: outcome))")
+            #expect(!combined.contains("energy bias"))
             headlinesByTone[tone] = result.headline
+            combinedByTone[tone] = combined
         }
 
         #expect(Set(headlinesByTone.values).count == SoundPrintPersonaTone.allCases.count)
+
+        let wrappedCombined = combinedByTone[.wrapped] ?? ""
+        for phrase in forbiddenWrappedPhrases {
+            #expect(!wrappedCombined.containsNormalizedSoundPrintPhrase(phrase), "Wrapped compact summary should avoid: \(phrase)")
+        }
     }
 
     @Test func soundPrintOutputValidatorCompactSummaryRespectsLimits() {
@@ -3161,6 +3225,34 @@ struct ListendTests {
         #expect(valid.isValid)
         #expect(!tooManyBullets.isValid)
         #expect(!bannedHeadline.isValid)
+    }
+
+    @Test func soundPrintOutputValidatorCompactSummaryUsesCombinedGroundingAndRejectsLabels() {
+        let groundedInBullet = SoundPrintOutputValidator.validateCompactSummary(
+            headline: "Clear Reward Pattern",
+            summary: "You tend to reward high-energy records and lose patience with filler.",
+            bullets: ["Example: Blonde", "Rewards big momentum", "Avoids dead weight"],
+            userFacingSignals: ["Blonde"],
+            internalAnalysisLabels: ["Energy Bias", "Skip-Heavy Albums"]
+        )
+        let leakedLabel = SoundPrintOutputValidator.validateCompactSummary(
+            headline: "Energy Bias Leads",
+            summary: "You tend to reward high-energy records and lose patience with filler.",
+            bullets: ["Example: Blonde", "Rewards big momentum", "Avoids dead weight"],
+            userFacingSignals: ["Blonde"],
+            internalAnalysisLabels: ["Energy Bias"]
+        )
+        let noGrounding = SoundPrintOutputValidator.validateCompactSummary(
+            headline: "Clear Reward Pattern",
+            summary: "You tend to reward high-energy records and lose patience with filler.",
+            bullets: ["Rewards big momentum", "Avoids dead weight", "Pattern still forming"],
+            userFacingSignals: ["Blonde"],
+            internalAnalysisLabels: ["Energy Bias"]
+        )
+
+        #expect(groundedInBullet.isValid)
+        #expect(!leakedLabel.isValid)
+        #expect(!noGrounding.isValid)
     }
 
     @MainActor
@@ -3504,9 +3596,9 @@ private struct SuccessfulSoundPrintProvider: SoundPrintProvider {
 
     func generateCompactSummary(input: CompactSummaryInput) async throws -> CompactSummaryResult {
         CompactSummaryResult(
-            headline: "Vocal Focus Leads",
-            summary: "You tend to reward vocal focus and lose patience with filler.",
-            bullets: ["Rewards vocal focus", "Loses patience with filler", "High replay value"]
+            headline: "Clear Reward Pattern",
+            summary: "You tend to reward songs with momentum and lose patience with filler.",
+            bullets: ["Example: Blonde", "Rewards strong momentum", "Avoids dead weight"]
         )
     }
 }

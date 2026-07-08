@@ -11,12 +11,26 @@ import Foundation
 
 enum SoundPrintOutputValidator {
     struct PersonaValidationContext {
-        let concreteSignals: [String]
+        let userFacingSignals: [String]
+        let internalAnalysisLabels: [String]
         let logCount: Int
         let tone: SoundPrintPersonaTone
 
+        init(
+            userFacingSignals: [String],
+            internalAnalysisLabels: [String] = [],
+            logCount: Int = Int.max,
+            tone: SoundPrintPersonaTone = .balanced
+        ) {
+            self.userFacingSignals = userFacingSignals
+            self.internalAnalysisLabels = internalAnalysisLabels
+            self.logCount = logCount
+            self.tone = tone
+        }
+
         init(concreteSignals: [String], logCount: Int = Int.max, tone: SoundPrintPersonaTone = .balanced) {
-            self.concreteSignals = concreteSignals
+            self.userFacingSignals = concreteSignals
+            self.internalAnalysisLabels = []
             self.logCount = logCount
             self.tone = tone
         }
@@ -118,7 +132,7 @@ enum SoundPrintOutputValidator {
     private static func overconfidentPhrases(for tone: SoundPrintPersonaTone) -> [String] {
         switch tone {
         case .wrapped:
-            // "You were obsessed with Replay Pull this year" is the genre's idiom.
+            // "You were obsessed with Blonde this year" is the genre's idiom.
             return overconfidentPhrases.filter { $0 != "obsessed with" }
         case .analyst, .balanced:
             return overconfidentPhrases
@@ -145,6 +159,11 @@ enum SoundPrintOutputValidator {
         reasons.append(contentsOf: bannedPhraseReasons(in: normalized, tone: context.tone))
         reasons.append(contentsOf: metaCommentaryReasons(in: normalized, words: words))
         reasons.append(contentsOf: vagueAlbumReferenceReasons(in: normalized))
+        reasons.append(contentsOf: internalAnalysisLabelReasons(
+            in: normalized,
+            internalAnalysisLabels: context.internalAnalysisLabels,
+            userFacingSignals: context.userFacingSignals
+        ))
 
         if !words.contains(where: { $0 == "you" || $0 == "your" || $0 == "yours" }) {
             reasons.append("not written in second person")
@@ -163,7 +182,7 @@ enum SoundPrintOutputValidator {
             reasons.append("too many words (\(wordCount) > \(maxPersonaWordCount))")
         }
 
-        if !containsConcreteSignal(normalized, concreteSignals: context.concreteSignals) {
+        if !containsConcreteSignal(normalized, concreteSignals: context.userFacingSignals) {
             reasons.append("no concrete signal referenced (generic filler)")
         }
 
@@ -174,11 +193,36 @@ enum SoundPrintOutputValidator {
         return reasons.isEmpty ? .valid : .invalid(reasons: reasons)
     }
 
-    static func isPersonaValid(_ text: String, concreteSignals: [String], logCount: Int = Int.max, tone: SoundPrintPersonaTone = .balanced) -> Bool {
-        validatePersona(text, context: PersonaValidationContext(concreteSignals: concreteSignals, logCount: logCount, tone: tone)).isValid
+    static func isPersonaValid(
+        _ text: String,
+        userFacingSignals: [String],
+        internalAnalysisLabels: [String] = [],
+        logCount: Int = Int.max,
+        tone: SoundPrintPersonaTone = .balanced
+    ) -> Bool {
+        validatePersona(
+            text,
+            context: PersonaValidationContext(
+                userFacingSignals: userFacingSignals,
+                internalAnalysisLabels: internalAnalysisLabels,
+                logCount: logCount,
+                tone: tone
+            )
+        ).isValid
     }
 
-    static func validateCompactSummary(headline: String, summary: String, bullets: [String], tone: SoundPrintPersonaTone = .balanced) -> ValidationOutcome {
+    static func isPersonaValid(_ text: String, concreteSignals: [String], logCount: Int = Int.max, tone: SoundPrintPersonaTone = .balanced) -> Bool {
+        isPersonaValid(text, userFacingSignals: concreteSignals, logCount: logCount, tone: tone)
+    }
+
+    static func validateCompactSummary(
+        headline: String,
+        summary: String,
+        bullets: [String],
+        tone: SoundPrintPersonaTone = .balanced,
+        userFacingSignals: [String] = [],
+        internalAnalysisLabels: [String] = []
+    ) -> ValidationOutcome {
         var reasons: [String] = []
 
         let trimmedHeadline = headline.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -223,6 +267,19 @@ enum SoundPrintOutputValidator {
             reasons.append(contentsOf: bannedPhraseReasons(in: bullet.normalizedSoundPrintText, tone: tone, context: "bullet"))
         }
 
+        let combined = ([trimmedHeadline, trimmedSummary] + trimmedBullets)
+            .joined(separator: " ")
+            .normalizedSoundPrintText
+        reasons.append(contentsOf: internalAnalysisLabelReasons(
+            in: combined,
+            internalAnalysisLabels: internalAnalysisLabels,
+            userFacingSignals: userFacingSignals
+        ))
+
+        if !userFacingSignals.isEmpty, !containsConcreteSignal(combined, concreteSignals: userFacingSignals) {
+            reasons.append("no concrete signal referenced (generic filler)")
+        }
+
         return reasons.isEmpty ? .valid : .invalid(reasons: reasons)
     }
 
@@ -260,6 +317,26 @@ enum SoundPrintOutputValidator {
         overconfidentPhrases(for: tone)
             .filter { normalizedText.containsNormalizedSoundPrintPhrase($0) }
             .map { "overconfident language for low log count: \($0)" }
+    }
+
+    private static func internalAnalysisLabelReasons(
+        in normalizedText: String,
+        internalAnalysisLabels: [String],
+        userFacingSignals: [String]
+    ) -> [String] {
+        let allowedUserSignals = Set(userFacingSignals.map { $0.normalizedSoundPrintText.trimmingCharacters(in: .whitespacesAndNewlines) })
+
+        return internalAnalysisLabels.compactMap { label in
+            let normalizedLabel = label.normalizedSoundPrintText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            guard !normalizedLabel.isEmpty,
+                  normalizedText.contains(normalizedLabel),
+                  !allowedUserSignals.contains(normalizedLabel) else {
+                return nil
+            }
+
+            return "internal analysis label leaked: \(label)"
+        }
     }
 
     private static func containsConcreteSignal(_ normalizedText: String, concreteSignals: [String]) -> Bool {

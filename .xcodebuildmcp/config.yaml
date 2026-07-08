@@ -1,0 +1,13 @@
+schemaVersion: 1
+sessionDefaultsProfiles:
+  listend-ios:
+    projectPath: /Users/shaunakkulkarni/Developer/listend-ios/Listend/Listend.xcodeproj
+    scheme: Listend
+    configuration: Debug
+    simulatorId: 84B05953-75D7-4BC8-9EB7-C1407FCC037B
+    useLatestOS: false
+    suppressWarnings: true
+    preferXcodebuild: false
+    simulatorName: iPhone 17
+    simulatorPlatform: iOS Simulator
+activeSessionDefaultsProfile: listend-ios

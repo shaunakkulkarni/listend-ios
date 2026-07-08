@@ -247,24 +247,21 @@ struct SoundPrintProfileBuilder {
             let averageRating = logs.isEmpty ? nil : logs.map(\.rating).average
             let avoidanceLabels = pendingAvoidanceSignals.map(\.label)
             let tone = SoundPrintPersonaTone.current
-            let result = try await provider.generatePersona(
-                input: PersonaInput(
-                    dimensions: pendingDimensions.map(\.tasteDimension),
-                    recentLogs: Array(recentLogs),
-                    totalLogCount: logs.count,
-                    topTags: topTags,
-                    averageRating: averageRating,
-                    avoidanceSignals: avoidanceLabels,
-                    tone: tone
-                )
+            let personaInput = PersonaInput(
+                dimensions: pendingDimensions.map(\.tasteDimension),
+                recentLogs: Array(recentLogs),
+                totalLogCount: logs.count,
+                topTags: topTags,
+                averageRating: averageRating,
+                avoidanceSignals: avoidanceLabels,
+                tone: tone
             )
+            let userFacingSignals = FoundationModelsSoundPrintValidator.userFacingSignals(from: personaInput)
+            let result = try await provider.generatePersona(input: personaInput)
 
             let validationContext = SoundPrintOutputValidator.PersonaValidationContext(
-                concreteSignals: pendingDimensions.map(\.label)
-                    + topTags
-                    + recentLogs.map(\.albumTitle)
-                    + recentLogs.map(\.artistName)
-                    + avoidanceLabels,
+                userFacingSignals: userFacingSignals,
+                internalAnalysisLabels: FoundationModelsSoundPrintValidator.internalAnalysisLabels(from: personaInput),
                 logCount: logs.count,
                 tone: tone
             )
@@ -306,7 +303,8 @@ struct SoundPrintProfileBuilder {
                 for: currentPersona,
                 in: modelContext,
                 dimensions: pendingDimensions,
-                avoidanceSignals: pendingAvoidanceSignals
+                avoidanceSignals: pendingAvoidanceSignals,
+                userFacingSignals: userFacingSignals
             )
         } catch {
             return
@@ -318,7 +316,8 @@ struct SoundPrintProfileBuilder {
         for persona: SoundPrintPersona,
         in modelContext: ModelContext,
         dimensions pendingDimensions: [PendingTasteDimension],
-        avoidanceSignals pendingAvoidanceSignals: [PendingTasteAvoidanceSignal]
+        avoidanceSignals pendingAvoidanceSignals: [PendingTasteAvoidanceSignal],
+        userFacingSignals: [String]
     ) async {
         do {
             let tone = SoundPrintPersonaTone.current
@@ -326,15 +325,24 @@ struct SoundPrintProfileBuilder {
                 input: CompactSummaryInput(
                     dimensions: pendingDimensions.map(\.tasteDimension),
                     avoidanceSignals: pendingAvoidanceSignals.map(\.tasteAvoidanceSignal),
+                    userFacingSignals: userFacingSignals,
                     tone: tone
                 )
             )
 
+            let compactSummaryInput = CompactSummaryInput(
+                dimensions: pendingDimensions.map(\.tasteDimension),
+                avoidanceSignals: pendingAvoidanceSignals.map(\.tasteAvoidanceSignal),
+                userFacingSignals: userFacingSignals,
+                tone: tone
+            )
             guard SoundPrintOutputValidator.validateCompactSummary(
                 headline: result.headline,
                 summary: result.summary,
                 bullets: result.bullets,
-                tone: tone
+                tone: tone,
+                userFacingSignals: FoundationModelsSoundPrintValidator.userFacingSignals(from: compactSummaryInput),
+                internalAnalysisLabels: FoundationModelsSoundPrintValidator.internalAnalysisLabels(from: compactSummaryInput)
             ).isValid else {
                 return
             }

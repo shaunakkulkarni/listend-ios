@@ -116,6 +116,7 @@ struct FoundationModelsSoundPrintProvider: SoundPrintProvider {
                 prompt: SoundPrintPromptTemplates.compactSummaryPrompt(
                     topTasteDimensions: topTasteDimensions,
                     avoidanceSignals: avoidanceLabels,
+                    userFacingSignals: input.userFacingSignals,
                     recentChanges: input.recentChanges,
                     tone: input.tone
                 ),
@@ -125,7 +126,9 @@ struct FoundationModelsSoundPrintProvider: SoundPrintProvider {
                 headline: generated.headline,
                 summary: generated.summary,
                 bullets: generated.bullets,
-                tone: input.tone
+                tone: input.tone,
+                userFacingSignals: FoundationModelsSoundPrintValidator.userFacingSignals(from: input),
+                internalAnalysisLabels: FoundationModelsSoundPrintValidator.internalAnalysisLabels(from: input)
             )
 
             guard outcome.isValid else {
@@ -357,9 +360,9 @@ private extension FoundationModelsSoundPrintProvider {
     /// validator, retry once (a fresh sample often fixes a one-off formatting miss),
     /// then fall back to the deterministic Mock persona rather than surfacing an error.
     static func generatePersonaViaFoundationModels(input: PersonaInput) async throws -> PersonaResult {
-        let concreteSignals = FoundationModelsSoundPrintValidator.concreteSignals(from: input) + input.avoidanceSignals
         let context = SoundPrintOutputValidator.PersonaValidationContext(
-            concreteSignals: concreteSignals,
+            userFacingSignals: FoundationModelsSoundPrintValidator.userFacingSignals(from: input),
+            internalAnalysisLabels: FoundationModelsSoundPrintValidator.internalAnalysisLabels(from: input),
             logCount: input.totalLogCount,
             tone: input.tone
         )
@@ -510,21 +513,42 @@ struct FoundationModelsSoundPrintValidator {
 
     static func validatedPersona(text: String, input: PersonaInput) throws -> PersonaResult {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let concreteSignals = concreteSignals(from: input) + input.avoidanceSignals
 
-        guard SoundPrintOutputValidator.isPersonaValid(trimmed, concreteSignals: concreteSignals, logCount: input.totalLogCount) else {
+        guard SoundPrintOutputValidator.isPersonaValid(
+            trimmed,
+            userFacingSignals: userFacingSignals(from: input),
+            internalAnalysisLabels: internalAnalysisLabels(from: input),
+            logCount: input.totalLogCount,
+            tone: input.tone
+        ) else {
             throw FoundationModelsSoundPrintProviderError.validationFailed
         }
 
         return PersonaResult(text: trimmed, generationSource: .foundationModels)
     }
 
-    static func concreteSignals(from input: PersonaInput) -> [String] {
-        input.dimensions.map(\.label)
-            + input.topTags
+    static func userFacingSignals(from input: PersonaInput) -> [String] {
+        input.topTags
             + input.recentLogs.map(\.albumTitle)
             + input.recentLogs.map(\.artistName)
-            + input.recentLogs.map(\.reviewSnippet)
+            + input.recentLogs.flatMap(\.favoriteTracks)
+            + input.recentLogs.compactMap(\.reviewSnippet.firstSoundPrintPhrase)
+    }
+
+    static func internalAnalysisLabels(from input: PersonaInput) -> [String] {
+        input.dimensions.map(\.label) + input.avoidanceSignals
+    }
+
+    static func concreteSignals(from input: PersonaInput) -> [String] {
+        userFacingSignals(from: input)
+    }
+
+    static func userFacingSignals(from input: CompactSummaryInput) -> [String] {
+        input.userFacingSignals
+    }
+
+    static func internalAnalysisLabels(from input: CompactSummaryInput) -> [String] {
+        input.dimensions.map(\.label) + input.avoidanceSignals.map(\.label)
     }
 
     private static func validatedAvoidanceSignals(

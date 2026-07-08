@@ -108,7 +108,9 @@ enum SoundPrintPromptTemplates {
         You are speaking to the listener, not about them — never say "the user".
         Never describe or evaluate your own writing. No words like "persona", "rewrite", or "critique".
 
-        Every claim must come from the supplied dimensions, avoidance signals, ratings, tags, or review excerpts.
+        Dimensions and avoidance signals are private analysis labels. Use them to understand the listener, but do not print those labels verbatim.
+        Translate private labels into natural music-listener language.
+        Every claim must come from the supplied dimensions, avoidance signals, ratings, tags, album details, or review excerpts.
         If evidence is thin, say less and hedge more.
         Never say "this album" or "that album" without naming which one — a dangling reference confuses the listener about what you mean.
         Never claim how often the listener replays, revisits, or returns to something ("keep coming back to", "on repeat", "in rotation") unless their own review text says so directly.
@@ -154,10 +156,11 @@ enum SoundPrintPromptTemplates {
         Representative evidence:
         \(evidenceSnippetsText)
 
-        Capture what this listener rewards, what loses them, and what makes their taste theirs.
+        Capture the taste logic: what this listener rewards, what loses them, and the real album, artist, tag, or review detail that proves it.
 
         Hard rules:
-        - Include at least one of the top taste dimensions or avoidance signals word-for-word (if a dimension is "Energy Bias", the text must contain the exact phrase "Energy Bias") — or name a listed album or artist exactly.
+        - Ground the note by naming at least one listed album, artist, tag, or short concrete review phrase exactly.
+        - Do not print top taste dimensions or avoidance signals word-for-word; translate them into natural language.
         - Do not invent anything not supported by the evidence above.
         - If evidence is thin, keep the claims modest.
         """
@@ -167,27 +170,27 @@ enum SoundPrintPromptTemplates {
         switch tone {
         case .analyst:
             return """
-            Voice: a sharp analyst summarizing findings, like a well-written liner note.
-            - State observations plainly and precisely.
-            - Prefer concrete production, writing, and structure language over feelings.
+            Voice: precise, restrained, evidence-first.
+            - Explain the pattern like a useful read on the diary, not a report.
+            - Prefer production, writing, structure, pacing, rating behavior, and review-language details over broad feelings.
             - Hedge honestly: "so far", "in these logs", "tends to" — never "always" or "definitely".
-            - No jokes, no exclamation points, no pet names.
+            - No jokes, hype, exclamation points, pet names, or recap-show language.
             - Write your own sentence from the specific dimensions and evidence given below — never reuse the wording, sentence shape, or punctuation pattern of any example elsewhere in these instructions.
             """
         case .balanced:
             return """
-            Voice: a sharp friend who actually read your diary.
-            - Warm but direct. Lightly opinionated, never gushing.
+            Voice: the default Listend read: warm, sharp, personal, lightly opinionated.
+            - Name the central tension: what they reward, and what loses their patience.
             - Plain modern language; no music-magazine phrases, no horoscope energy.
-            - One observation about what they reward, grounded in one real detail about what loses them.
+            - Sound like a sharp friend who actually read the diary, not a fan or a critic.
             - Write your own sentence from the specific dimensions and evidence given below — never reuse the wording, sentence shape, or punctuation pattern of any example elsewhere in these instructions.
             """
         case .wrapped:
             return """
-            Voice: end-of-year recap energy — playful, a little dramatic, celebratory.
-            - Have fun: bold declarations and playful exaggeration are welcome. At most one exclamation point.
-            - Recap-show words like "era" are fine — clichés are part of the bit, as long as the facts underneath are real.
-            - Every flex must trace to an actual dimension, album, or review. Tease, don't insult.
+            Voice: punchy recap-card energy: playful, dramatic, still tasteful.
+            - Build the punchline around the real tension: what they reward, what loses them, and why the pattern feels specific.
+            - No fake awards, fake superlatives, listener ranks, stats, or Spotify-style categories.
+            - Tease the pattern lightly, never the listener; every flex must trace to an album, tag, or review detail.
             - Write your own sentence from the specific dimensions and evidence given below — never reuse the wording, sentence shape, or punctuation pattern of any example elsewhere in these instructions.
             """
         }
@@ -199,7 +202,10 @@ enum SoundPrintPromptTemplates {
         """
         You write a compact SoundPrint summary card for a music diary app: a headline, one sentence, and exactly 3 short bullets.
 
-        Grounded in the supplied dimensions and avoidance signals only. Do not invent claims.
+        Dimensions and avoidance signals are private analysis labels. Use them to understand the listener, but do not print those labels verbatim.
+        Translate private labels into natural music-listener language.
+        Grounded in the supplied dimensions, avoidance signals, and user-facing evidence only. Do not invent claims.
+        Prefer a compact read on what you reward versus what loses you over a generic taste summary.
         Speak to the listener as "you"; never say "the user".
 
         \(compactSummaryVoiceBlock(for: tone))
@@ -212,11 +218,13 @@ enum SoundPrintPromptTemplates {
     static func compactSummaryPrompt(
         topTasteDimensions: [String],
         avoidanceSignals: [String],
+        userFacingSignals: [String],
         recentChanges: String?,
         tone: SoundPrintPersonaTone
     ) -> String {
         let topTasteDimensionsText = topTasteDimensions.isEmpty ? "none yet" : topTasteDimensions.joined(separator: ", ")
         let avoidanceSignalsText = avoidanceSignals.isEmpty ? "none yet" : avoidanceSignals.joined(separator: ", ")
+        let userFacingSignalsText = userFacingSignals.isEmpty ? "none yet" : userFacingSignals.joined(separator: " | ")
         let recentChangesText = recentChanges ?? "none"
 
         return """
@@ -228,13 +236,18 @@ enum SoundPrintPromptTemplates {
         Avoidance signals:
         \(avoidanceSignalsText)
 
+        User-facing grounding signals:
+        \(userFacingSignalsText)
+
         Recent shifts:
         \(recentChangesText)
 
         Rules:
         - Headline: maximum 7 words.
         - Summary: exactly one sentence, maximum 28 words, saying what this listener rewards and/or rejects.
-        - Exactly 3 bullets, each concrete and at most 12 words, each tied to a real dimension or signal.
+        - Exactly 3 bullets, each concrete and at most 12 words, each tied to a real dimension, signal, or user-facing grounding detail.
+        - Across the headline, summary, and bullets, include at least one user-facing grounding signal exactly.
+        - Do not print top dimensions or avoidance signals word-for-word; translate them into natural language.
         """
     }
 
@@ -242,24 +255,24 @@ enum SoundPrintPromptTemplates {
         switch tone {
         case .analyst:
             return """
-            Voice: analytical report.
-            - Headline reads like a report title, not a slogan (e.g. "Production Taste Leads, Filler Costs Points").
-            - The sentence is a plain finding.
+            Voice: precise and evidence-first.
+            - Headline reads like a finding, not a slogan.
+            - The sentence states the reward/friction pattern plainly.
             - Bullets are evidence-style: "Rewards: ...", "Docks: ...", "Trend: ...".
             """
         case .balanced:
             return """
-            Voice: plainspoken and specific.
-            - Headline is concrete, not horoscope-like.
-            - The sentence sounds like a friend's one-line read.
-            - Bullets are short concrete observations.
+            Voice: warm, sharp default read.
+            - Headline names the central taste tension in plain language.
+            - The sentence sounds like a friend's best one-line read.
+            - Bullets are short concrete observations, not labels.
             """
         case .wrapped:
             return """
-            Voice: end-of-year recap card.
-            - Headline is a fun superlative built on a real dimension (e.g. "Certified Replay Pull Champion").
-            - The sentence has recap-show energy, but stays true to the data.
-            - Bullets read like awards or stats, each tied to a real signal.
+            Voice: tasteful recap card.
+            - Headline is punchy and shareable, but not an award, rank, or fake stat.
+            - The sentence has recap energy while staying true to the data.
+            - Bullets are punchy proof points tied to real signals, not Spotify Mad Libs.
             """
         }
     }

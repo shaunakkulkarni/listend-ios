@@ -25,10 +25,52 @@ struct FoundationModelsSoundPrintProvider: SoundPrintProvider {
     init() {}
 
     func analyzeSentiment(input: SentimentInput) async throws -> SentimentResult {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, macOS 26.0, *) {
+            let generated = try await Self.textResponse(
+                instructions: """
+                You analyze album log sentiment for Listend, a personal music diary.
+                Return only JSON: {"score": number, "confidence": number}
+                score is -1.0 for strongly negative, 0.0 for neutral, 1.0 for strongly positive.
+                confidence is 0.0 to 1.0.
+                """,
+                prompt: """
+                Rating: \(input.rating) / 5
+                Review: \(input.reviewText)
+                Tags: \(input.tags.joined(separator: ", "))
+                """
+            )
+            let sentiment = try FoundationModelsSoundPrintValidator.decodedSentiment(from: generated)
+            return FoundationModelsSoundPrintValidator.validatedSentiment(
+                score: sentiment.score,
+                confidence: sentiment.confidence
+            )
+        }
+        #endif
+
         throw FoundationModelsSoundPrintProviderError.unavailable
     }
 
     func extractTasteSignals(input: TasteExtractionInput) async throws -> TasteExtractionResult {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, macOS 26.0, *) {
+            var lastError: Error?
+
+            for attempt in 1...2 {
+                do {
+                    let payload = try await Self.requestTasteExtractionPayload(input: input)
+                    return try FoundationModelsSoundPrintValidator.validatedTasteExtraction(payload: payload, input: input)
+                } catch FoundationModelsSoundPrintProviderError.emptyOutput {
+                    lastError = FoundationModelsSoundPrintProviderError.emptyOutput
+                    guard attempt == 1 else { break }
+                    Self.logger.error("FoundationModels taste extraction returned no positive signals for non-negative sentiment; retrying once")
+                }
+            }
+
+            throw lastError ?? FoundationModelsSoundPrintProviderError.emptyOutput
+        }
+        #endif
+
         throw FoundationModelsSoundPrintProviderError.unavailable
     }
 
@@ -139,7 +181,7 @@ private extension FoundationModelsSoundPrintProvider {
         case .assetsUnavailable:
             caseName = "assetsUnavailable — model assets are not ready on this device"
         case .decodingFailure:
-            caseName = "decodingFailure — output could not be decoded into the guided schema"
+            caseName = "decodingFailure — output could not be decoded"
         case .exceededContextWindowSize:
             caseName = "exceededContextWindowSize — prompt is too long for the context window"
         case .guardrailViolation:
@@ -220,6 +262,43 @@ private extension FoundationModelsSoundPrintProvider {
         )
     }
 
+    static func requestTasteExtractionPayload(input: TasteExtractionInput) async throws -> TasteExtractionPayload {
+        let generated = try await textResponse(
+            instructions: SoundPrintPromptTemplates.tasteExtractionInstructions(),
+            prompt: """
+            \(SoundPrintPromptTemplates.tasteExtractionPrompt(
+                albumTitle: input.albumTitle,
+                artistName: input.artistName,
+                releaseYear: input.releaseYear,
+                genreName: input.genreName,
+                rating: input.rating,
+                reviewText: input.reviewText,
+                tags: input.tags,
+                favoriteTracks: input.favoriteTracks,
+                skipTracks: input.skipTracks,
+                standoutMoment: input.standoutMoment,
+                existingDimensions: input.existingDimensions
+            ))
+
+            Return only JSON matching this shape:
+            {
+              "sentiment": {"score": 0.0, "confidence": 0.0},
+              "positiveSignals": [
+                {"dimensionKey": "energy", "label": "Energy Bias", "summary": "...", "strength": 0.0, "confidence": 0.0, "evidenceSnippet": "..."}
+              ],
+              "avoidanceSignals": [
+                {"signalKey": "skipHeavyAlbums", "label": "Skip-Heavy Albums", "summary": "...", "strength": 0.0, "confidence": 0.0, "evidenceSnippet": "..."}
+              ]
+            }
+
+            Allowed dimensionKey values: \(FoundationModelsSoundPrintValidator.allowedDimensionNames.joined(separator: ", "))
+            Allowed signalKey values: \(FoundationModelsSoundPrintValidator.allowedAvoidanceCategoryNames.joined(separator: ", "))
+            Use empty arrays when no signal is supported.
+            """
+        )
+        return try FoundationModelsSoundPrintValidator.decodedTasteExtractionPayload(from: generated)
+    }
+
     static func requestCompactSummaryText(instructions: String, prompt: String) async throws -> CompactSummaryResult {
         let text = try await textResponse(instructions: instructions, prompt: prompt)
         let lines = text.split(whereSeparator: \.isNewline).map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -293,6 +372,14 @@ struct FoundationModelsSoundPrintValidator {
             score: score.clamped(to: -1.0...1.0),
             confidence: confidence.clamped(to: 0.0...1.0)
         )
+    }
+
+    static func decodedSentiment(from text: String) throws -> TasteExtractionPayload.Sentiment {
+        try JSONDecoder().decode(TasteExtractionPayload.Sentiment.self, from: jsonData(from: text))
+    }
+
+    static func decodedTasteExtractionPayload(from text: String) throws -> TasteExtractionPayload {
+        try JSONDecoder().decode(TasteExtractionPayload.self, from: jsonData(from: text))
     }
 
     static func validatedTasteExtraction(
@@ -450,9 +537,32 @@ struct FoundationModelsSoundPrintValidator {
             key.normalizedSoundPrintText == normalized || label.normalizedSoundPrintText == normalized
         }?.key
     }
+
+    private static func jsonData(from text: String) -> Data {
+        var trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmed.hasPrefix("```") {
+            var lines = trimmed.split(whereSeparator: \.isNewline).map(String.init)
+            if lines.first?.hasPrefix("```") == true {
+                lines.removeFirst()
+            }
+            if lines.last?.hasPrefix("```") == true {
+                lines.removeLast()
+            }
+            trimmed = lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        if let start = trimmed.firstIndex(of: "{"),
+           let end = trimmed.lastIndex(of: "}"),
+           start <= end {
+            trimmed = String(trimmed[start...end])
+        }
+
+        return Data(trimmed.utf8)
+    }
 }
 
-struct FoundationModelsPositiveSignalPayload {
+struct FoundationModelsPositiveSignalPayload: Codable {
     let dimensionKey: String
     let label: String
     let summary: String
@@ -461,7 +571,7 @@ struct FoundationModelsPositiveSignalPayload {
     let evidenceSnippet: String
 }
 
-struct FoundationModelsAvoidanceSignalPayload {
+struct FoundationModelsAvoidanceSignalPayload: Codable {
     let signalKey: String
     let label: String
     let summary: String
@@ -470,8 +580,8 @@ struct FoundationModelsAvoidanceSignalPayload {
     let evidenceSnippet: String
 }
 
-struct TasteExtractionPayload {
-    struct Sentiment {
+struct TasteExtractionPayload: Codable {
+    struct Sentiment: Codable {
         let score: Double
         let confidence: Double
     }

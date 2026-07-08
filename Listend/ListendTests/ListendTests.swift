@@ -136,6 +136,71 @@ struct ListendTests {
         #expect(result.confidence == 0.0)
     }
 
+    @Test func foundationModelsSentimentDecodesFencedJSON() throws {
+        let sentiment = try FoundationModelsSoundPrintValidator.decodedSentiment(
+            from: """
+            ```json
+            {"score": 0.72, "confidence": 0.81}
+            ```
+            """
+        )
+
+        #expect(sentiment.score == 0.72)
+        #expect(sentiment.confidence == 0.81)
+    }
+
+    @Test func foundationModelsSentimentDecodesJSONWithExtraText() throws {
+        let sentiment = try FoundationModelsSoundPrintValidator.decodedSentiment(
+            from: """
+            Here is the score:
+            {"score": -0.25, "confidence": 0.64}
+            """
+        )
+
+        #expect(sentiment.score == -0.25)
+        #expect(sentiment.confidence == 0.64)
+    }
+
+    @Test func foundationModelsTasteExtractionDecodesFencedJSON() throws {
+        let payload = try FoundationModelsSoundPrintValidator.decodedTasteExtractionPayload(
+            from: """
+            ```json
+            {
+              "sentiment": {"score": 0.8, "confidence": 0.7},
+              "positiveSignals": [
+                {
+                  "dimensionKey": "energy",
+                  "label": "Energy Bias",
+                  "summary": "The log rewards intense momentum.",
+                  "strength": 0.9,
+                  "confidence": 0.8,
+                  "evidenceSnippet": "intimate vocals with replay value"
+                }
+              ],
+              "avoidanceSignals": [
+                {
+                  "signalKey": "skipHeavyAlbums",
+                  "label": "Skip-Heavy Albums",
+                  "summary": "The log calls out weaker tracks.",
+                  "strength": 0.4,
+                  "confidence": 0.6,
+                  "evidenceSnippet": "skipped/weaker tracks"
+                }
+              ]
+            }
+            ```
+            """
+        )
+
+        let result = try FoundationModelsSoundPrintValidator.validatedTasteExtraction(
+            payload: payload,
+            input: tasteExtractionInput(sentimentScore: 0.8)
+        )
+
+        #expect(result.signals.map(\.dimensionName) == ["energy"])
+        #expect(result.avoidanceSignals.map(\.signalName) == ["skipHeavyAlbums"])
+    }
+
     @Test func foundationModelsTasteValidationRejectsUnknownDimensions() throws {
         let input = tasteExtractionInput(sentimentScore: 0.8)
 

@@ -153,7 +153,7 @@ private extension FoundationModelsJournalAssistService {
         case .assetsUnavailable:
             caseName = "assetsUnavailable — model assets are not ready on this device"
         case .decodingFailure:
-            caseName = "decodingFailure — output could not be decoded into the guided schema"
+            caseName = "decodingFailure — output could not be decoded"
         case .exceededContextWindowSize:
             caseName = "exceededContextWindowSize — prompt is too long for the context window"
         case .guardrailViolation:

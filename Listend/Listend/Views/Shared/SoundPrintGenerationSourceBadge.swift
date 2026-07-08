@@ -14,6 +14,7 @@ struct SoundPrintGenerationSourceBadge: View {
             HStack(spacing: 4) {
                 Label(title, systemImage: systemImage)
                     .labelStyle(.titleAndIcon)
+                    .lineLimit(1)
 
                 Button {
                     isShowingInfo = true
@@ -36,6 +37,7 @@ struct SoundPrintGenerationSourceBadge: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(backgroundColor, in: Capsule())
+            .fixedSize(horizontal: true, vertical: false)
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("soundPrintGenerationSourceBadge")
         }

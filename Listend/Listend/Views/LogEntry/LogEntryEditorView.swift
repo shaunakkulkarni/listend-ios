@@ -125,6 +125,7 @@ struct LogEntryEditorView: View {
                             .buttonStyle(.bordered)
                             .controlSize(.small)
                         }
+                        .accessibilityIdentifier("reviewAssistChipScroll")
                         .scrollClipDisabled()
                     }
                 }

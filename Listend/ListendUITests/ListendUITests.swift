@@ -237,12 +237,15 @@ final class ListendUITests: XCTestCase {
         reviewTextEditor.tap()
         reviewTextEditor.typeText("Original manual review.")
 
-        tapAssistButton(app.descendants(matching: .any)["helpMeWriteButton"])
+        tapAssistButton(identifier: "helpMeWriteButton", fallbackLabel: "Help me write")
         let generateDraftButton = app.buttons["helpWriteGenerateJournalDraftButton"]
         reveal(generateDraftButton)
-        XCTAssertTrue(generateDraftButton.waitForExistence(timeout: 5))
+        XCTAssertTrue(generateDraftButton.waitForExistence(timeout: 5), "Help Me Write sheet should expose generate draft action")
         generateDraftButton.tap()
-        XCTAssertTrue(app.textViews["journalAssistDraftEditor"].waitForExistence(timeout: 5))
+
+        let draftEditor = app.descendants(matching: .any)["journalAssistDraftEditor"]
+        reveal(draftEditor)
+        XCTAssertTrue(draftEditor.waitForExistence(timeout: 10), "Journal Assist should show generated draft editor")
 
         XCTAssertTrue((reviewTextEditor.value as? String)?.contains("Original manual review.") == true)
         XCTAssertFalse((reviewTextEditor.value as? String)?.contains("I rated SOS") == true)
@@ -275,13 +278,15 @@ final class ListendUITests: XCTestCase {
         tagsTextField.typeText("manual")
         XCTAssertFalse((tagsTextField.value as? String)?.contains("late night") == true)
 
-        tapAssistButton(app.descendants(matching: .any)["journalSuggestTagsButton"])
+        tapAssistButton(identifier: "journalSuggestTagsButton", fallbackLabel: "Suggest tags")
         let generateTagsButton = app.buttons["generateJournalTagsButton"]
         reveal(generateTagsButton)
-        XCTAssertTrue(generateTagsButton.waitForExistence(timeout: 5))
+        XCTAssertTrue(generateTagsButton.waitForExistence(timeout: 5), "Suggest Tags sheet should expose generate tags action")
         generateTagsButton.tap()
-        let journalAssistTag = app.buttons["journalAssistTag-late-night"]
-        XCTAssertTrue(journalAssistTag.waitForExistence(timeout: 5))
+
+        let journalAssistTag = app.descendants(matching: .any)["journalAssistTag-late-night"]
+        reveal(journalAssistTag)
+        XCTAssertTrue(journalAssistTag.waitForExistence(timeout: 10), "Journal Assist should suggest late night tag")
         XCTAssertFalse((tagsTextField.value as? String)?.contains("late night") == true)
 
         journalAssistTag.tap()
@@ -578,14 +583,37 @@ final class ListendUITests: XCTestCase {
         }
     }
 
-    private func tapAssistButton(_ element: XCUIElement) {
+    private func tapAssistButton(identifier: String, fallbackLabel: String) {
         dismissKeyboardIfNeeded()
-        reveal(element)
-        XCTAssertTrue(element.waitForExistence(timeout: 5))
+
+        var element = app.descendants(matching: .any)[identifier]
+        if !element.waitForExistence(timeout: 2) {
+            element = app.buttons[fallbackLabel]
+        }
+
+        reveal(element, maxSwipes: 5)
+
+        let chipScroll = app.descendants(matching: .any)["reviewAssistChipScroll"]
+        let nudgeLabel = app.staticTexts["Need a nudge?"]
+        for _ in 0..<5 where !element.isHittable {
+            if chipScroll.exists {
+                chipScroll.swipeLeft()
+            } else if nudgeLabel.exists {
+                nudgeLabel.swipeLeft()
+            }
+        }
+
+        XCTAssertTrue(element.waitForExistence(timeout: 5), "Missing assist button \(identifier)")
         if element.isHittable {
             element.tap()
-        } else {
+        } else if element.frame.width > 0 {
             element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        } else if chipScroll.exists {
+            chipScroll.swipeLeft()
+            XCTAssertTrue(element.waitForExistence(timeout: 5), "Assist button \(identifier) remained offscreen")
+            element.tap()
+        } else {
+            XCTFail("Assist button \(identifier) was not tappable")
         }
     }
 

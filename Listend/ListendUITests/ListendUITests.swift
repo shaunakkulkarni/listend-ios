@@ -237,7 +237,7 @@ final class ListendUITests: XCTestCase {
         reviewTextEditor.tap()
         reviewTextEditor.typeText("Original manual review.")
 
-        app.buttons["helpMeWriteButton"].tap()
+        tapAssistButton(app.descendants(matching: .any)["helpMeWriteButton"])
         let generateDraftButton = app.buttons["helpWriteGenerateJournalDraftButton"]
         reveal(generateDraftButton)
         XCTAssertTrue(generateDraftButton.waitForExistence(timeout: 5))
@@ -275,9 +275,10 @@ final class ListendUITests: XCTestCase {
         tagsTextField.typeText("manual")
         XCTAssertFalse((tagsTextField.value as? String)?.contains("late night") == true)
 
-        app.buttons["helpMeWriteButton"].tap()
-        let generateTagsButton = app.buttons["helpWriteGenerateJournalTagsButton"]
+        tapAssistButton(app.descendants(matching: .any)["journalSuggestTagsButton"])
+        let generateTagsButton = app.buttons["generateJournalTagsButton"]
         reveal(generateTagsButton)
+        XCTAssertTrue(generateTagsButton.waitForExistence(timeout: 5))
         generateTagsButton.tap()
         let journalAssistTag = app.buttons["journalAssistTag-late-night"]
         XCTAssertTrue(journalAssistTag.waitForExistence(timeout: 5))
@@ -567,6 +568,24 @@ final class ListendUITests: XCTestCase {
     private func reveal(_ element: XCUIElement, maxSwipes: Int = 3) {
         for _ in 0..<maxSwipes where !element.isHittable {
             app.swipeUp()
+        }
+    }
+
+    private func dismissKeyboardIfNeeded() {
+        let doneButton = app.buttons["Done"]
+        if doneButton.waitForExistence(timeout: 1) {
+            doneButton.tap()
+        }
+    }
+
+    private func tapAssistButton(_ element: XCUIElement) {
+        dismissKeyboardIfNeeded()
+        reveal(element)
+        XCTAssertTrue(element.waitForExistence(timeout: 5))
+        if element.isHittable {
+            element.tap()
+        } else {
+            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         }
     }
 

@@ -96,61 +96,37 @@ struct LogEntryEditorView: View {
                         .focused($focusedField, equals: .review)
                         .accessibilityIdentifier("reviewTextEditor")
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(LogReflectionPrompt.chips) { prompt in
-                                Button {
-                                    insertReflectionPrompt(prompt)
-                                } label: {
-                                    Text(prompt.chipTitle)
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                                .accessibilityLabel(prompt.chipTitle)
-                                .accessibilityHint("Inserts a reflection starter into your review")
-                                .accessibilityIdentifier("reflectionPromptChip-\(prompt.id)")
-                            }
-                        }
-                    }
-                    .scrollClipDisabled()
-                }
-
-                Section {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Label("Stuck? Journal Assist can help.", systemImage: "sparkles")
-                            .font(.subheadline.weight(.semibold))
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Need a nudge?")
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
 
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
+                                ForEach(LogReflectionPrompt.chips) { prompt in
+                                    Button {
+                                        insertReflectionPrompt(prompt)
+                                    } label: {
+                                        Text(prompt.chipTitle)
+                                    }
+                                    .accessibilityLabel(prompt.chipTitle)
+                                    .accessibilityHint("Inserts a reflection starter into your review")
+                                    .accessibilityIdentifier("reflectionPromptChip-\(prompt.id)")
+                                }
+
                                 Button {
                                     activeAssistMode = .helpWrite
                                 } label: {
-                                    Label("Help me write", systemImage: "square.and.pencil")
+                                    Label("Help me write", systemImage: "sparkles")
                                 }
                                 .accessibilityIdentifier("helpMeWriteButton")
-
-                                Button {
-                                    activeAssistMode = .draftReview
-                                } label: {
-                                    Label("Draft review", systemImage: "text.bubble")
-                                }
-                                .accessibilityIdentifier("draftReviewButton")
-
-                                Button {
-                                    activeAssistMode = .suggestTags
-                                } label: {
-                                    Label("Suggest tags", systemImage: "tag")
-                                }
-                                .accessibilityIdentifier("journalSuggestTagsButton")
+                                .disabled(selectedAlbum == nil)
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
-                            .disabled(selectedAlbum == nil)
                         }
                         .scrollClipDisabled()
                     }
-                    .listRowBackground(Color.listendAccentSoft.opacity(0.4))
                 }
 
                 Section("Tags") {
@@ -177,6 +153,16 @@ struct LogEntryEditorView: View {
                         }
                         .scrollClipDisabled()
                     }
+
+                    Button {
+                        activeAssistMode = .suggestTags
+                    } label: {
+                        Label("Suggest tags", systemImage: "tag")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .accessibilityIdentifier("journalSuggestTagsButton")
+                    .disabled(selectedAlbum == nil)
                 }
 
                 Section {

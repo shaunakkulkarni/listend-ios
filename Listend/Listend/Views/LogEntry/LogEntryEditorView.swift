@@ -95,6 +95,24 @@ struct LogEntryEditorView: View {
                         .textInputAutocapitalization(.sentences)
                         .focused($focusedField, equals: .review)
                         .accessibilityIdentifier("reviewTextEditor")
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(LogReflectionPrompt.chips) { prompt in
+                                Button {
+                                    insertReflectionPrompt(prompt)
+                                } label: {
+                                    Text(prompt.chipTitle)
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                                .accessibilityLabel(prompt.chipTitle)
+                                .accessibilityHint("Inserts a reflection starter into your review")
+                                .accessibilityIdentifier("reflectionPromptChip-\(prompt.id)")
+                            }
+                        }
+                    }
+                    .scrollClipDisabled()
                 }
 
                 Section {
@@ -417,6 +435,11 @@ struct LogEntryEditorView: View {
         )
         favoriteTracksText = unmatched.favoriteManual.joined(separator: ", ")
         lessFavoriteTracksText = unmatched.skipManual.joined(separator: ", ")
+    }
+
+    private func insertReflectionPrompt(_ prompt: LogReflectionPrompt) {
+        reviewText = LogReflectionPromptInserter.insert(prompt.insertionText, into: reviewText)
+        focusedField = .review
     }
 
     private func appendSuggestedTag(_ tag: String) {

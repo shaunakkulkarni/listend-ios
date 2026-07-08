@@ -152,15 +152,7 @@ private struct PersonaCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .center, spacing: 8) {
-                Text("Persona")
-                    .font(.headline)
-
-                if let persona, logCount >= SoundPrintProfileThresholds.personaMinimumLogCount {
-                    SoundPrintGenerationSourceBadge(source: persona.generationSource)
-                    SoundPrintPersonaToneBadge(tone: persona.tone)
-                }
-            }
+            personaHeader
 
             if let persona, logCount >= SoundPrintProfileThresholds.personaMinimumLogCount {
                 Text(persona.personaText)
@@ -179,6 +171,37 @@ private struct PersonaCard: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private var personaHeader: some View {
+        if let persona, logCount >= SoundPrintProfileThresholds.personaMinimumLogCount {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: 8) {
+                    personaTitle
+                    personaBadges(for: persona)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    personaTitle
+                    personaBadges(for: persona)
+                }
+            }
+        } else {
+            personaTitle
+        }
+    }
+
+    private var personaTitle: some View {
+        Text("Persona")
+            .font(.headline)
+    }
+
+    private func personaBadges(for persona: SoundPrintPersona) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            SoundPrintGenerationSourceBadge(source: persona.generationSource)
+            SoundPrintPersonaToneBadge(tone: persona.tone)
+        }
     }
 
     private var statusMessage: String {

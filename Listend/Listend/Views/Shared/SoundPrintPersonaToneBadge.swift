@@ -13,6 +13,7 @@ struct SoundPrintPersonaToneBadge: View {
         HStack(spacing: 4) {
             Label(tone.userFacingTitle, systemImage: systemImage)
                 .labelStyle(.titleAndIcon)
+                .lineLimit(1)
 
             Button {
                 isShowingInfo = true
@@ -35,6 +36,7 @@ struct SoundPrintPersonaToneBadge: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(Color.listendHairline.opacity(0.45), in: Capsule())
+        .fixedSize(horizontal: true, vertical: false)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("soundPrintPersonaToneBadge")
     }

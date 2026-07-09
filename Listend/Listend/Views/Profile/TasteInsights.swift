@@ -32,14 +32,16 @@ enum TasteInsightsState {
     }
 }
 
-/// One entry in the Top Rated Albums list. Backed by a log (a re-logged album can
-/// appear more than once by design), so `id` is the log's id.
+/// One entry in the Top Rated Albums list. Backed by the representative log for an album,
+/// so `id` is that log's id. `logCount` is how many logs the album has in total (the group
+/// size), not just the representative — used to show a "Logged N times" sublabel.
 struct TopRatedAlbumItem: Identifiable {
     let id: UUID
     let title: String
     let artist: String
     let rating: Double
     let loggedAt: Date
+    let logCount: Int
 }
 
 /// A tag paired with how many logs carry it. Tags are already normalized (lowercase).
@@ -167,6 +169,7 @@ enum TasteInsightsBuilder {
     /// title/key tie-break. Logs without an album are excluded.
     static func topRatedAlbums(from logs: [LogEntry]) -> [TopRatedAlbumItem] {
         var bestLogByAlbum: [String: LogEntry] = [:]
+        var logCountByAlbum: [String: Int] = [:]
 
         for log in logs {
             guard let album = log.album else {
@@ -174,6 +177,7 @@ enum TasteInsightsBuilder {
             }
 
             let key = albumKey(for: album)
+            logCountByAlbum[key, default: 0] += 1
             if let existing = bestLogByAlbum[key] {
                 if isBetterRepresentative(log, than: existing) {
                     bestLogByAlbum[key] = log
@@ -209,7 +213,8 @@ enum TasteInsightsBuilder {
                     title: entry.log.album?.title ?? "Unknown Album",
                     artist: entry.log.album?.artistName ?? "Unknown Artist",
                     rating: entry.log.rating,
-                    loggedAt: entry.log.loggedAt
+                    loggedAt: entry.log.loggedAt,
+                    logCount: logCountByAlbum[entry.key, default: 1]
                 )
             }
     }

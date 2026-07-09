@@ -17,6 +17,7 @@ struct ShareIntakeView: View {
 
     private let catalogService: AlbumCatalogServiceProtocol
     private let intakeService: AppleMusicShareIntakeService
+    private let autoResolveOnAppear: Bool
 
     @Environment(\.dismiss) private var dismiss
 
@@ -26,13 +27,16 @@ struct ShareIntakeView: View {
     @State private var fallbackResults: [AlbumSearchResult] = []
     @State private var isSearchingFallback = false
     @State private var fallbackErrorMessage: String?
+    @State private var hasAutoResolved = false
 
     init(
         catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService(),
-        prefilledText: String = ""
+        prefilledText: String = "",
+        autoResolveOnAppear: Bool = false
     ) {
         self.catalogService = catalogService
         self.intakeService = AppleMusicShareIntakeService(catalogService: catalogService)
+        self.autoResolveOnAppear = autoResolveOnAppear
         _linkText = State(initialValue: prefilledText)
     }
 
@@ -67,7 +71,25 @@ struct ShareIntakeView: View {
             .task(id: fallbackQuery) {
                 await runDebouncedFallbackSearch()
             }
+            .onAppear(perform: autoResolveIfNeeded)
         }
+    }
+
+    /// Kicks off resolution automatically when opened from the share sheet.
+    /// Runs at most once per sheet presentation via `hasAutoResolved`, so returning
+    /// from a pushed album detail does not re-trigger it.
+    private func autoResolveIfNeeded() {
+        guard autoResolveOnAppear, !hasAutoResolved else {
+            return
+        }
+
+        hasAutoResolved = true
+
+        guard !trimmedLinkText.isEmpty else {
+            return
+        }
+
+        importLink()
     }
 
     private var linkInputSection: some View {

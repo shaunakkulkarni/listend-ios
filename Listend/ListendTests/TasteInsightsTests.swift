@@ -74,6 +74,31 @@ struct TasteInsightsTests {
         #expect(TasteInsightsBuilder.topRatedAlbums(from: logs).count == 2)
     }
 
+    // MARK: - Repeat-log count
+
+    @Test func topRatedAlbumsLogCountIsOneForSingleLog() {
+        let logs = [
+            LogEntry(album: Album(appleMusicID: "solo", title: "Solo", artistName: "A"), rating: 4.0)
+        ]
+
+        #expect(TasteInsightsBuilder.topRatedAlbums(from: logs).first?.logCount == 1)
+    }
+
+    @Test func topRatedAlbumsLogCountReflectsGroupSizeAndKeepsBestRepresentative() throws {
+        let first = LogEntry(album: Album(appleMusicID: "amid-x", title: "Repeat", artistName: "A"), rating: 4.0, loggedAt: date(10))
+        let bestOlder = LogEntry(album: Album(appleMusicID: "amid-x", title: "Repeat", artistName: "A"), rating: 5.0, loggedAt: date(20))
+        let bestNewer = LogEntry(album: Album(appleMusicID: "amid-x", title: "Repeat", artistName: "A"), rating: 5.0, loggedAt: date(30))
+
+        let top = TasteInsightsBuilder.topRatedAlbums(from: [first, bestOlder, bestNewer])
+
+        #expect(top.count == 1) // still deduped to one row
+        let item = try #require(top.first)
+        #expect(item.logCount == 3) // whole group, not just the representative
+        #expect(item.rating == 5.0) // highest rating wins
+        #expect(item.loggedAt == date(30)) // most recent breaks the rating tie
+        #expect(item.id == bestNewer.id)
+    }
+
     // MARK: - Randomized invariants (fuzz)
 
     /// Throws lots of random logs (duplicate albums, mixed-case tags, half-stars, missing
@@ -133,8 +158,11 @@ struct TasteInsightsTests {
             #expect(lhs.rating > rhs.rating || (lhs.rating == rhs.rating && lhs.loggedAt >= rhs.loggedAt))
         }
         let maxRatingByTitle = Self.maxRatingByAlbumTitle(from: logs)
+        let logCountByTitle = Self.logCountByAlbumTitle(from: logs)
         for item in top {
             #expect(item.rating == maxRatingByTitle[item.title])
+            #expect(item.logCount == logCountByTitle[item.title]) // group size, not the representative
+            #expect(item.logCount >= 1)
         }
         let distinctLoggedAlbumTitles = Set(logs.compactMap { $0.album?.title })
         #expect(top.count == min(5, distinctLoggedAlbumTitles.count))
@@ -326,6 +354,17 @@ struct TasteInsightsTests {
             maxByTitle[title] = max(maxByTitle[title] ?? -.infinity, log.rating)
         }
         return maxByTitle
+    }
+
+    private static func logCountByAlbumTitle(from logs: [LogEntry]) -> [String: Int] {
+        var countByTitle: [String: Int] = [:]
+        for log in logs {
+            guard let title = log.album?.title else {
+                continue
+            }
+            countByTitle[title, default: 0] += 1
+        }
+        return countByTitle
     }
 }
 

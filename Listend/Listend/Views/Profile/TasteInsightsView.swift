@@ -199,6 +199,12 @@ private struct TopRatedAlbumRow: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                if album.logCount > 1 {
+                    Text("Logged \(album.logCount) times")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
 
             Spacer(minLength: ListendSpacing.sm)

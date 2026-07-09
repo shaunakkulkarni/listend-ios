@@ -161,28 +161,81 @@ enum TasteInsightsBuilder {
         return leader.key
     }
 
-    /// Up to 5 album-bearing logs, highest rating first, ties broken by most recent log.
-    /// Logs without an album are naturally excluded.
+    /// Up to 5 albums, highest rating first. Each album appears once — a re-logged album
+    /// collapses to its best log (highest rating, ties broken by most recent). Albums are
+    /// then ordered by that representative rating desc, most recent desc, with a stable
+    /// title/key tie-break. Logs without an album are excluded.
     static func topRatedAlbums(from logs: [LogEntry]) -> [TopRatedAlbumItem] {
-        logs
-            .filter { $0.album != nil }
+        var bestLogByAlbum: [String: LogEntry] = [:]
+
+        for log in logs {
+            guard let album = log.album else {
+                continue
+            }
+
+            let key = albumKey(for: album)
+            if let existing = bestLogByAlbum[key] {
+                if isBetterRepresentative(log, than: existing) {
+                    bestLogByAlbum[key] = log
+                }
+            } else {
+                bestLogByAlbum[key] = log
+            }
+        }
+
+        return bestLogByAlbum
+            .map { (key: $0.key, log: $0.value) }
             .sorted { lhs, rhs in
-                if lhs.rating == rhs.rating {
-                    return lhs.loggedAt > rhs.loggedAt
+                if lhs.log.rating != rhs.log.rating {
+                    return lhs.log.rating > rhs.log.rating
                 }
 
-                return lhs.rating > rhs.rating
+                if lhs.log.loggedAt != rhs.log.loggedAt {
+                    return lhs.log.loggedAt > rhs.log.loggedAt
+                }
+
+                let lhsTitle = lhs.log.album?.title ?? ""
+                let rhsTitle = rhs.log.album?.title ?? ""
+                if lhsTitle != rhsTitle {
+                    return lhsTitle < rhsTitle
+                }
+
+                return lhs.key < rhs.key
             }
             .prefix(topRatedAlbumLimit)
-            .map { log in
+            .map { entry in
                 TopRatedAlbumItem(
-                    id: log.id,
-                    title: log.album?.title ?? "Unknown Album",
-                    artist: log.album?.artistName ?? "Unknown Artist",
-                    rating: log.rating,
-                    loggedAt: log.loggedAt
+                    id: entry.log.id,
+                    title: entry.log.album?.title ?? "Unknown Album",
+                    artist: entry.log.album?.artistName ?? "Unknown Artist",
+                    rating: entry.log.rating,
+                    loggedAt: entry.log.loggedAt
                 )
             }
+    }
+
+    /// Identity used to collapse re-logs of the same album: the Apple Music catalog id when
+    /// present (the reliable key), otherwise a normalized title+artist fallback for
+    /// albums logged without catalog metadata.
+    static func albumKey(for album: Album) -> String {
+        if let appleMusicID = album.appleMusicID?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !appleMusicID.isEmpty {
+            return "amid:\(appleMusicID)"
+        }
+
+        let title = album.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let artist = album.artistName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return "ta:\(title)\u{1}\(artist)"
+    }
+
+    /// A log better represents its album than another when it rates higher, or matches on
+    /// rating but was logged more recently.
+    private static func isBetterRepresentative(_ candidate: LogEntry, than current: LogEntry) -> Bool {
+        if candidate.rating != current.rating {
+            return candidate.rating > current.rating
+        }
+
+        return candidate.loggedAt > current.loggedAt
     }
 
     /// Counts folded into whole-star buckets (1...5), returned high-to-low for display.

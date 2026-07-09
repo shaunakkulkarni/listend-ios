@@ -19,6 +19,20 @@ struct ProfileView: View {
     var body: some View {
         List {
             Section("Stats") {
+                NavigationLink {
+                    TasteInsightsView()
+                } label: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Your Taste So Far")
+                            .font(.headline)
+                        Text(tasteInsightsSubtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+                .accessibilityIdentifier("tasteInsightsLink")
+
                 StatRow(title: "Total Logs", value: logs.count.formatted(), valueIdentifier: "totalLogsValueText")
                     .accessibilityIdentifier("totalLogsStat")
                 StatRow(title: "Average Rating", value: averageRatingText, valueIdentifier: "averageRatingValueText")
@@ -119,6 +133,10 @@ struct ProfileView: View {
             .map(\.key)
 
         return topTags.isEmpty ? "No tags yet" : topTags.joined(separator: ", ")
+    }
+
+    private var tasteInsightsSubtitle: String {
+        logs.isEmpty ? "Start logging to build your taste recap." : "\(logs.count.formatted()) logs and counting"
     }
 
     private var canShowSoundPrintProfile: Bool {

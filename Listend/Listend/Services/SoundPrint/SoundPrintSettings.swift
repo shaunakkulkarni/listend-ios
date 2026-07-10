@@ -14,6 +14,13 @@ enum SoundPrintPreferenceKey {
     static let personaTone = "soundPrint.personaTone"
 }
 
+/// Chooses the SoundPrint provider for this launch. The production path uses
+/// plain FoundationModels text responses for prose and sentiment, deterministic
+/// local taste extraction, and local validation. `MockSoundPrintProvider` is
+/// production fallback code, not only a test double. Do not wire in the
+/// newer structured generation convenience APIs here: referencing them in the
+/// shipping app target has crashed iOS 26 TestFlight builds at launch with
+/// unresolved symbols, even behind `#available` checks.
 enum SoundPrintProviderFactory {
     static func makeProvider(
         preferAppleIntelligence: Bool,

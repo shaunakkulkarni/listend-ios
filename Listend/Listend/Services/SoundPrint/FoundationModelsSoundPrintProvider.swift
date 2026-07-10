@@ -19,6 +19,15 @@ enum FoundationModelsSoundPrintProviderError: Error, Equatable {
     case validationFailed
 }
 
+/// iOS 26-safe FoundationModels path: uses the model for prose generation and
+/// simple sentiment output, then parses and validates the text locally. Taste
+/// signal extraction stays deterministic because the on-device model does not
+/// reliably preserve its multi-field response schema.
+///
+/// Do not move this target to the newer structured generation convenience APIs.
+/// Merely referencing them in the shipping binary has crashed iOS 26 TestFlight
+/// builds at launch with unresolved symbols — even behind `#available` checks.
+/// `scripts/check-foundationmodels-symbols.sh` guards against reintroduction.
 struct FoundationModelsSoundPrintProvider: SoundPrintProvider {
     private static let logger = Logger(subsystem: "com.shaunakkulkarni.Listend", category: "SoundPrint")
 
@@ -30,7 +39,7 @@ struct FoundationModelsSoundPrintProvider: SoundPrintProvider {
             let generated = try await Self.textResponse(
                 instructions: """
                 You analyze album log sentiment for Listend, a personal music diary.
-                Return only JSON: {"score": number, "confidence": number}
+                Return exactly one line: SENTIMENT | <score> | <confidence>
                 score is -1.0 for strongly negative, 0.0 for neutral, 1.0 for strongly positive.
                 confidence is 0.0 to 1.0.
                 """,
@@ -52,26 +61,7 @@ struct FoundationModelsSoundPrintProvider: SoundPrintProvider {
     }
 
     func extractTasteSignals(input: TasteExtractionInput) async throws -> TasteExtractionResult {
-        #if canImport(FoundationModels)
-        if #available(iOS 26.0, macOS 26.0, *) {
-            var lastError: Error?
-
-            for attempt in 1...2 {
-                do {
-                    let payload = try await Self.requestTasteExtractionPayload(input: input)
-                    return try FoundationModelsSoundPrintValidator.validatedTasteExtraction(payload: payload, input: input)
-                } catch FoundationModelsSoundPrintProviderError.emptyOutput {
-                    lastError = FoundationModelsSoundPrintProviderError.emptyOutput
-                    guard attempt == 1 else { break }
-                    Self.logger.error("FoundationModels taste extraction returned no positive signals for non-negative sentiment; retrying once")
-                }
-            }
-
-            throw lastError ?? FoundationModelsSoundPrintProviderError.emptyOutput
-        }
-        #endif
-
-        throw FoundationModelsSoundPrintProviderError.unavailable
+        MockSoundPrintProvider.extractTasteSignals(input: input)
     }
 
     func generatePersona(input: PersonaInput) async throws -> PersonaResult {
@@ -280,20 +270,16 @@ private extension FoundationModelsSoundPrintProvider {
                 existingDimensions: input.existingDimensions
             ))
 
-            Return only JSON matching this shape:
-            {
-              "sentiment": {"score": 0.0, "confidence": 0.0},
-              "positiveSignals": [
-                {"dimensionKey": "energy", "label": "Energy Bias", "summary": "...", "strength": 0.0, "confidence": 0.0, "evidenceSnippet": "..."}
-              ],
-              "avoidanceSignals": [
-                {"signalKey": "skipHeavyAlbums", "label": "Skip-Heavy Albums", "summary": "...", "strength": 0.0, "confidence": 0.0, "evidenceSnippet": "..."}
-              ]
-            }
+            Return only pipe-delimited lines in this format:
+            SENTIMENT | <score> | <confidence>
+            POSITIVE | <dimensionKey> | <strength> | <confidence> | <summary> | <evidenceSnippet>
+            AVOIDANCE | <signalKey> | <strength> | <confidence> | <summary> | <evidenceSnippet>
 
             Allowed dimensionKey values: \(FoundationModelsSoundPrintValidator.allowedDimensionNames.joined(separator: ", "))
             Allowed signalKey values: \(FoundationModelsSoundPrintValidator.allowedAvoidanceCategoryNames.joined(separator: ", "))
-            Use empty arrays when no signal is supported.
+            Always include exactly one SENTIMENT line.
+            Omit POSITIVE or AVOIDANCE lines when no signal of that type is supported.
+            Do not use the | character inside summaries or evidence snippets.
             """
         )
         return try FoundationModelsSoundPrintValidator.decodedTasteExtractionPayload(from: generated)
@@ -375,11 +361,87 @@ struct FoundationModelsSoundPrintValidator {
     }
 
     static func decodedSentiment(from text: String) throws -> TasteExtractionPayload.Sentiment {
-        try JSONDecoder().decode(TasteExtractionPayload.Sentiment.self, from: jsonData(from: text))
+        if let decoded = try? JSONDecoder().decode(TasteExtractionPayload.Sentiment.self, from: jsonData(from: text)) {
+            return decoded
+        }
+
+        guard let line = protocolLines(from: text).first(where: { $0.first == "SENTIMENT" }),
+              line.count == 3,
+              let score = Double(line[1]),
+              let confidence = Double(line[2]) else {
+            throw FoundationModelsSoundPrintProviderError.malformedOutput
+        }
+
+        return TasteExtractionPayload.Sentiment(score: score, confidence: confidence)
     }
 
     static func decodedTasteExtractionPayload(from text: String) throws -> TasteExtractionPayload {
-        try JSONDecoder().decode(TasteExtractionPayload.self, from: jsonData(from: text))
+        if let decoded = try? JSONDecoder().decode(TasteExtractionPayload.self, from: jsonData(from: text)) {
+            return decoded
+        }
+
+        var sentiment: TasteExtractionPayload.Sentiment?
+        var positiveSignals: [FoundationModelsPositiveSignalPayload] = []
+        var avoidanceSignals: [FoundationModelsAvoidanceSignalPayload] = []
+
+        for fields in protocolLines(from: text) {
+            switch fields.first {
+            case "SENTIMENT":
+                guard fields.count == 3,
+                      let score = Double(fields[1]),
+                      let confidence = Double(fields[2]) else {
+                    throw FoundationModelsSoundPrintProviderError.malformedOutput
+                }
+                sentiment = TasteExtractionPayload.Sentiment(score: score, confidence: confidence)
+
+            case "POSITIVE":
+                guard fields.count == 6,
+                      let strength = Double(fields[2]),
+                      let confidence = Double(fields[3]) else {
+                    throw FoundationModelsSoundPrintProviderError.malformedOutput
+                }
+                positiveSignals.append(
+                    FoundationModelsPositiveSignalPayload(
+                        dimensionKey: fields[1],
+                        label: fields[1],
+                        summary: fields[4],
+                        strength: strength,
+                        confidence: confidence,
+                        evidenceSnippet: fields[5]
+                    )
+                )
+
+            case "AVOIDANCE":
+                guard fields.count == 6,
+                      let strength = Double(fields[2]),
+                      let confidence = Double(fields[3]) else {
+                    throw FoundationModelsSoundPrintProviderError.malformedOutput
+                }
+                avoidanceSignals.append(
+                    FoundationModelsAvoidanceSignalPayload(
+                        signalKey: fields[1],
+                        label: fields[1],
+                        summary: fields[4],
+                        strength: strength,
+                        confidence: confidence,
+                        evidenceSnippet: fields[5]
+                    )
+                )
+
+            default:
+                continue
+            }
+        }
+
+        guard let sentiment else {
+            throw FoundationModelsSoundPrintProviderError.malformedOutput
+        }
+
+        return TasteExtractionPayload(
+            sentiment: sentiment,
+            positiveSignals: positiveSignals,
+            avoidanceSignals: avoidanceSignals
+        )
     }
 
     static func validatedTasteExtraction(
@@ -391,10 +453,6 @@ struct FoundationModelsSoundPrintValidator {
 
         guard sentimentScore >= 0.0 else {
             return TasteExtractionResult(signals: [], avoidanceSignals: avoidanceSignals)
-        }
-
-        guard !payload.positiveSignals.isEmpty else {
-            throw FoundationModelsSoundPrintProviderError.emptyOutput
         }
 
         var seenDimensionNames: Set<String> = []
@@ -467,7 +525,7 @@ struct FoundationModelsSoundPrintValidator {
     }
 
     static func internalAnalysisLabels(from input: PersonaInput) -> [String] {
-        input.dimensions.map(\.label) + input.avoidanceSignals
+        input.dimensions.map(\.label) + input.avoidanceSignals + internalKeyNames(input.dimensions.map(\.name))
     }
 
     static func concreteSignals(from input: PersonaInput) -> [String] {
@@ -479,7 +537,17 @@ struct FoundationModelsSoundPrintValidator {
     }
 
     static func internalAnalysisLabels(from input: CompactSummaryInput) -> [String] {
-        input.dimensions.map(\.label) + input.avoidanceSignals.map(\.label)
+        input.dimensions.map(\.label)
+            + input.avoidanceSignals.map(\.label)
+            + internalKeyNames(input.dimensions.map(\.name) + input.avoidanceSignals.map(\.name))
+    }
+
+    /// Raw internal key names must never surface in user-facing copy. Only
+    /// camelCase compound keys (e.g. "tracklistConsistency", "skipHeavyAlbums")
+    /// are flagged — single-word keys like "mood" or "energy" are ordinary
+    /// English words and would false-positive on natural persona text.
+    static func internalKeyNames(_ names: [String]) -> [String] {
+        names.filter { $0.lowercased() != $0 }
     }
 
     private static func validatedAvoidanceSignals(
@@ -559,6 +627,22 @@ struct FoundationModelsSoundPrintValidator {
         }
 
         return Data(trimmed.utf8)
+    }
+
+    private static func protocolLines(from text: String) -> [[String]] {
+        text.split(whereSeparator: \.isNewline).compactMap { rawLine in
+            let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard line.contains("|") else {
+                return nil
+            }
+
+            var fields = line.split(separator: "|", maxSplits: 5, omittingEmptySubsequences: false)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            fields[0] = fields[0]
+                .trimmingCharacters(in: CharacterSet(charactersIn: "-* "))
+                .uppercased()
+            return fields
+        }
     }
 }
 

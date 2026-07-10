@@ -12,6 +12,11 @@ import os
 import FoundationModels
 #endif
 
+/// iOS 26-safe FoundationModels path: plain text responses parsed and validated
+/// locally, with `FallbackTagSuggestionProvider` merging in the local provider's
+/// tags. Do not move this target to the newer structured generation convenience
+/// APIs — referencing them in the shipping binary has crashed iOS 26 TestFlight
+/// builds at launch with unresolved symbols, even behind `#available` checks.
 struct FoundationModelsTagSuggestionProvider: TagSuggestionProvider {
     private static let logger = Logger(subsystem: "com.shaunakkulkarni.Listend", category: "TagSuggestion")
 

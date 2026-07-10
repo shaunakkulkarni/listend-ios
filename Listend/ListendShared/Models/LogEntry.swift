@@ -75,7 +75,15 @@ final class LogEntry {
     }
 
     private var ratingDerivedSentimentScore: Double {
-        MockSoundPrintProvider.baseScore(for: rating)
+        if rating >= 4.0 {
+            return 0.7
+        }
+
+        if rating >= 3.0 {
+            return 0.2
+        }
+
+        return -0.5
     }
 
     init(

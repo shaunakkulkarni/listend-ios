@@ -7,6 +7,10 @@
 
 import os
 
+/// Tries the primary (FoundationModels) provider and, on any failure other than
+/// cancellation, recovers with the deterministic local fallback so logging and
+/// SoundPrint are never blocked by an AI failure. Fallback results carry the
+/// `.localFallback` source — never `.unavailable`.
 struct FallbackSoundPrintProvider: SoundPrintProvider {
     let primary: SoundPrintProvider
     let fallback: SoundPrintProvider

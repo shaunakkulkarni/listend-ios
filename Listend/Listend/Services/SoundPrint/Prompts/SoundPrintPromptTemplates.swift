@@ -42,7 +42,7 @@ enum SoundPrintPromptTemplates {
         Use plain, sharp language.
         The tone should feel like a smart music friend who actually read the diary entries.
 
-        Fill in the requested structured output exactly.
+        Follow the requested response format exactly.
         """
     }
 
@@ -117,7 +117,6 @@ enum SoundPrintPromptTemplates {
 
         \(personaVoiceBlock(for: tone))
 
-        Maximum 55 words total.
         No emojis. No hashtags.
         Never use these words or phrases:
         \(bannedListText(for: tone))

@@ -92,6 +92,24 @@ struct ProfileView: View {
                     .padding(.vertical, 4)
                 }
             }
+
+            if SandboxMode.isEnabled {
+                Section("Developer") {
+                    NavigationLink {
+                        SandboxSettingsView()
+                    } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Sandbox Data")
+                                .font(.headline)
+                            Text("Reset mock data or switch testing scenarios")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .accessibilityIdentifier("sandboxSettingsLink")
+                }
+            }
         }
         .scrollContentBackground(.hidden)
         .background(Color.listendPaper)

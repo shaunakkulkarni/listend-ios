@@ -77,6 +77,18 @@ struct ContentView: View {
             .tag(ListendTab.profile)
             .accessibilityIdentifier("profileTab")
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if SandboxMode.isEnabled {
+                Text("SANDBOX · MOCK DATA")
+                    .font(.caption2.weight(.bold))
+                    .tracking(1.2)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 5)
+                    .background(Color.orange)
+                    .accessibilityIdentifier("sandboxModeBanner")
+            }
+        }
         .onOpenURL(perform: handleOpenURL)
         .sheet(item: $sharedIntakeLink) { link in
             ShareIntakeView(

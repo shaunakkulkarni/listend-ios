@@ -12,11 +12,11 @@ import Foundation
 /// single source file without membership-exception plumbing. Keep the two in sync.
 enum SharedAlbumIntake {
     /// App Group both the app and the share extension read/write.
-    static let appGroupID = "group.com.shaunakkulkarni.Listend"
+    static let appGroupID = ListendAppGroup.identifier
     /// UserDefaults key holding the most recent shared Apple Music URL/text.
     static let pendingURLKey = "pendingSharedAlbumURL"
     /// Custom URL scheme the extension uses only to launch the host app.
-    static let deepLinkScheme = "listend"
+    static let deepLinkScheme = SandboxMode.isEnabled ? "listend-sandbox" : "listend"
     /// Host component identifying a shared-album launch.
     static let deepLinkHost = "shared-album"
 }

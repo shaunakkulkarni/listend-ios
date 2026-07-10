@@ -2767,6 +2767,73 @@ struct ListendTests {
         #expect(queries == ["Art Pop", "Weyes Blood", "vocalFocus", "layered", "lush"])
     }
 
+    @Test func todayPickRecommendationModeDefaultsAndStoredRawValuesAreStable() throws {
+        func decode(_ rawValue: String?) -> TodayPickRecommendationMode {
+            TodayPickRecommendationMode(rawValue: rawValue)
+        }
+
+        #expect(decode(nil) == .balanced)
+        #expect(decode("unknown") == .balanced)
+        #expect(decode("familiar") == .familiar)
+        #expect(decode("adventurous") == .adventurous)
+        #expect(TodayPickPreferenceKey.recommendationMode == "todayPick.recommendationMode")
+
+        let suiteName = "TodayPickRecommendationModeTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(TodayPickRecommendationMode.adventurous.rawValue, forKey: TodayPickPreferenceKey.recommendationMode)
+        let restored = TodayPickRecommendationMode(
+            rawValue: defaults.string(forKey: TodayPickPreferenceKey.recommendationMode)
+        )
+
+        #expect(restored == .adventurous)
+    }
+
+    @Test func recommendationCandidateQueriesFollowModeSpecificOrdering() {
+        let logID = UUID()
+        let anchors = [
+            RecommendationAnchorInput(
+                logIDs: [logID],
+                albumCatalogID: "anchor",
+                albumTitle: "Anchor",
+                artistName: "Anchor Artist",
+                genreName: "Art Pop",
+                tags: ["lush"],
+                strength: 0.8
+            )
+        ]
+        let evidence = [
+            RecommendationEvidenceInput(
+                logEntryID: logID,
+                dimensionName: "vocalFocus",
+                strength: 0.9,
+                isPositiveEvidence: true
+            )
+        ]
+
+        let familiar = CatalogRecommendationCandidateProvider.searchQueries(
+            anchors: anchors,
+            evidence: evidence,
+            mode: .familiar
+        )
+        let balanced = CatalogRecommendationCandidateProvider.searchQueries(
+            anchors: anchors,
+            evidence: evidence,
+            mode: .balanced
+        )
+        let adventurous = CatalogRecommendationCandidateProvider.searchQueries(
+            anchors: anchors,
+            evidence: evidence,
+            mode: .adventurous
+        )
+
+        #expect(familiar == ["Anchor Artist", "Art Pop", "vocalFocus", "lush"])
+        #expect(balanced == ["Art Pop", "Anchor Artist", "vocalFocus", "lush"])
+        #expect(adventurous == ["Art Pop", "vocalFocus", "lush"])
+        #expect(!adventurous.contains("Anchor Artist"))
+    }
+
     @Test func recommendationCandidateQueriesAggregateAlbumStrengthAndIgnoreNegativeAnchors() {
         let sharedLogIDs = [UUID(), UUID()]
         let evidenceLogID = sharedLogIDs[1]
@@ -3334,9 +3401,93 @@ struct ListendTests {
         #expect(artPop.genreAffinity <= 0.30)
         #expect(artPop.eraAffinity > 0)
         #expect(artPop.tagAffinity > 0)
+        #expect(artPop.artistAffinity == 0)
         #expect(artPop.artistNovelty == 0.05)
+        #expect(artPop.genreNovelty == 0)
+        #expect(artPop.eraNovelty == 0)
+        #expect(abs(artPop.total - 0.6575) < 0.000_001)
         #expect(metal.genreAvoidance < 0)
         #expect(oneNegative.genreAvoidance == 0)
+    }
+
+    @Test func familiarRecommendationModePrefersStrongExistingTasteSignals() throws {
+        let service = LocalRecommendationService(catalogAlbums: [
+            AlbumSearchResult(id: "familiar", title: "Familiar Follow-Up", artistName: "Anchor Artist", releaseYear: 2019, genreName: "Art Pop"),
+            AlbumSearchResult(id: "novel", title: "Lush Frontier", artistName: "New Artist", releaseYear: 1985, genreName: "Jazz")
+        ])
+        let anchorLog = LogEntry(
+            album: Album(title: "Anchor", artistName: "Anchor Artist", releaseYear: 2018, genreName: "Art Pop"),
+            rating: 5,
+            tags: ["lush"]
+        )
+        let profiles = service.recommendationAnchorProfiles(from: [anchorLog], evidence: [])
+
+        let result = try #require(service.bestCandidate(
+            logs: [anchorLog],
+            recommendations: [],
+            anchorProfiles: profiles,
+            mode: .familiar
+        ))
+
+        #expect(result.album.catalogID == "familiar")
+        #expect(result.scoreBreakdown.artistAffinity == 0.12)
+        #expect(result.scoreBreakdown.artistNovelty == 0)
+        #expect(result.scoreBreakdown.genreAffinity == 0.3125)
+        #expect(result.scoreBreakdown.eraAffinity == 0.15)
+    }
+
+    @Test func adventurousRecommendationModePrefersAdjacentNoveltyAndRejectsUngroundedCandidates() throws {
+        let service = LocalRecommendationService(catalogAlbums: [
+            AlbumSearchResult(id: "familiar", title: "Familiar Follow-Up", artistName: "Anchor Artist", releaseYear: 2019, genreName: "Art Pop"),
+            AlbumSearchResult(id: "ungrounded", title: "Remote Future", artistName: "Remote Artist", releaseYear: 1985, genreName: "Jazz"),
+            AlbumSearchResult(id: "adjacent", title: "Lush Frontier", artistName: "New Artist", releaseYear: 1985, genreName: "Jazz")
+        ])
+        let anchorLog = LogEntry(
+            album: Album(title: "Anchor", artistName: "Anchor Artist", releaseYear: 2018, genreName: "Art Pop"),
+            rating: 5,
+            tags: ["lush"]
+        )
+        let profiles = service.recommendationAnchorProfiles(from: [anchorLog], evidence: [])
+
+        let result = try #require(service.bestCandidate(
+            logs: [anchorLog],
+            recommendations: [],
+            anchorProfiles: profiles,
+            mode: .adventurous
+        ))
+        let ungroundedBreakdown = service.recommendationScoreBreakdown(
+            for: AlbumSearchResult(id: "ungrounded", title: "Remote Future", artistName: "Remote Artist", releaseYear: 1985, genreName: "Jazz"),
+            anchorProfiles: profiles,
+            mode: .adventurous
+        )
+
+        #expect(result.album.catalogID == "adjacent")
+        #expect(!result.receipts.isEmpty)
+        #expect(result.scoreBreakdown.artistNovelty == 0.15)
+        #expect(result.scoreBreakdown.genreNovelty == 0.08)
+        #expect(result.scoreBreakdown.eraNovelty == 0.06)
+        #expect(ungroundedBreakdown.total > 0.40)
+    }
+
+    @Test func adventurousRecommendationModeReturnsNoCandidateWithoutPositiveLogGrounding() {
+        let service = LocalRecommendationService(catalogAlbums: [
+            AlbumSearchResult(id: "ungrounded", title: "Remote Future", artistName: "Remote Artist", releaseYear: 1985, genreName: "Jazz")
+        ])
+        let anchorLog = LogEntry(
+            album: Album(title: "Anchor", artistName: "Anchor Artist", releaseYear: 2018, genreName: "Art Pop"),
+            rating: 5,
+            tags: ["lush"]
+        )
+        let profiles = service.recommendationAnchorProfiles(from: [anchorLog], evidence: [])
+
+        let result = service.bestCandidate(
+            logs: [anchorLog],
+            recommendations: [],
+            anchorProfiles: profiles,
+            mode: .adventurous
+        )
+
+        #expect(result == nil)
     }
 
     @Test func recommendationScoringUsesLatestFeedbackAndStoredStatusFallback() {
@@ -3448,6 +3599,37 @@ struct ListendTests {
         let recommendations = try modelContext.fetch(FetchDescriptor<Recommendation>())
 
         #expect(returned.id == activeRecommendation.id)
+        #expect(recommendations.count == 1)
+    }
+
+    @MainActor
+    @Test func changingRecommendationModeDoesNotReplaceOrRecalculateActivePick() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        insertRecommendationSupportLogs(in: modelContext, count: 5)
+        try modelContext.save()
+
+        let service = LocalRecommendationService()
+        let original = try await service.currentOrGenerateRecommendation(in: modelContext, mode: .balanced)
+        let originalReceipts = try service.receipts(for: original, in: modelContext)
+        let originalSnapshot = (
+            albumID: original.album?.id,
+            explanation: original.explanationText,
+            score: original.score,
+            confidence: original.confidence,
+            receiptIDs: originalReceipts.map(\.id)
+        )
+
+        let returned = try await service.currentOrGenerateRecommendation(in: modelContext, mode: .adventurous)
+        let returnedReceipts = try service.receipts(for: returned, in: modelContext)
+        let recommendations = try modelContext.fetch(FetchDescriptor<Recommendation>())
+
+        #expect(returned.id == original.id)
+        #expect(returned.album?.id == originalSnapshot.albumID)
+        #expect(returned.explanationText == originalSnapshot.explanation)
+        #expect(returned.score == originalSnapshot.score)
+        #expect(returned.confidence == originalSnapshot.confidence)
+        #expect(returnedReceipts.map(\.id) == originalSnapshot.receiptIDs)
         #expect(recommendations.count == 1)
     }
 

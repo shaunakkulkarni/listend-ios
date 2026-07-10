@@ -9,6 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct TodayPickView: View {
+    @AppStorage(TodayPickPreferenceKey.recommendationMode) private var recommendationModeRawValue = TodayPickRecommendationMode.default.rawValue
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \LogEntry.loggedAt, order: .reverse) private var logs: [LogEntry]
     @Query(sort: \Recommendation.createdAt, order: .reverse) private var recommendations: [Recommendation]
@@ -62,6 +63,16 @@ struct TodayPickView: View {
         .background(Color.listendPaper)
         .navigationTitle("Today's Pick")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink {
+                    TodayPickSettingsView()
+                } label: {
+                    Label("Today’s Pick Settings", systemImage: "gearshape")
+                }
+                .accessibilityIdentifier("todayPickSettingsLink")
+            }
+        }
         .task {
             await loadActiveRecommendation()
         }
@@ -348,7 +359,10 @@ struct TodayPickView: View {
         }
 
         do {
-            let generated = try await recommendationService.currentOrGenerateRecommendation(in: modelContext)
+            let generated = try await recommendationService.currentOrGenerateRecommendation(
+                in: modelContext,
+                mode: TodayPickRecommendationMode(rawValue: recommendationModeRawValue)
+            )
             recommendation = generated
             receipts = try recommendationService.receipts(for: generated, in: modelContext)
             message = nil

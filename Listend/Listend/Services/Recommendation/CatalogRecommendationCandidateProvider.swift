@@ -51,9 +51,10 @@ struct CatalogRecommendationCandidateProvider {
     func candidates(
         anchors: [RecommendationAnchorInput],
         evidence: [RecommendationEvidenceInput],
-        loggedAlbums: [RecommendationLoggedAlbumInput]
+        loggedAlbums: [RecommendationLoggedAlbumInput],
+        mode: TodayPickRecommendationMode = .balanced
     ) async -> [AlbumSearchResult] {
-        let queries = Self.searchQueries(anchors: anchors, evidence: evidence, limit: queryLimit)
+        let queries = Self.searchQueries(anchors: anchors, evidence: evidence, mode: mode, limit: queryLimit)
 
         guard !queries.isEmpty else {
             return fallbackCandidates
@@ -92,6 +93,7 @@ struct CatalogRecommendationCandidateProvider {
     static func searchQueries(
         anchors: [RecommendationAnchorInput],
         evidence: [RecommendationEvidenceInput],
+        mode: TodayPickRecommendationMode = .balanced,
         limit: Int = 5
     ) -> [String] {
         let positiveAnchors = anchors.filter { $0.strength > 0 }
@@ -110,17 +112,42 @@ struct CatalogRecommendationCandidateProvider {
             .map { ($0.dimensionName, $0.strength) })
         let evidenceValues = rankedWeightedValuesKeepingStrongest(evidencePairs)
 
-        appendFirst(from: genreValues, to: &queries)
-        appendFirst(from: artistValues, to: &queries)
-        appendFirst(from: evidenceValues, to: &queries)
-        appendFirst(from: tagValues, to: &queries)
+        let remainingValues: [String]
 
-        let remainingValues = rankedWeightedValues(
-            positiveAnchors.compactMap { anchor in anchor.genreName.map { ($0, anchor.strength) } }
-                + positiveAnchors.map { ($0.artistName, $0.strength) }
-                + evidencePairs
-                + positiveAnchors.flatMap { anchor in anchor.tags.map { ($0, anchor.strength) } }
-        )
+        switch mode {
+        case .familiar:
+            appendFirst(from: artistValues, to: &queries)
+            appendFirst(from: genreValues, to: &queries)
+            appendFirst(from: evidenceValues, to: &queries)
+            appendFirst(from: tagValues, to: &queries)
+            remainingValues = rankedWeightedValues(
+                positiveAnchors.map { ($0.artistName, $0.strength) }
+                    + positiveAnchors.compactMap { anchor in anchor.genreName.map { ($0, anchor.strength) } }
+                    + evidencePairs
+                    + positiveAnchors.flatMap { anchor in anchor.tags.map { ($0, anchor.strength) } }
+            )
+        case .balanced:
+            appendFirst(from: genreValues, to: &queries)
+            appendFirst(from: artistValues, to: &queries)
+            appendFirst(from: evidenceValues, to: &queries)
+            appendFirst(from: tagValues, to: &queries)
+            remainingValues = rankedWeightedValues(
+                positiveAnchors.compactMap { anchor in anchor.genreName.map { ($0, anchor.strength) } }
+                    + positiveAnchors.map { ($0.artistName, $0.strength) }
+                    + evidencePairs
+                    + positiveAnchors.flatMap { anchor in anchor.tags.map { ($0, anchor.strength) } }
+            )
+        case .adventurous:
+            appendFirst(from: genreValues, to: &queries)
+            appendFirst(from: evidenceValues, to: &queries)
+            appendFirst(from: tagValues, to: &queries)
+            remainingValues = rankedWeightedValues(
+                positiveAnchors.compactMap { anchor in anchor.genreName.map { ($0, anchor.strength) } }
+                    + evidencePairs
+                    + positiveAnchors.flatMap { anchor in anchor.tags.map { ($0, anchor.strength) } }
+            )
+        }
+
         for value in remainingValues where queries.count < limit {
             append(value, to: &queries)
         }

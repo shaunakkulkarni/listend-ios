@@ -7,7 +7,11 @@ import Foundation
 import SwiftData
 
 enum ListendAppGroup {
+    #if SANDBOX
+    static let identifier = "group.com.shaunakkulkarni.Listend.Sandbox"
+    #else
     static let identifier = "group.com.shaunakkulkarni.Listend"
+    #endif
 }
 
 enum ListendSharedStore {

@@ -106,15 +106,75 @@ struct RecommendationScoreBreakdown: Equatable {
     let genreAffinity: Double
     let eraAffinity: Double
     let tagAffinity: Double
+    let artistAffinity: Double
     let artistNovelty: Double
+    let genreNovelty: Double
+    let eraNovelty: Double
     let recentArtistRepetition: Double
     let genreAvoidance: Double
     let feedbackAffinity: Double
 
     var total: Double {
-        (base + genreAffinity + eraAffinity + tagAffinity + artistNovelty
-            + recentArtistRepetition + genreAvoidance + feedbackAffinity)
+        (base + genreAffinity + eraAffinity + tagAffinity + artistAffinity + artistNovelty
+            + genreNovelty + eraNovelty + recentArtistRepetition + genreAvoidance + feedbackAffinity)
             .clamped(to: 0...1)
+    }
+}
+
+private struct TodayPickScoringPolicy {
+    let genreAffinityMultiplier: Double
+    let genreAffinityCap: Double
+    let eraAffinityMultiplier: Double
+    let eraAffinityCap: Double
+    let tagAffinityMultiplier: Double
+    let tagAffinityCap: Double
+    let maximumArtistAffinity: Double
+    let artistNoveltyBonus: Double
+    let genreNoveltyBonus: Double
+    let eraNoveltyBonus: Double
+
+    static func policy(for mode: TodayPickRecommendationMode) -> TodayPickScoringPolicy {
+        switch mode {
+        case .familiar:
+            return TodayPickScoringPolicy(
+                genreAffinityMultiplier: 1.25,
+                genreAffinityCap: 0.35,
+                eraAffinityMultiplier: 1.25,
+                eraAffinityCap: 0.15,
+                tagAffinityMultiplier: 1.50,
+                tagAffinityCap: 0.075,
+                maximumArtistAffinity: 0.12,
+                artistNoveltyBonus: 0,
+                genreNoveltyBonus: 0,
+                eraNoveltyBonus: 0
+            )
+        case .balanced:
+            return TodayPickScoringPolicy(
+                genreAffinityMultiplier: 1,
+                genreAffinityCap: 0.30,
+                eraAffinityMultiplier: 1,
+                eraAffinityCap: .greatestFiniteMagnitude,
+                tagAffinityMultiplier: 1,
+                tagAffinityCap: 0.05,
+                maximumArtistAffinity: 0,
+                artistNoveltyBonus: 0.05,
+                genreNoveltyBonus: 0,
+                eraNoveltyBonus: 0
+            )
+        case .adventurous:
+            return TodayPickScoringPolicy(
+                genreAffinityMultiplier: 0.60,
+                genreAffinityCap: .greatestFiniteMagnitude,
+                eraAffinityMultiplier: 0.50,
+                eraAffinityCap: .greatestFiniteMagnitude,
+                tagAffinityMultiplier: 1,
+                tagAffinityCap: 0.05,
+                maximumArtistAffinity: 0,
+                artistNoveltyBonus: 0.15,
+                genreNoveltyBonus: 0.08,
+                eraNoveltyBonus: 0.06
+            )
+        }
     }
 }
 
@@ -160,7 +220,10 @@ struct LocalRecommendationService {
     }
 
     @MainActor
-    func currentOrGenerateRecommendation(in modelContext: ModelContext) async throws -> Recommendation {
+    func currentOrGenerateRecommendation(
+        in modelContext: ModelContext,
+        mode: TodayPickRecommendationMode = .balanced
+    ) async throws -> Recommendation {
         if let activeRecommendation = try activeRecommendation(in: modelContext) {
             return activeRecommendation
         }
@@ -187,6 +250,7 @@ struct LocalRecommendationService {
             recommendations: recommendations,
             feedback: feedback,
             anchorProfiles: anchorProfiles,
+            mode: mode,
             in: modelContext
         )
 
@@ -362,7 +426,8 @@ struct LocalRecommendationService {
         logs: [LogEntry],
         recommendations: [Recommendation],
         feedback: [RecommendationFeedback] = [],
-        anchorProfiles: [RecommendationAnchorProfile]
+        anchorProfiles: [RecommendationAnchorProfile],
+        mode: TodayPickRecommendationMode = .balanced
     ) -> ScoredRecommendationCandidate? {
         let loggedAlbums = logs.compactMap(\.album)
         let recommendedAlbums = recommendations.compactMap(\.album)
@@ -388,9 +453,11 @@ struct LocalRecommendationService {
                     anchorProfiles: anchorProfiles,
                     recommendations: recommendations,
                     latestFeedbackByRecommendationID: latestFeedbackByRecommendationID,
-                    recentlyRecommendedArtists: recentlyRecommendedArtists
+                    recentlyRecommendedArtists: recentlyRecommendedArtists,
+                    mode: mode
                 )
             }
+            .filter { mode != .adventurous || !$0.receipts.isEmpty }
             .sorted { lhs, rhs in
                 if lhs.score != rhs.score {
                     return lhs.score > rhs.score
@@ -414,6 +481,7 @@ struct LocalRecommendationService {
         recommendations: [Recommendation],
         feedback: [RecommendationFeedback],
         anchorProfiles: [RecommendationAnchorProfile],
+        mode: TodayPickRecommendationMode,
         in modelContext: ModelContext
     ) async throws -> PendingRecommendationInput {
         if let appleMusicService {
@@ -428,7 +496,8 @@ struct LocalRecommendationService {
                     logs: logs,
                     recommendations: recommendations,
                     feedback: feedback,
-                    anchorProfiles: anchorProfiles
+                    anchorProfiles: anchorProfiles,
+                    mode: mode
                 ) else {
                     throw LocalRecommendationError.noCandidates
                 }
@@ -448,7 +517,8 @@ struct LocalRecommendationService {
                     evidence: evidence,
                     recommendations: recommendations,
                     feedback: feedback,
-                    anchorProfiles: anchorProfiles
+                    anchorProfiles: anchorProfiles,
+                    mode: mode
                 )
             }
         }
@@ -458,7 +528,8 @@ struct LocalRecommendationService {
             evidence: evidence,
             recommendations: recommendations,
             feedback: feedback,
-            anchorProfiles: anchorProfiles
+            anchorProfiles: anchorProfiles,
+            mode: mode
         )
     }
 
@@ -468,12 +539,14 @@ struct LocalRecommendationService {
         evidence: [TasteEvidence],
         recommendations: [Recommendation],
         feedback: [RecommendationFeedback],
-        anchorProfiles: [RecommendationAnchorProfile]
+        anchorProfiles: [RecommendationAnchorProfile],
+        mode: TodayPickRecommendationMode
     ) async throws -> PendingRecommendationInput {
         let candidates = await recommendationCandidates(
             logs: logs,
             evidence: evidence,
-            anchorProfiles: anchorProfiles
+            anchorProfiles: anchorProfiles,
+            mode: mode
         )
 
         guard let scoredCandidate = bestCandidate(
@@ -481,7 +554,8 @@ struct LocalRecommendationService {
             logs: logs,
             recommendations: recommendations,
             feedback: feedback,
-            anchorProfiles: anchorProfiles
+            anchorProfiles: anchorProfiles,
+            mode: mode
         ) else {
             throw LocalRecommendationError.noCandidates
         }
@@ -537,7 +611,8 @@ struct LocalRecommendationService {
     private func recommendationCandidates(
         logs: [LogEntry],
         evidence: [TasteEvidence],
-        anchorProfiles: [RecommendationAnchorProfile]
+        anchorProfiles: [RecommendationAnchorProfile],
+        mode: TodayPickRecommendationMode
     ) async -> [AlbumSearchResult] {
         guard let candidateProvider else {
             return catalogAlbums
@@ -552,7 +627,8 @@ struct LocalRecommendationService {
         return await candidateProvider.candidates(
             anchors: anchorInputs,
             evidence: evidenceInputs,
-            loggedAlbums: loggedAlbumInputs
+            loggedAlbums: loggedAlbumInputs,
+            mode: mode
         )
     }
 
@@ -562,14 +638,16 @@ struct LocalRecommendationService {
         anchorProfiles: [RecommendationAnchorProfile],
         recommendations: [Recommendation],
         latestFeedbackByRecommendationID: [UUID: RecommendationFeedback],
-        recentlyRecommendedArtists: Set<String>
+        recentlyRecommendedArtists: Set<String>,
+        mode: TodayPickRecommendationMode
     ) -> ScoredRecommendationCandidate {
         let breakdown = recommendationScoreBreakdown(
             for: candidate,
             anchorProfiles: anchorProfiles,
             recommendations: recommendations,
             latestFeedbackByRecommendationID: latestFeedbackByRecommendationID,
-            recentlyRecommendedArtists: recentlyRecommendedArtists
+            recentlyRecommendedArtists: recentlyRecommendedArtists,
+            mode: mode
         )
         let relevantProfiles = candidateRelevantPositiveProfiles(candidate, profiles: anchorProfiles)
         let receiptsAndProfiles = relevantProfiles.compactMap { profile -> (PendingRecommendationReceipt, RecommendationAnchorProfile)? in
@@ -602,7 +680,8 @@ struct LocalRecommendationService {
         for candidate: AlbumSearchResult,
         anchorProfiles: [RecommendationAnchorProfile],
         recommendations: [Recommendation] = [],
-        feedback: [RecommendationFeedback] = []
+        feedback: [RecommendationFeedback] = [],
+        mode: TodayPickRecommendationMode = .balanced
     ) -> RecommendationScoreBreakdown {
         let latestFeedback = Dictionary(grouping: feedback, by: \.recommendationID)
             .compactMapValues { $0.max { $0.createdAt < $1.createdAt } }
@@ -613,7 +692,8 @@ struct LocalRecommendationService {
             anchorProfiles: anchorProfiles,
             recommendations: recommendations,
             latestFeedbackByRecommendationID: latestFeedback,
-            recentlyRecommendedArtists: recentArtists
+            recentlyRecommendedArtists: recentArtists,
+            mode: mode
         )
     }
 
@@ -623,32 +703,70 @@ struct LocalRecommendationService {
         anchorProfiles: [RecommendationAnchorProfile],
         recommendations: [Recommendation],
         latestFeedbackByRecommendationID: [UUID: RecommendationFeedback],
-        recentlyRecommendedArtists: Set<String>
+        recentlyRecommendedArtists: Set<String>,
+        mode: TodayPickRecommendationMode
     ) -> RecommendationScoreBreakdown {
+        let policy = TodayPickScoringPolicy.policy(for: mode)
         let positiveProfiles = anchorProfiles.filter(\.isPositive)
         let genreProfiles = positiveProfiles.filter { Self.sameGenre($0.album, candidate) }
             .sorted { $0.strength > $1.strength }
         let genreStrengths = genreProfiles.prefix(2).map(\.strength)
-        let genreAffinity = min(
+        let balancedGenreAffinity = min(
             (genreStrengths.isEmpty ? 0 : genreStrengths.reduce(0, +) / Double(genreStrengths.count) * 0.25)
                 + (genreProfiles.count >= 2 ? 0.05 : 0),
             0.30
         )
-        let eraAffinity = positiveProfiles
+        let genreAffinity = min(
+            balancedGenreAffinity * policy.genreAffinityMultiplier,
+            policy.genreAffinityCap
+        )
+        let balancedEraAffinity = positiveProfiles
             .filter { Self.sameEra($0.album, candidate) }
             .map(\.strength)
             .max()
             .map { $0 * 0.12 } ?? 0
+        let eraAffinity = min(
+            balancedEraAffinity * policy.eraAffinityMultiplier,
+            policy.eraAffinityCap
+        )
         let candidateText = Self.candidateMetadataText(candidate)
-        let tagAffinity = min(positiveProfiles.compactMap { profile in
+        let balancedTagAffinity = min(positiveProfiles.compactMap { profile in
             profile.tags.contains { candidateText.contains($0.normalizedRecommendationText) }
                 ? profile.strength * 0.05
                 : nil
         }.max() ?? 0, 0.05)
+        let tagAffinity = min(
+            balancedTagAffinity * policy.tagAffinityMultiplier,
+            policy.tagAffinityCap
+        )
+        let candidateArtist = candidate.artistName.normalizedRecommendationText
+        let sameArtistStrength = positiveProfiles
+            .filter { $0.album.artistName.normalizedRecommendationText == candidateArtist }
+            .map(\.strength)
+            .max() ?? 0
+        let artistAffinity = min(
+            sameArtistStrength * policy.maximumArtistAffinity,
+            policy.maximumArtistAffinity
+        )
         let knownArtists = Set(anchorProfiles.map { $0.album.artistName.normalizedRecommendationText }
             + recommendations.compactMap { $0.album?.artistName.normalizedRecommendationText })
-        let artistNovelty = knownArtists.contains(candidate.artistName.normalizedRecommendationText) ? 0 : 0.05
-        let recentArtistRepetition = recentlyRecommendedArtists.contains(candidate.artistName.normalizedRecommendationText) ? -0.10 : 0
+        let artistNovelty = knownArtists.contains(candidateArtist) ? 0 : policy.artistNoveltyBonus
+        let hasKnownCandidateGenre = !(candidate.genreName?.normalizedRecommendationText.isEmpty ?? true)
+        let genreNovelty = mode == .adventurous
+            && !positiveProfiles.isEmpty
+            && hasKnownCandidateGenre
+            && genreProfiles.isEmpty
+            ? policy.genreNoveltyBonus
+            : 0
+        let hasKnownCandidateEra = candidate.releaseYear != nil
+        let hasMatchingEra = positiveProfiles.contains { Self.sameEra($0.album, candidate) }
+        let eraNovelty = mode == .adventurous
+            && !positiveProfiles.isEmpty
+            && hasKnownCandidateEra
+            && !hasMatchingEra
+            ? policy.eraNoveltyBonus
+            : 0
+        let recentArtistRepetition = recentlyRecommendedArtists.contains(candidateArtist) ? -0.10 : 0
         let matchingNegativeProfiles = anchorProfiles.filter { $0.isNegative && Self.sameGenre($0.album, candidate) }
         let genreAvoidance: Double = if matchingNegativeProfiles.count >= 2 {
             -0.20 * matchingNegativeProfiles.map { abs($0.strength) }.reduce(0, +) / Double(matchingNegativeProfiles.count)
@@ -671,7 +789,10 @@ struct LocalRecommendationService {
             genreAffinity: genreAffinity,
             eraAffinity: eraAffinity,
             tagAffinity: tagAffinity,
+            artistAffinity: artistAffinity,
             artistNovelty: artistNovelty,
+            genreNovelty: genreNovelty,
+            eraNovelty: eraNovelty,
             recentArtistRepetition: recentArtistRepetition,
             genreAvoidance: genreAvoidance,
             feedbackAffinity: feedbackAffinity

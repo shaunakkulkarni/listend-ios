@@ -33,6 +33,7 @@ struct ListendApp: App {
 
             if shouldResetUITestingData {
                 resetStore(at: storeURL)
+                UserDefaults.standard.removeObject(forKey: TodayPickPreferenceKey.recommendationMode)
             }
 
             modelConfiguration = ModelConfiguration("ListendUITests", schema: schema, url: storeURL)
@@ -58,6 +59,10 @@ struct ListendApp: App {
                     container.mainContext.insert(LogEntry(album: album, rating: 3.0 + Double(index) * 0.5))
                 }
                 try container.mainContext.save()
+            }
+
+            if SandboxMode.isEnabled {
+                try SandboxDataSeeder.seedInitialDataIfNeeded(in: container.mainContext)
             }
 
             return container
@@ -96,7 +101,7 @@ struct ListendApp: App {
     private static func makeCatalogService() -> AlbumCatalogServiceProtocol {
         let arguments = ProcessInfo.processInfo.arguments
 
-        if arguments.contains("-ui-testing") {
+        if SandboxMode.isEnabled || arguments.contains("-ui-testing") {
             return MockAlbumCatalogService()
         }
 
@@ -106,7 +111,7 @@ struct ListendApp: App {
     private static func makeRecentlyPlayedAlbumService() -> RecentlyPlayedAlbumServiceProtocol {
         let arguments = ProcessInfo.processInfo.arguments
 
-        if arguments.contains("-ui-testing") {
+        if SandboxMode.isEnabled || arguments.contains("-ui-testing") {
             return MockRecentlyPlayedAlbumService()
         }
 
@@ -116,7 +121,7 @@ struct ListendApp: App {
     private static func makeAppleMusicRecommendationService() -> AppleMusicRecommendationServiceProtocol? {
         let arguments = ProcessInfo.processInfo.arguments
 
-        if arguments.contains("-ui-testing") {
+        if SandboxMode.isEnabled || arguments.contains("-ui-testing") {
             return nil
         }
 
@@ -134,7 +139,7 @@ struct ListendApp: App {
 
         return SoundPrintProviderFactory.makeProvider(
             preferAppleIntelligence: preferAppleIntelligence,
-            isUITesting: arguments.contains("-ui-testing"),
+            isUITesting: SandboxMode.isEnabled || arguments.contains("-ui-testing"),
             isSimulator: isSimulator
         )
     }
@@ -142,7 +147,7 @@ struct ListendApp: App {
     private static func makeAlbumPreviewService() -> AlbumPreviewServiceProtocol {
         let arguments = ProcessInfo.processInfo.arguments
 
-        if arguments.contains("-ui-testing") {
+        if SandboxMode.isEnabled || arguments.contains("-ui-testing") {
             return MockAlbumPreviewService()
         }
 
@@ -155,7 +160,7 @@ struct ListendApp: App {
     private static func makeTagSuggestionProvider() -> TagSuggestionProvider {
         let arguments = ProcessInfo.processInfo.arguments
 
-        if arguments.contains("-ui-testing") {
+        if SandboxMode.isEnabled || arguments.contains("-ui-testing") {
             return MockTagSuggestionProvider()
         }
 
@@ -172,7 +177,7 @@ struct ListendApp: App {
     private static func makeJournalAssistService() -> JournalAssistServiceProtocol {
         let arguments = ProcessInfo.processInfo.arguments
 
-        if arguments.contains("-ui-testing") {
+        if SandboxMode.isEnabled || arguments.contains("-ui-testing") {
             return MockJournalAssistService()
         }
 
@@ -185,7 +190,7 @@ struct ListendApp: App {
     private static func makeAlbumTrackService() -> AlbumTrackServiceProtocol {
         let arguments = ProcessInfo.processInfo.arguments
 
-        if arguments.contains("-ui-testing") {
+        if SandboxMode.isEnabled || arguments.contains("-ui-testing") {
             return MockAlbumTrackService()
         }
 

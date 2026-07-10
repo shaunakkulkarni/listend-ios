@@ -500,6 +500,45 @@ final class ListendUITests: XCTestCase {
     }
 
     @MainActor
+    func testTodayPickRecommendationModeSettingsPersistWithoutChangingActivePick() throws {
+        launchResetApp(additionalArguments: ["-seed-today-pick-eligible"])
+
+        openTab("Home")
+        app.buttons["todayPickLink"].tap()
+        XCTAssertTrue(app.buttons["todayPickSettingsLink"].waitForExistence(timeout: 5))
+        app.buttons["todayPickSettingsLink"].tap()
+
+        XCTAssertTrue(app.navigationBars["Today’s Pick Settings"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Changes apply to your next pick. Your current pick won’t change."].exists)
+
+        app.buttons["Familiar"].tap()
+        XCTAssertTrue(app.staticTexts["Stays close to the artists, genres, eras, and tags you already love."].waitForExistence(timeout: 2))
+        app.buttons["Balanced"].tap()
+        XCTAssertTrue(app.staticTexts["Uses a mix of familiarity and discovery, matching Today's Pick's original behavior."].waitForExistence(timeout: 2))
+        app.buttons["Adventurous"].tap()
+        XCTAssertTrue(app.staticTexts["Explores new artists and adjacent sounds, always tied back to your logs."].waitForExistence(timeout: 2))
+
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.buttons["findTodayPickButton"].tap()
+        let pickTitle = app.descendants(matching: .any)["todayPickStateText"]
+        XCTAssertTrue(pickTitle.waitForExistence(timeout: 5))
+        let originalPickTitle = pickTitle.label
+
+        app.buttons["todayPickSettingsLink"].tap()
+        app.buttons["Familiar"].tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertEqual(app.descendants(matching: .any)["todayPickStateText"].label, originalPickTitle)
+
+        app.terminate()
+        launchAppPreservingData()
+        openTab("Home")
+        app.buttons["todayPickLink"].tap()
+        XCTAssertEqual(app.descendants(matching: .any)["todayPickStateText"].label, originalPickTitle)
+        app.buttons["todayPickSettingsLink"].tap()
+        XCTAssertTrue(app.buttons["Familiar"].isSelected)
+    }
+
+    @MainActor
     func testAlbumDetailShowsPreviewUnavailableWithMockService() throws {
         launchResetApp()
 

@@ -51,6 +51,55 @@ struct TodayPickEligibility: Equatable {
     }
 }
 
+struct AnchorStrengthBreakdown: Equatable {
+    let ratingDirection: Double
+    let sentimentDirection: Double
+    let direction: Double
+    let favoriteTrackBoost: Double
+    let standoutMomentBoost: Double
+    let positiveEvidenceBoost: Double
+    let skipPenalty: Double
+    let avoidancePenalty: Double
+    let detailAdjustment: Double
+    let total: Double
+}
+
+struct RecommendationAnchorProfile {
+    let albumKey: String
+    let album: Album
+    let logs: [LogEntry]
+    let averageRating: Double
+    let tags: [String]
+    let favoriteTracks: [String]
+    let skipTracks: [String]
+    let positiveEvidenceDimensions: [String]
+    let hasPositiveEvidence: Bool
+    let hasAvoidanceEvidence: Bool
+    let strengthBreakdown: AnchorStrengthBreakdown
+
+    var logIDs: [UUID] { logs.map(\.id) }
+    var strength: Double { strengthBreakdown.total }
+    var isPositive: Bool { strength > 0 }
+    var isNegative: Bool { strength < 0 }
+}
+
+struct RecommendationScoreBreakdown: Equatable {
+    let base: Double
+    let genreAffinity: Double
+    let eraAffinity: Double
+    let tagAffinity: Double
+    let artistNovelty: Double
+    let recentArtistRepetition: Double
+    let genreAvoidance: Double
+    let feedbackAffinity: Double
+
+    var total: Double {
+        (base + genreAffinity + eraAffinity + tagAffinity + artistNovelty
+            + recentArtistRepetition + genreAvoidance + feedbackAffinity)
+            .clamped(to: 0...1)
+    }
+}
+
 struct LocalRecommendationService {
     private let catalogAlbums: [AlbumSearchResult]
     private let candidateProvider: CatalogRecommendationCandidateProvider?
@@ -107,19 +156,19 @@ struct LocalRecommendationService {
         let evidence = try modelContext.fetch(FetchDescriptor<TasteEvidence>())
         let avoidanceSignals = try modelContext.fetch(FetchDescriptor<TasteAvoidanceSignal>())
         let recommendations = try modelContext.fetch(FetchDescriptor<Recommendation>())
-        let anchors = preferenceReferenceLogs(from: logs, evidence: evidence)
-
-        guard !anchors.isEmpty else {
-            throw LocalRecommendationError.needsMoreLogs
-        }
+        let feedback = try modelContext.fetch(FetchDescriptor<RecommendationFeedback>())
+        let anchorProfiles = recommendationAnchorProfiles(
+            from: logs,
+            evidence: evidence,
+            avoidanceSignals: avoidanceSignals
+        )
 
         let recommendationInput = try await scoredRecommendationInput(
             logs: logs,
-            albums: albums,
             evidence: evidence,
-            avoidanceSignals: avoidanceSignals,
             recommendations: recommendations,
-            anchors: anchors,
+            feedback: feedback,
+            anchorProfiles: anchorProfiles,
             in: modelContext
         )
 
@@ -182,76 +231,145 @@ struct LocalRecommendationService {
             }
     }
 
-    func preferenceReferenceLogs(from logs: [LogEntry], evidence: [TasteEvidence]) -> [LogEntry] {
-        let evidenceStrengthByLogID = Dictionary(grouping: evidence.filter(\.isPositiveEvidence), by: \.logEntryID)
-            .mapValues { items in
-                items.map { $0.strength * $0.confidence }.max() ?? 0
-            }
-        var bestLogByAlbum: [String: LogEntry] = [:]
+    @MainActor
+    func recommendationAnchorProfiles(
+        from logs: [LogEntry],
+        evidence: [TasteEvidence],
+        avoidanceSignals: [TasteAvoidanceSignal] = []
+    ) -> [RecommendationAnchorProfile] {
+        let groupedLogs = Dictionary(grouping: logs.compactMap { log in
+            log.album.map { (Self.albumKey($0), log) }
+        }, by: \.0)
 
-        for log in logs {
-            guard let album = log.album else {
-                continue
-            }
+        return groupedLogs.compactMap { albumKey, keyedLogs in
+            let albumLogs = keyedLogs.map(\.1)
+            guard let album = albumLogs.first?.album else { return nil }
 
-            let key = Self.albumKey(album)
-            if let current = bestLogByAlbum[key],
-               !Self.isBetterReference(log, than: current, evidenceStrengthByLogID: evidenceStrengthByLogID) {
-                continue
+            let logIDs = Set(albumLogs.map(\.id))
+            let averageRating = albumLogs.map(\.rating).reduce(0, +) / Double(albumLogs.count)
+            let ratingDirection = ((averageRating - 3) / 2).clamped(to: -1...1)
+            let sentimentValues = albumLogs.map { log -> (Double, Double) in
+                guard let score = log.sentimentScore else {
+                    return (((log.rating - 3) / 2).clamped(to: -1...1), 1)
+                }
+                return (score.clamped(to: -1...1), (log.sentimentConfidence ?? 1).clamped(to: 0...1))
             }
+            let sentimentWeight = sentimentValues.map(\.1).reduce(0, +)
+            let sentimentDirection = sentimentWeight > 0
+                ? sentimentValues.reduce(0) { $0 + $1.0 * $1.1 } / sentimentWeight
+                : ratingDirection
+            let direction = (ratingDirection * 0.7 + sentimentDirection * 0.3).clamped(to: -1...1)
 
-            bestLogByAlbum[key] = log
+            let positiveEvidence = evidence.filter { $0.isPositiveEvidence && logIDs.contains($0.logEntryID) }
+            let positiveEvidenceByDimension = Dictionary(grouping: positiveEvidence, by: {
+                $0.dimensionName.normalizedRecommendationText
+            }).compactMapValues { items in
+                items.max { lhs, rhs in
+                    lhs.strength * lhs.confidence < rhs.strength * rhs.confidence
+                }
+            }
+            let evidenceStrengths = positiveEvidenceByDimension.values
+                .map { ($0.strength * $0.confidence).clamped(to: 0...1) }
+                .sorted(by: >)
+            let positiveEvidenceBoost = min(evidenceStrengths.prefix(2).reduce(0, +) * 0.04, 0.08)
+
+            let relatedAvoidanceSignals = avoidanceSignals.filter { signal in
+                !logIDs.isDisjoint(with: signal.evidenceLogEntryIDs)
+            }
+            let avoidanceByName = Dictionary(grouping: relatedAvoidanceSignals, by: {
+                $0.name.normalizedRecommendationText
+            }).compactMapValues { items in
+                items.max { lhs, rhs in
+                    lhs.strength * lhs.confidence < rhs.strength * rhs.confidence
+                }
+            }
+            let avoidanceStrengths = avoidanceByName.values
+                .map { ($0.strength * $0.confidence).clamped(to: 0...1) }
+                .sorted(by: >)
+            let avoidancePenalty = min(avoidanceStrengths.prefix(2).reduce(0, +) * 0.04, 0.08)
+
+            let tags = Self.uniqueNormalizedValues(albumLogs.flatMap(\.tags))
+            let favoriteTracks = Self.uniqueNormalizedValues(albumLogs.flatMap(\.favoriteTracks))
+            let skipTracks = Self.uniqueNormalizedValues(albumLogs.flatMap(\.skipTracks))
+            let favoriteTrackBoost = min(Double(favoriteTracks.count) * 0.04, 0.08)
+            let standoutMomentBoost = albumLogs.contains(where: { $0.normalizedStandoutMoment != nil }) ? 0.04 : 0
+            let skipPenalty = min(Double(skipTracks.count) * 0.03, 0.09)
+            let detailAdjustment = (favoriteTrackBoost + standoutMomentBoost + positiveEvidenceBoost
+                - skipPenalty - avoidancePenalty).clamped(to: -0.15...0.15)
+            let adjustedStrength = (direction + detailAdjustment).clamped(to: -1...1)
+            let total = ratingDirection < 0 ? min(adjustedStrength, 0) : adjustedStrength
+
+            return RecommendationAnchorProfile(
+                albumKey: albumKey,
+                album: album,
+                logs: albumLogs.sorted { $0.loggedAt > $1.loggedAt },
+                averageRating: averageRating,
+                tags: tags,
+                favoriteTracks: favoriteTracks,
+                skipTracks: skipTracks,
+                positiveEvidenceDimensions: positiveEvidenceByDimension.values
+                    .sorted { lhs, rhs in
+                        let lhsStrength = lhs.strength * lhs.confidence
+                        let rhsStrength = rhs.strength * rhs.confidence
+                        return lhsStrength == rhsStrength
+                            ? lhs.dimensionName.normalizedRecommendationText < rhs.dimensionName.normalizedRecommendationText
+                            : lhsStrength > rhsStrength
+                    }
+                    .map(\.dimensionName),
+                hasPositiveEvidence: !positiveEvidenceByDimension.isEmpty,
+                hasAvoidanceEvidence: !avoidanceByName.isEmpty,
+                strengthBreakdown: AnchorStrengthBreakdown(
+                    ratingDirection: ratingDirection,
+                    sentimentDirection: sentimentDirection,
+                    direction: direction,
+                    favoriteTrackBoost: favoriteTrackBoost,
+                    standoutMomentBoost: standoutMomentBoost,
+                    positiveEvidenceBoost: positiveEvidenceBoost,
+                    skipPenalty: skipPenalty,
+                    avoidancePenalty: avoidancePenalty,
+                    detailAdjustment: detailAdjustment,
+                    total: total
+                )
+            )
         }
-
-        let ranked = bestLogByAlbum.values.sorted {
-            Self.isBetterReference($0, than: $1, evidenceStrengthByLogID: evidenceStrengthByLogID)
+        .sorted {
+            if $0.strength == $1.strength { return $0.albumKey < $1.albumKey }
+            return $0.strength > $1.strength
         }
-        let nonNegative = ranked.filter { !$0.isNegativeSignal }
-
-        return nonNegative.isEmpty ? Array(ranked.prefix(1)) : nonNegative
     }
 
     @MainActor
     func bestCandidate(
         candidates: [AlbumSearchResult]? = nil,
         logs: [LogEntry],
-        localAlbums: [Album],
-        evidence: [TasteEvidence],
         recommendations: [Recommendation],
-        anchors: [LogEntry],
-        avoidanceSignals: [TasteAvoidanceSignal] = [],
-        allowDismissed: Bool
+        feedback: [RecommendationFeedback] = [],
+        anchorProfiles: [RecommendationAnchorProfile]
     ) -> ScoredRecommendationCandidate? {
         let loggedAlbums = logs.compactMap(\.album)
-        let dismissedAlbumKeys = Set(
-            recommendations
-                .filter { $0.status == RecommendationStatus.dismissed.rawValue }
-                .compactMap(\.album)
-                .map(Self.albumKey)
-        )
+        let recommendedAlbums = recommendations.compactMap(\.album)
         let recentlyRecommendedArtists = Set(
             recommendations
                 .sorted { $0.createdAt > $1.createdAt }
                 .prefix(3)
                 .compactMap { $0.album?.artistName.normalizedRecommendationText }
         )
-        let negativeLogs = logs.filter(\.isNegativeSignal)
-        let avoidanceLogIDs = Set(avoidanceSignals.flatMap(\.evidenceLogEntryIDs))
+        let latestFeedbackByRecommendationID = Dictionary(grouping: feedback, by: \.recommendationID)
+            .compactMapValues { $0.max { $0.createdAt < $1.createdAt } }
 
         return (candidates ?? catalogAlbums)
             .filter { candidate in
                 !loggedAlbums.contains { Self.matches($0, candidate) }
             }
             .filter { candidate in
-                allowDismissed || !dismissedAlbumKeys.contains(Self.albumKey(candidate))
+                !recommendedAlbums.contains { Self.matches($0, candidate) }
             }
             .map { candidate in
                 score(
                     candidate,
-                    anchors: anchors,
-                    negativeLogs: negativeLogs,
-                    evidence: evidence,
-                    avoidanceLogIDs: avoidanceLogIDs,
+                    anchorProfiles: anchorProfiles,
+                    recommendations: recommendations,
+                    latestFeedbackByRecommendationID: latestFeedbackByRecommendationID,
                     recentlyRecommendedArtists: recentlyRecommendedArtists
                 )
             }
@@ -274,11 +392,10 @@ struct LocalRecommendationService {
     @MainActor
     private func scoredRecommendationInput(
         logs: [LogEntry],
-        albums: [Album],
         evidence: [TasteEvidence],
-        avoidanceSignals: [TasteAvoidanceSignal],
         recommendations: [Recommendation],
-        anchors: [LogEntry],
+        feedback: [RecommendationFeedback],
+        anchorProfiles: [RecommendationAnchorProfile],
         in modelContext: ModelContext
     ) async throws -> PendingRecommendationInput {
         if let appleMusicService {
@@ -291,12 +408,9 @@ struct LocalRecommendationService {
                 guard let scoredCandidate = bestCandidate(
                     candidates: candidates,
                     logs: logs,
-                    localAlbums: albums,
-                    evidence: evidence,
                     recommendations: recommendations,
-                    anchors: anchors,
-                    avoidanceSignals: avoidanceSignals,
-                    allowDismissed: false
+                    feedback: feedback,
+                    anchorProfiles: anchorProfiles
                 ) else {
                     throw LocalRecommendationError.noCandidates
                 }
@@ -313,50 +427,43 @@ struct LocalRecommendationService {
             } catch {
                 return try await listendFallbackRecommendationInput(
                     logs: logs,
-                    albums: albums,
                     evidence: evidence,
-                    avoidanceSignals: avoidanceSignals,
                     recommendations: recommendations,
-                    anchors: anchors
+                    feedback: feedback,
+                    anchorProfiles: anchorProfiles
                 )
             }
         }
 
         return try await listendFallbackRecommendationInput(
             logs: logs,
-            albums: albums,
             evidence: evidence,
-            avoidanceSignals: avoidanceSignals,
             recommendations: recommendations,
-            anchors: anchors
+            feedback: feedback,
+            anchorProfiles: anchorProfiles
         )
     }
 
     @MainActor
     private func listendFallbackRecommendationInput(
         logs: [LogEntry],
-        albums: [Album],
         evidence: [TasteEvidence],
-        avoidanceSignals: [TasteAvoidanceSignal],
         recommendations: [Recommendation],
-        anchors: [LogEntry]
+        feedback: [RecommendationFeedback],
+        anchorProfiles: [RecommendationAnchorProfile]
     ) async throws -> PendingRecommendationInput {
         let candidates = await recommendationCandidates(
             logs: logs,
-            albums: albums,
             evidence: evidence,
-            anchors: anchors
+            anchorProfiles: anchorProfiles
         )
 
         guard let scoredCandidate = bestCandidate(
             candidates: candidates,
             logs: logs,
-            localAlbums: albums,
-            evidence: evidence,
             recommendations: recommendations,
-            anchors: anchors,
-            avoidanceSignals: avoidanceSignals,
-            allowDismissed: false
+            feedback: feedback,
+            anchorProfiles: anchorProfiles
         ) else {
             throw LocalRecommendationError.noCandidates
         }
@@ -411,15 +518,14 @@ struct LocalRecommendationService {
     @MainActor
     private func recommendationCandidates(
         logs: [LogEntry],
-        albums: [Album],
         evidence: [TasteEvidence],
-        anchors: [LogEntry]
+        anchorProfiles: [RecommendationAnchorProfile]
     ) async -> [AlbumSearchResult] {
         guard let candidateProvider else {
             return catalogAlbums
         }
 
-        let anchorInputs = anchors.compactMap(Self.anchorInput)
+        let anchorInputs = anchorProfiles.filter(\.isPositive).map(Self.anchorInput)
         let loggedAlbumInputs = logs
             .compactMap(\.album)
             .map(Self.loggedAlbumInput)
@@ -435,111 +541,173 @@ struct LocalRecommendationService {
     @MainActor
     private func score(
         _ candidate: AlbumSearchResult,
-        anchors: [LogEntry],
-        negativeLogs: [LogEntry],
-        evidence: [TasteEvidence],
-        avoidanceLogIDs: Set<UUID>,
+        anchorProfiles: [RecommendationAnchorProfile],
+        recommendations: [Recommendation],
+        latestFeedbackByRecommendationID: [UUID: RecommendationFeedback],
         recentlyRecommendedArtists: Set<String>
     ) -> ScoredRecommendationCandidate {
-        var score = 0.2
-        var matchedAnchor = anchors[0]
-        var linkedDimension: String?
-
-        if let genreName = candidate.genreName,
-           let anchor = anchors.first(where: { $0.album?.genreName?.normalizedRecommendationText == genreName.normalizedRecommendationText }) {
-            score += 0.3
-            matchedAnchor = anchor
+        let breakdown = recommendationScoreBreakdown(
+            for: candidate,
+            anchorProfiles: anchorProfiles,
+            recommendations: recommendations,
+            latestFeedbackByRecommendationID: latestFeedbackByRecommendationID,
+            recentlyRecommendedArtists: recentlyRecommendedArtists
+        )
+        let relevantProfiles = candidateRelevantPositiveProfiles(candidate, profiles: anchorProfiles)
+        let receiptsAndProfiles = relevantProfiles.compactMap { profile -> (PendingRecommendationReceipt, RecommendationAnchorProfile)? in
+            guard let receipt = makeReceipt(from: profile, candidate: candidate) else { return nil }
+            return (receipt, profile)
         }
-
-        if let releaseYear = candidate.releaseYear,
-           let anchor = anchors.first(where: { $0.album?.releaseYear?.recommendationDecade == releaseYear.recommendationDecade }) {
-            score += 0.2
-            matchedAnchor = anchor
-        }
-
-        if let overlap = tagOrEvidenceOverlap(for: candidate, anchors: anchors, evidence: evidence) {
-            score += 0.2
-            matchedAnchor = overlap.log
-            linkedDimension = overlap.dimensionName
-        }
-
-        if !anchors.contains(where: { $0.album?.artistName.normalizedRecommendationText == candidate.artistName.normalizedRecommendationText }) {
-            score += 0.1
-        }
-
-        if let genreName = candidate.genreName,
-           negativeLogs.contains(where: { $0.album?.genreName?.normalizedRecommendationText == genreName.normalizedRecommendationText }) {
-            score -= 0.4
-        }
-
-        if recentlyRecommendedArtists.contains(candidate.artistName.normalizedRecommendationText) {
-            score -= 0.2
-        }
-
-        let clampedScore = score.clamped(to: 0.0...1.0)
-        let receipt = makeReceipt(from: matchedAnchor, linkedDimension: linkedDimension)
-        let hasPositiveEvidence = evidence.contains { $0.logEntryID == matchedAnchor.id && $0.isPositiveEvidence }
-        let confidenceCap: Double
-
-        if matchedAnchor.isNegativeSignal {
-            confidenceCap = 0.55
-        } else if !hasPositiveEvidence || avoidanceLogIDs.contains(matchedAnchor.id) {
-            confidenceCap = 0.65
+        .prefix(2)
+        let receipts = receiptsAndProfiles.map(\.0)
+        let receiptProfiles = receiptsAndProfiles.map(\.1)
+        let confidenceCap: Double = if receipts.isEmpty {
+            0.55
+        } else if receiptProfiles.allSatisfy({ $0.hasPositiveEvidence && !$0.hasAvoidanceEvidence }) {
+            0.85
         } else {
-            confidenceCap = 0.85
+            0.65
         }
 
         return ScoredRecommendationCandidate(
             album: candidate,
-            score: clampedScore,
-            confidence: min(0.55 + clampedScore * 0.35, confidenceCap),
-            explanation: explanation(candidate: candidate, receipt: receipt),
-            receipts: [receipt]
+            score: breakdown.total,
+            confidence: min(0.55 + breakdown.total * 0.35, confidenceCap),
+            explanation: explanation(candidate: candidate, receipts: receipts),
+            receipts: receipts,
+            scoreBreakdown: breakdown
         )
     }
 
     @MainActor
-    private func tagOrEvidenceOverlap(
+    func recommendationScoreBreakdown(
         for candidate: AlbumSearchResult,
-        anchors: [LogEntry],
-        evidence: [TasteEvidence]
-    ) -> (log: LogEntry, dimensionName: String?)? {
-        let candidateText = [
-            candidate.title,
-            candidate.artistName,
-            candidate.genreName ?? ""
-        ]
-            .joined(separator: " ")
-            .normalizedRecommendationText
-
-        for anchor in anchors {
-            if anchor.tags.contains(where: { !$0.isEmpty && candidateText.contains($0.normalizedRecommendationText) }) {
-                return (anchor, nil)
-            }
-
-            if let matchedEvidence = evidence.first(where: { item in
-                item.logEntryID == anchor.id
-                    && item.isPositiveEvidence
-                    && candidateText.contains(item.dimensionName.normalizedRecommendationText)
-            }) {
-                return (anchor, matchedEvidence.dimensionName)
-            }
-        }
-
-        return nil
+        anchorProfiles: [RecommendationAnchorProfile],
+        recommendations: [Recommendation] = [],
+        feedback: [RecommendationFeedback] = []
+    ) -> RecommendationScoreBreakdown {
+        let latestFeedback = Dictionary(grouping: feedback, by: \.recommendationID)
+            .compactMapValues { $0.max { $0.createdAt < $1.createdAt } }
+        let recentArtists = Set(recommendations.sorted { $0.createdAt > $1.createdAt }.prefix(3)
+            .compactMap { $0.album?.artistName.normalizedRecommendationText })
+        return recommendationScoreBreakdown(
+            for: candidate,
+            anchorProfiles: anchorProfiles,
+            recommendations: recommendations,
+            latestFeedbackByRecommendationID: latestFeedback,
+            recentlyRecommendedArtists: recentArtists
+        )
     }
 
     @MainActor
-    private func makeReceipt(from log: LogEntry, linkedDimension: String?) -> PendingRecommendationReceipt {
+    private func recommendationScoreBreakdown(
+        for candidate: AlbumSearchResult,
+        anchorProfiles: [RecommendationAnchorProfile],
+        recommendations: [Recommendation],
+        latestFeedbackByRecommendationID: [UUID: RecommendationFeedback],
+        recentlyRecommendedArtists: Set<String>
+    ) -> RecommendationScoreBreakdown {
+        let positiveProfiles = anchorProfiles.filter(\.isPositive)
+        let genreProfiles = positiveProfiles.filter { Self.sameGenre($0.album, candidate) }
+            .sorted { $0.strength > $1.strength }
+        let genreStrengths = genreProfiles.prefix(2).map(\.strength)
+        let genreAffinity = min(
+            (genreStrengths.isEmpty ? 0 : genreStrengths.reduce(0, +) / Double(genreStrengths.count) * 0.25)
+                + (genreProfiles.count >= 2 ? 0.05 : 0),
+            0.30
+        )
+        let eraAffinity = positiveProfiles
+            .filter { Self.sameEra($0.album, candidate) }
+            .map(\.strength)
+            .max()
+            .map { $0 * 0.12 } ?? 0
+        let candidateText = Self.candidateMetadataText(candidate)
+        let tagAffinity = min(positiveProfiles.compactMap { profile in
+            profile.tags.contains { candidateText.contains($0.normalizedRecommendationText) }
+                ? profile.strength * 0.05
+                : nil
+        }.max() ?? 0, 0.05)
+        let knownArtists = Set(anchorProfiles.map { $0.album.artistName.normalizedRecommendationText }
+            + recommendations.compactMap { $0.album?.artistName.normalizedRecommendationText })
+        let artistNovelty = knownArtists.contains(candidate.artistName.normalizedRecommendationText) ? 0 : 0.05
+        let recentArtistRepetition = recentlyRecommendedArtists.contains(candidate.artistName.normalizedRecommendationText) ? -0.10 : 0
+        let matchingNegativeProfiles = anchorProfiles.filter { $0.isNegative && Self.sameGenre($0.album, candidate) }
+        let genreAvoidance: Double = if matchingNegativeProfiles.count >= 2 {
+            -0.20 * matchingNegativeProfiles.map { abs($0.strength) }.reduce(0, +) / Double(matchingNegativeProfiles.count)
+        } else {
+            0
+        }
+        let feedbackAffinity = min(recommendations.compactMap { recommendation -> Double? in
+            guard let album = recommendation.album else { return nil }
+            let multiplier = Self.feedbackMultiplier(
+                feedback: latestFeedbackByRecommendationID[recommendation.id],
+                recommendationStatus: recommendation.status
+            )
+            guard multiplier > 0 else { return nil }
+            return ((Self.sameGenre(album, candidate) ? 0.04 : 0)
+                + (Self.sameEra(album, candidate) ? 0.02 : 0)) * multiplier
+        }.max() ?? 0, 0.06)
+
+        return RecommendationScoreBreakdown(
+            base: 0.20,
+            genreAffinity: genreAffinity,
+            eraAffinity: eraAffinity,
+            tagAffinity: tagAffinity,
+            artistNovelty: artistNovelty,
+            recentArtistRepetition: recentArtistRepetition,
+            genreAvoidance: genreAvoidance,
+            feedbackAffinity: feedbackAffinity
+        )
+    }
+
+    @MainActor
+    private func candidateRelevantPositiveProfiles(
+        _ candidate: AlbumSearchResult,
+        profiles: [RecommendationAnchorProfile]
+    ) -> [RecommendationAnchorProfile] {
+        let candidateText = Self.candidateMetadataText(candidate)
+        return profiles.filter { profile in
+            profile.isPositive && (
+                Self.sameGenre(profile.album, candidate)
+                    || Self.sameEra(profile.album, candidate)
+                    || profile.tags.contains { candidateText.contains($0.normalizedRecommendationText) }
+                    || profile.positiveEvidenceDimensions.contains { candidateText.contains($0.normalizedRecommendationText) }
+            )
+        }
+        .sorted {
+            if $0.strength == $1.strength { return $0.albumKey < $1.albumKey }
+            return $0.strength > $1.strength
+        }
+    }
+
+    @MainActor
+    private func makeReceipt(
+        from profile: RecommendationAnchorProfile,
+        candidate: AlbumSearchResult
+    ) -> PendingRecommendationReceipt? {
+        guard let log = profile.logs.filter({ !$0.isNegativeSignal }).sorted(by: Self.isBetterReceiptLog).first else {
+            return nil
+        }
+
         let album = log.album
+        let albumTitle = album?.title ?? "this album"
         let snippet: String
 
-        if !log.tags.isEmpty {
-            snippet = "Rated \(album?.title ?? "this album") \(log.rating.formatted(.number.precision(.fractionLength(1)))) stars and tagged it \(log.tags.prefix(2).joined(separator: ", "))."
+        if let standoutMoment = log.normalizedStandoutMoment {
+            snippet = "Your standout moment on \(albumTitle): \(standoutMoment.trimmedRecommendationSnippet)"
         } else if !log.reviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            snippet = "Your review said: \(log.reviewText.trimmedRecommendationSnippet)"
+            snippet = "Your review of \(albumTitle) said: \(log.reviewText.trimmedRecommendationSnippet)"
+        } else if !log.favoriteTracks.isEmpty {
+            snippet = "Favorite \(log.favoriteTracks.count == 1 ? "track" : "tracks") from \(albumTitle): \(log.favoriteTracks.prefix(2).joined(separator: ", "))."
+        } else if !log.tags.isEmpty {
+            snippet = "You tagged \(albumTitle) \(log.tags.prefix(2).joined(separator: ", "))."
         } else {
-            snippet = "Rated \(album?.title ?? "this album") \(log.rating.formatted(.number.precision(.fractionLength(1)))) stars."
+            snippet = "Rated \(albumTitle) \(log.rating.formatted(.number.precision(.fractionLength(1)))) stars."
+        }
+
+        let candidateText = Self.candidateMetadataText(candidate)
+        let linkedDimension = profile.positiveEvidenceDimensions.first {
+            candidateText.contains($0.normalizedRecommendationText)
         }
 
         return PendingRecommendationReceipt(
@@ -552,8 +720,15 @@ struct LocalRecommendationService {
         )
     }
 
-    private func explanation(candidate: AlbumSearchResult, receipt: PendingRecommendationReceipt) -> String {
-        "Based on your strongest signals around \(receipt.sourceAlbumTitle), Today's Pick is \(candidate.title) by \(candidate.artistName). \(receipt.snippet)"
+    private func explanation(candidate: AlbumSearchResult, receipts: [PendingRecommendationReceipt]) -> String {
+        switch receipts.count {
+        case 0:
+            return "Today's Pick is \(candidate.title) by \(candidate.artistName). Your strongest signals are still taking shape, so this is a lower-confidence pick."
+        case 1:
+            return "Today's Pick is \(candidate.title) by \(candidate.artistName), grounded in your log for \(receipts[0].sourceAlbumTitle)."
+        default:
+            return "Today's Pick is \(candidate.title) by \(candidate.artistName), grounded in your logs for \(receipts[0].sourceAlbumTitle) and \(receipts[1].sourceAlbumTitle)."
+        }
     }
 
     @MainActor
@@ -617,28 +792,6 @@ struct LocalRecommendationService {
         return "ta:\(album.title.normalizedRecommendationText)|\(album.artistName.normalizedRecommendationText)"
     }
 
-    private static func isBetterReference(
-        _ candidate: LogEntry,
-        than current: LogEntry,
-        evidenceStrengthByLogID: [UUID: Double]
-    ) -> Bool {
-        if candidate.isNegativeSignal != current.isNegativeSignal {
-            return !candidate.isNegativeSignal
-        }
-
-        if candidate.rating != current.rating {
-            return candidate.rating > current.rating
-        }
-
-        let candidateEvidence = evidenceStrengthByLogID[candidate.id, default: 0]
-        let currentEvidence = evidenceStrengthByLogID[current.id, default: 0]
-        if candidateEvidence != currentEvidence {
-            return candidateEvidence > currentEvidence
-        }
-
-        return candidate.loggedAt > current.loggedAt
-    }
-
     private static func albumKey(_ album: AlbumSearchResult) -> String {
         "amid:\(album.catalogID)"
     }
@@ -653,19 +806,85 @@ struct LocalRecommendationService {
     }
 
     @MainActor
-    private static func anchorInput(from log: LogEntry) -> RecommendationAnchorInput? {
-        guard let album = log.album else {
-            return nil
-        }
-
+    private static func anchorInput(from profile: RecommendationAnchorProfile) -> RecommendationAnchorInput {
+        let album = profile.album
         return RecommendationAnchorInput(
-            logID: log.id,
+            logIDs: profile.logIDs,
             albumCatalogID: album.appleMusicID,
             albumTitle: album.title,
             artistName: album.artistName,
             genreName: album.genreName,
-            tags: log.tags
+            tags: profile.tags,
+            strength: profile.strength
         )
+    }
+
+    private static func uniqueNormalizedValues(_ values: [String]) -> [String] {
+        var valuesByKey: [String: String] = [:]
+        for value in values {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            valuesByKey[trimmed.normalizedRecommendationText] = valuesByKey[trimmed.normalizedRecommendationText] ?? trimmed
+        }
+        return valuesByKey.sorted { $0.key < $1.key }.map(\.value)
+    }
+
+    private static func candidateMetadataText(_ candidate: AlbumSearchResult) -> String {
+        [candidate.title, candidate.artistName, candidate.genreName ?? ""]
+            .joined(separator: " ")
+            .normalizedRecommendationText
+    }
+
+    @MainActor
+    private static func sameGenre(_ album: Album, _ candidate: AlbumSearchResult) -> Bool {
+        guard let albumGenre = album.genreName?.normalizedRecommendationText,
+              let candidateGenre = candidate.genreName?.normalizedRecommendationText,
+              !albumGenre.isEmpty,
+              !candidateGenre.isEmpty else { return false }
+        return albumGenre == candidateGenre
+    }
+
+    @MainActor
+    private static func sameEra(_ album: Album, _ candidate: AlbumSearchResult) -> Bool {
+        guard let albumYear = album.releaseYear, let candidateYear = candidate.releaseYear else { return false }
+        return albumYear.recommendationDecade == candidateYear.recommendationDecade
+    }
+
+    private static func feedbackMultiplier(
+        feedback: RecommendationFeedback?,
+        recommendationStatus: String
+    ) -> Double {
+        if let feedbackType = feedback.flatMap({ RecommendationFeedbackType(rawValue: $0.feedbackType) }) {
+            switch feedbackType {
+            case .liked, .listened: return 1
+            case .savedForLater: return 0.5
+            case .dismissed: return 0
+            }
+        }
+
+        switch RecommendationStatus(rawValue: recommendationStatus) {
+        case .accepted: return 1
+        case .saved: return 0.5
+        default: return 0
+        }
+    }
+
+    @MainActor
+    private static func isBetterReceiptLog(_ lhs: LogEntry, _ rhs: LogEntry) -> Bool {
+        let lhsPriority = receiptPriority(lhs)
+        let rhsPriority = receiptPriority(rhs)
+        if lhsPriority != rhsPriority { return lhsPriority < rhsPriority }
+        if lhs.rating != rhs.rating { return lhs.rating > rhs.rating }
+        return lhs.loggedAt > rhs.loggedAt
+    }
+
+    @MainActor
+    private static func receiptPriority(_ log: LogEntry) -> Int {
+        if log.normalizedStandoutMoment != nil { return 0 }
+        if !log.reviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return 1 }
+        if !log.favoriteTracks.isEmpty { return 2 }
+        if !log.tags.isEmpty { return 3 }
+        return 4
     }
 
     @MainActor
@@ -681,7 +900,7 @@ struct LocalRecommendationService {
         RecommendationEvidenceInput(
             logEntryID: evidence.logEntryID,
             dimensionName: evidence.dimensionName,
-            strength: evidence.strength,
+            strength: evidence.strength * evidence.confidence,
             isPositiveEvidence: evidence.isPositiveEvidence
         )
     }
@@ -705,6 +924,7 @@ struct ScoredRecommendationCandidate {
     let confidence: Double
     let explanation: String
     let receipts: [PendingRecommendationReceipt]
+    let scoreBreakdown: RecommendationScoreBreakdown
 }
 
 struct PendingRecommendationReceipt {

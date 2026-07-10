@@ -8,12 +8,13 @@
 import Foundation
 
 struct RecommendationAnchorInput: Hashable {
-    let logID: UUID
+    let logIDs: [UUID]
     let albumCatalogID: String?
     let albumTitle: String
     let artistName: String
     let genreName: String?
     let tags: [String]
+    let strength: Double
 }
 
 struct RecommendationEvidenceInput: Hashable {
@@ -93,27 +94,34 @@ struct CatalogRecommendationCandidateProvider {
         evidence: [RecommendationEvidenceInput],
         limit: Int = 5
     ) -> [String] {
-        let anchorIDs = Set(anchors.map(\.logID))
+        let positiveAnchors = anchors.filter { $0.strength > 0 }
+        let anchorIDs = Set(positiveAnchors.flatMap(\.logIDs))
         var queries: [String] = []
 
-        appendFirst(from: rankedValues(anchors.compactMap(\.genreName)), to: &queries)
-        appendFirst(from: rankedValues(anchors.map(\.artistName)), to: &queries)
-        appendFirst(from: rankedValues(anchors.flatMap(\.tags)), to: &queries)
-
-        let evidenceValues = evidence
+        let genreValues = rankedWeightedValues(positiveAnchors.compactMap { anchor in
+            anchor.genreName.map { ($0, anchor.strength) }
+        })
+        let artistValues = rankedWeightedValues(positiveAnchors.map { ($0.artistName, $0.strength) })
+        let tagValues = rankedWeightedValues(positiveAnchors.flatMap { anchor in
+            anchor.tags.map { ($0, anchor.strength) }
+        })
+        let evidencePairs = strongestWeightedValues(evidence
             .filter { $0.isPositiveEvidence && anchorIDs.contains($0.logEntryID) }
-            .sorted {
-                if $0.strength == $1.strength {
-                    return $0.dimensionName.normalizedCandidateQueryText < $1.dimensionName.normalizedCandidateQueryText
-                }
+            .map { ($0.dimensionName, $0.strength) })
+        let evidenceValues = rankedWeightedValuesKeepingStrongest(evidencePairs)
 
-                return $0.strength > $1.strength
-            }
-            .map(\.dimensionName)
+        appendFirst(from: genreValues, to: &queries)
+        appendFirst(from: artistValues, to: &queries)
         appendFirst(from: evidenceValues, to: &queries)
+        appendFirst(from: tagValues, to: &queries)
 
-        let secondPassValues = rankedValues(anchors.compactMap(\.genreName) + anchors.flatMap(\.tags))
-        for value in secondPassValues where queries.count < limit {
+        let remainingValues = rankedWeightedValues(
+            positiveAnchors.compactMap { anchor in anchor.genreName.map { ($0, anchor.strength) } }
+                + positiveAnchors.map { ($0.artistName, $0.strength) }
+                + evidencePairs
+                + positiveAnchors.flatMap { anchor in anchor.tags.map { ($0, anchor.strength) } }
+        )
+        for value in remainingValues where queries.count < limit {
             append(value, to: &queries)
         }
 
@@ -137,28 +145,52 @@ struct CatalogRecommendationCandidateProvider {
         }
     }
 
-    private static func rankedValues(_ values: [String]) -> [String] {
-        var counts: [String: (value: String, count: Int)] = [:]
+    private static func rankedWeightedValues(_ values: [(String, Double)]) -> [String] {
+        rankedWeightedValues(values, combine: +)
+    }
 
-        for value in values {
+    private static func rankedWeightedValuesKeepingStrongest(_ values: [(String, Double)]) -> [String] {
+        rankedWeightedValues(values, combine: max)
+    }
+
+    private static func strongestWeightedValues(_ values: [(String, Double)]) -> [(String, Double)] {
+        var strongestByKey: [String: (String, Double)] = [:]
+        for (value, weight) in values {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, weight > 0 else { continue }
+            let key = trimmed.normalizedCandidateQueryText
+            if weight > (strongestByKey[key]?.1 ?? 0) {
+                strongestByKey[key] = (trimmed, weight)
+            }
+        }
+        return Array(strongestByKey.values)
+    }
+
+    private static func rankedWeightedValues(
+        _ values: [(String, Double)],
+        combine: (Double, Double) -> Double
+    ) -> [String] {
+        var weights: [String: (value: String, weight: Double)] = [:]
+
+        for (value, weight) in values {
             let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            guard !trimmed.isEmpty else {
+            guard !trimmed.isEmpty, weight > 0 else {
                 continue
             }
 
             let key = trimmed.normalizedCandidateQueryText
-            let existing = counts[key]
-            counts[key] = (existing?.value ?? trimmed, (existing?.count ?? 0) + 1)
+            let existing = weights[key]
+            weights[key] = (existing?.value ?? trimmed, combine(existing?.weight ?? 0, weight))
         }
 
-        return counts.values
+        return weights.values
             .sorted {
-                if $0.count == $1.count {
+                if $0.weight == $1.weight {
                     return $0.value.normalizedCandidateQueryText < $1.value.normalizedCandidateQueryText
                 }
 
-                return $0.count > $1.count
+                return $0.weight > $1.weight
             }
             .map(\.value)
     }

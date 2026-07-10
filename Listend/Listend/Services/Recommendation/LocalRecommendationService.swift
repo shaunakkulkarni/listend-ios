@@ -51,6 +51,24 @@ struct TodayPickEligibility: Equatable {
     }
 }
 
+enum TodayPickMatchQuality: String, Equatable {
+    case strong = "Strong match"
+    case good = "Good match"
+    case exploratory = "Exploratory pick"
+
+    init(confidence: Double) {
+        if confidence >= 0.75 {
+            self = .strong
+        } else if confidence >= 0.60 {
+            self = .good
+        } else {
+            self = .exploratory
+        }
+    }
+
+    var label: String { rawValue }
+}
+
 struct AnchorStrengthBreakdown: Equatable {
     let ratingDirection: Double
     let sentimentDirection: Double

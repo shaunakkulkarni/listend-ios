@@ -1982,6 +1982,16 @@ struct ListendTests {
         #expect(TodayPickEligibility(logs: distinctLogs).remainingDistinctAlbumCount == 0)
     }
 
+    @Test func todayPickMatchQualityUsesSharedConfidenceBoundaries() {
+        #expect(TodayPickMatchQuality(confidence: 0.75) == .strong)
+        #expect(TodayPickMatchQuality(confidence: 0.749_999) == .good)
+        #expect(TodayPickMatchQuality(confidence: 0.60) == .good)
+        #expect(TodayPickMatchQuality(confidence: 0.599_999) == .exploratory)
+        #expect(TodayPickMatchQuality(confidence: 0.75).label == "Strong match")
+        #expect(TodayPickMatchQuality(confidence: 0.60).label == "Good match")
+        #expect(TodayPickMatchQuality(confidence: 0.55).label == "Exploratory pick")
+    }
+
     @MainActor
     @Test func recommendationGenerationExcludesLoggedAlbumsAndCreatesReceipts() async throws {
         let container = try makeInMemoryContainer()
@@ -3351,7 +3361,7 @@ struct ListendTests {
 
     @Test func recommendationRankingExcludesEveryPriorExactAlbumAndBreaksTiesDeterministically() throws {
         let priorAlbum = Album(appleMusicID: "a", title: "Prior", artistName: "Artist")
-        let prior = Recommendation(album: priorAlbum, score: 0.5, confidence: 0.5, status: RecommendationStatus.active.rawValue, explanationText: "")
+        let prior = Recommendation(album: priorAlbum, score: 0.5, confidence: 0.5, status: RecommendationStatus.saved.rawValue, explanationText: "")
         let service = LocalRecommendationService(catalogAlbums: [
             AlbumSearchResult(id: "a", title: "Prior", artistName: "Artist", releaseYear: nil, genreName: nil),
             AlbumSearchResult(id: "c", title: "Third", artistName: "Artist C", releaseYear: nil, genreName: nil),

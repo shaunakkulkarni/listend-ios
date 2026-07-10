@@ -11,6 +11,7 @@ import SwiftData
 struct TodayPickView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \LogEntry.loggedAt, order: .reverse) private var logs: [LogEntry]
+    @Query(sort: \Recommendation.createdAt, order: .reverse) private var recommendations: [Recommendation]
 
     private let recommendationService: LocalRecommendationService
 
@@ -50,6 +51,8 @@ struct TodayPickView: View {
                 } else {
                     emptyState
                 }
+
+                savedPicksSection
             }
             .padding(.horizontal, ListendSpacing.lg)
             .padding(.top, ListendSpacing.lg)
@@ -87,9 +90,13 @@ struct TodayPickView: View {
                     metadata(for: recommendation)
                 }
 
-                Label(confidenceText(for: recommendation), systemImage: "checkmark.seal.fill")
+                Label(
+                    TodayPickMatchQuality(confidence: recommendation.confidence).label,
+                    systemImage: "checkmark.seal.fill"
+                )
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.listendAccent)
+                    .accessibilityIdentifier("todayPickMatchQualityText")
 
                 Text(freshnessText(for: recommendation))
                     .font(.caption)
@@ -133,6 +140,46 @@ struct TodayPickView: View {
                     }
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var savedPicksSection: some View {
+        if !savedRecommendations.isEmpty {
+            VStack(alignment: .leading, spacing: ListendSpacing.sm) {
+                Text("Saved Picks")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("savedPicksSectionTitle")
+
+                ListendObjectCard {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(savedRecommendations.enumerated()), id: \.element.id) { index, savedRecommendation in
+                            if let album = savedRecommendation.album {
+                                NavigationLink {
+                                    AlbumDetailView(album: albumSearchResult(from: album))
+                                } label: {
+                                    SavedPickRow(album: album)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Open saved pick \(album.title) by \(album.artistName)")
+                                .accessibilityIdentifier("savedPickLink-\(savedRecommendation.id.uuidString)")
+
+                                if index < savedRecommendations.count - 1 {
+                                    Divider()
+                                        .background(Color.listendHairline)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var savedRecommendations: [Recommendation] {
+        recommendations.filter {
+            $0.status == RecommendationStatus.saved.rawValue && $0.album != nil
         }
     }
 
@@ -248,10 +295,15 @@ struct TodayPickView: View {
         .foregroundStyle(.secondary)
     }
 
-    private func confidenceText(for recommendation: Recommendation) -> String {
-        let score = recommendation.score.formatted(.percent.precision(.fractionLength(0)))
-        let confidence = recommendation.confidence.formatted(.percent.precision(.fractionLength(0)))
-        return "\(score) match confidence: \(confidence)"
+    private func albumSearchResult(from album: Album) -> AlbumSearchResult {
+        AlbumSearchResult(
+            id: album.appleMusicID ?? "local:\(album.id.uuidString)",
+            title: album.title,
+            artistName: album.artistName,
+            releaseYear: album.releaseYear,
+            genreName: album.genreName,
+            artworkURL: album.artworkURL
+        )
     }
 
     private func freshnessText(for recommendation: Recommendation) -> String {
@@ -334,12 +386,49 @@ struct TodayPickView: View {
             try recommendationService.submitFeedback(feedbackType, for: recommendation, in: modelContext)
             self.recommendation = nil
             receipts = []
-            message = eligibility.isEligible
-                ? "Feedback saved. You can generate the next eligible pick."
-                : "Feedback saved. \(eligibility.progressDescription)"
+            if feedbackType == .savedForLater {
+                message = "Saved to Saved Picks. You can generate another pick."
+            } else {
+                message = eligibility.isEligible
+                    ? "Feedback saved. You can generate the next eligible pick."
+                    : "Feedback saved. \(eligibility.progressDescription)"
+            }
         } catch {
             message = "Could not save feedback."
         }
+    }
+}
+
+private struct SavedPickRow: View {
+    let album: Album
+
+    var body: some View {
+        HStack(spacing: ListendSpacing.md) {
+            AlbumArtworkView(
+                artworkURL: album.artworkURL,
+                size: 52,
+                albumTitle: album.title
+            )
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(album.title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                Text(album.artistName)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: ListendSpacing.sm)
+
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
+        }
+        .padding(.vertical, ListendSpacing.sm)
     }
 }
 

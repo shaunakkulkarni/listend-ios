@@ -60,7 +60,9 @@ struct HomeView: View {
                 } label: {
                     TodayPickCard(
                         album: activeRecommendation?.album,
-                        confidence: activeRecommendation?.confidence,
+                        matchQuality: activeRecommendation.map {
+                            TodayPickMatchQuality(confidence: $0.confidence)
+                        },
                         title: todayPickTitle,
                         subtitle: todayPickSubtitle,
                         isActive: activeRecommendation != nil
@@ -282,7 +284,7 @@ private struct HomeStatNumeral: View {
 
 private struct TodayPickCard: View {
     let album: Album?
-    let confidence: Double?
+    let matchQuality: TodayPickMatchQuality?
     let title: String
     let subtitle: String
     let isActive: Bool
@@ -310,10 +312,11 @@ private struct TodayPickCard: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
 
-                        if isActive, let confidence {
-                            Text(confidence, format: .percent.precision(.fractionLength(0)))
+                        if isActive, let matchQuality {
+                            Text(matchQuality.label)
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(Color.listendAccent)
+                                .accessibilityIdentifier("homeTodayPickMatchQualityText")
                         }
                     }
                     Text(title)

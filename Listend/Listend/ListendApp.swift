@@ -24,20 +24,7 @@ struct ListendApp: App {
         let arguments = ProcessInfo.processInfo.arguments
         let isUITesting = arguments.contains("-ui-testing")
         let shouldResetUITestingData = arguments.contains("-reset-ui-testing-data")
-        let schema = Schema([
-            Album.self,
-            LogEntry.self,
-            TasteDimension.self,
-            TasteEvidence.self,
-            SoundPrintPersona.self,
-            TasteAvoidanceSignal.self,
-            Recommendation.self,
-            RecommendationReceipt.self,
-            RecommendationFeedback.self,
-            RecentlyPlayedAlbumSnapshot.self,
-            AppleMusicRecentPlaySnapshot.self,
-            AlbumTrack.self,
-        ])
+        let schema = ListendModelSchema.schema
         let modelConfiguration: ModelConfiguration
 
         if isUITesting {
@@ -50,7 +37,7 @@ struct ListendApp: App {
 
             modelConfiguration = ModelConfiguration("ListendUITests", schema: schema, url: storeURL)
         } else {
-            modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+            modelConfiguration = ListendSharedStore.productionConfiguration()
         }
 
         do {

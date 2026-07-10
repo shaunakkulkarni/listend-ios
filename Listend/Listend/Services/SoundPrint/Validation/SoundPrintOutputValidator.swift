@@ -49,14 +49,10 @@ enum SoundPrintOutputValidator {
         }
     }
 
-    static let maxPersonaWordCount = 55
     static let minimumPersonaCharacterCount = 40
 
-    static let maxHeadlineWordCount = 7
-    static let maxSummaryWordCount = 28
     static let requiredSummarySentenceCount = 1
     static let requiredBulletCount = 3
-    static let maxBulletWordCount = 12
 
     /// Phrases banned in every tone: vague filler and identity-flattery that say
     /// nothing regardless of voice.
@@ -177,11 +173,6 @@ enum SoundPrintOutputValidator {
             reasons.append("too short")
         }
 
-        let wordCount = words.count
-        if wordCount > maxPersonaWordCount {
-            reasons.append("too many words (\(wordCount) > \(maxPersonaWordCount))")
-        }
-
         if !containsConcreteSignal(normalized, concreteSignals: context.userFacingSignals) {
             reasons.append("no concrete signal referenced (generic filler)")
         }
@@ -232,21 +223,12 @@ enum SoundPrintOutputValidator {
         if trimmedHeadline.isEmpty {
             reasons.append("empty headline")
         } else {
-            let headlineWordCount = trimmedHeadline.normalizedSoundPrintWords.count
-            if headlineWordCount > maxHeadlineWordCount {
-                reasons.append("headline too long (\(headlineWordCount) > \(maxHeadlineWordCount) words)")
-            }
             reasons.append(contentsOf: bannedPhraseReasons(in: trimmedHeadline.normalizedSoundPrintText, tone: tone, context: "headline"))
         }
 
         if trimmedSummary.isEmpty {
             reasons.append("empty summary")
         } else {
-            let summaryWordCount = trimmedSummary.normalizedSoundPrintWords.count
-            if summaryWordCount > maxSummaryWordCount {
-                reasons.append("summary too long (\(summaryWordCount) > \(maxSummaryWordCount) words)")
-            }
-
             let summarySentenceCount = trimmedSummary.soundPrintSentences.count
             if summarySentenceCount != requiredSummarySentenceCount {
                 reasons.append("expected \(requiredSummarySentenceCount) summary sentence, found \(summarySentenceCount)")
@@ -260,10 +242,6 @@ enum SoundPrintOutputValidator {
         }
 
         for bullet in nonEmptyBullets {
-            let bulletWordCount = bullet.normalizedSoundPrintWords.count
-            if bulletWordCount > maxBulletWordCount {
-                reasons.append("bullet too long (\(bulletWordCount) > \(maxBulletWordCount) words): \(bullet)")
-            }
             reasons.append(contentsOf: bannedPhraseReasons(in: bullet.normalizedSoundPrintText, tone: tone, context: "bullet"))
         }
 

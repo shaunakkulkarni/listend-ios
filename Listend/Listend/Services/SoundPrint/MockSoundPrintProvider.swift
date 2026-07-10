@@ -7,6 +7,10 @@
 
 import Foundation
 
+/// Deterministic local SoundPrint provider — production code, not a test-only
+/// mock. It serves Simulator, UI tests, devices without Apple Intelligence,
+/// users who turned the preference off, and any FoundationModels failure via
+/// `FallbackSoundPrintProvider`.
 struct MockSoundPrintProvider: SoundPrintProvider {
     func analyzeSentiment(input: SentimentInput) async throws -> SentimentResult {
         Self.analyzeSentiment(input: input)
@@ -472,7 +476,7 @@ struct MockSoundPrintProvider: SoundPrintProvider {
         )
     }
 
-    /// Two sentences, at most 55 words: the first states what's rewarded (preferred phrasing
+    /// Two sentences: the first states what's rewarded (preferred phrasing
     /// per the tone spec), the second grounds it in either an avoidance signal (what's rejected)
     /// or the strongest available track-level/album evidence — never both, to stay within budget.
     private static func buildPersonaDraft(

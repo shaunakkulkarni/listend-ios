@@ -76,6 +76,11 @@
 			path = ListendShareExtension;
 			sourceTree = "<group>";
 		};
+		AEFA2C012F9B000000D51118 /* ListendShared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ListendShared;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -114,6 +119,7 @@
 			isa = PBXGroup;
 			children = (
 				AEFA19C52F9AEE5100D51118 /* Listend */,
+				AEFA2C012F9B000000D51118 /* ListendShared */,
 				AEFA19D52F9AEE5200D51118 /* ListendTests */,
 				AEFA19DF2F9AEE5200D51118 /* ListendUITests */,
 				AEFA1B032F9AEE5200D51118 /* ListendShareExtension */,
@@ -151,6 +157,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				AEFA19C52F9AEE5100D51118 /* Listend */,
+				AEFA2C012F9B000000D51118 /* ListendShared */,
 			);
 			name = Listend;
 			packageProductDependencies = (
@@ -219,6 +226,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				AEFA1B032F9AEE5200D51118 /* ListendShareExtension */,
+				AEFA2C012F9B000000D51118 /* ListendShared */,
 			);
 			name = ListendShareExtension;
 			packageProductDependencies = (
@@ -687,7 +695,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = ListendShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 4;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2X6GACKE9G;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -717,7 +725,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = ListendShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 4;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2X6GACKE9G;
 				GENERATE_INFOPLIST_FILE = YES;

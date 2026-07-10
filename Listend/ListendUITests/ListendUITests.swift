@@ -419,9 +419,20 @@ final class ListendUITests: XCTestCase {
     }
 
     @MainActor
-    func testTodayPickFeedbackClearsActiveRecommendation() throws {
+    func testTodayPickLockedStateShowsDistinctAlbumProgress() throws {
         launchResetApp()
-        createSOSLog(rating: "4.5", review: "Today pick anchor.", tags: "anchor")
+
+        openTab("Home")
+        XCTAssertTrue(app.staticTexts["Log 5 more distinct albums to unlock."].waitForExistence(timeout: 5))
+        app.buttons["todayPickLink"].tap()
+
+        XCTAssertTrue(app.staticTexts["Log 5 more distinct albums to unlock Today's Pick. Ratings alone count."].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["findTodayPickButton"].isEnabled)
+    }
+
+    @MainActor
+    func testTodayPickFeedbackClearsActiveRecommendation() throws {
+        launchResetApp(additionalArguments: ["-seed-today-pick-eligible"])
 
         openTab("Home")
         XCTAssertTrue(app.staticTexts["Today's Pick"].waitForExistence(timeout: 5))
@@ -446,8 +457,7 @@ final class ListendUITests: XCTestCase {
 
     @MainActor
     func testTodayPickShowsPreviewUnavailableWithMockService() throws {
-        launchResetApp()
-        createSOSLog(rating: "4.5", review: "Preview pick anchor.", tags: "anchor")
+        launchResetApp(additionalArguments: ["-seed-today-pick-eligible"])
 
         openTab("Home")
         app.buttons["todayPickLink"].tap()
@@ -457,8 +467,8 @@ final class ListendUITests: XCTestCase {
         assertPreviewUnavailableAfterTap()
     }
 
-    private func launchResetApp() {
-        app.launchArguments = ["-ui-testing", "-reset-ui-testing-data"]
+    private func launchResetApp(additionalArguments: [String] = []) {
+        app.launchArguments = ["-ui-testing", "-reset-ui-testing-data"] + additionalArguments
         configureUITestingStore()
         app.launch()
     }

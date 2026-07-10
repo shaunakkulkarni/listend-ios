@@ -41,7 +41,26 @@ struct ListendApp: App {
         }
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            let container = try ModelContainer(for: schema, configurations: [modelConfiguration])
+
+            if isUITesting,
+               arguments.contains("-seed-today-pick-eligible"),
+               try container.mainContext.fetchCount(FetchDescriptor<LogEntry>()) == 0 {
+                for (index, result) in MockAlbumCatalogService.defaultAlbums.prefix(5).enumerated() {
+                    let album = Album(
+                        appleMusicID: result.catalogID,
+                        title: result.title,
+                        artistName: result.artistName,
+                        releaseYear: result.releaseYear,
+                        genreName: result.genreName
+                    )
+                    container.mainContext.insert(album)
+                    container.mainContext.insert(LogEntry(album: album, rating: 3.0 + Double(index) * 0.5))
+                }
+                try container.mainContext.save()
+            }
+
+            return container
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }

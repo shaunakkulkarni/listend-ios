@@ -13,6 +13,44 @@ enum LocalRecommendationError: Error, Equatable {
     case noCandidates
 }
 
+struct TodayPickEligibility: Equatable {
+    static let requiredDistinctAlbumCount = 5
+
+    let distinctAlbumCount: Int
+
+    @MainActor
+    init(logs: [LogEntry]) {
+        distinctAlbumCount = Set(logs.compactMap { log in
+            log.album.map(Self.albumKey)
+        }).count
+    }
+
+    var remainingDistinctAlbumCount: Int {
+        max(Self.requiredDistinctAlbumCount - distinctAlbumCount, 0)
+    }
+
+    var isEligible: Bool {
+        remainingDistinctAlbumCount == 0
+    }
+
+    var progressDescription: String {
+        "Log \(remainingDistinctAlbumCount) more distinct \(remainingDistinctAlbumCount == 1 ? "album" : "albums") to unlock."
+    }
+
+    var lockedDescription: String {
+        "Log \(remainingDistinctAlbumCount) more distinct \(remainingDistinctAlbumCount == 1 ? "album" : "albums") to unlock Today's Pick. Ratings alone count."
+    }
+
+    private static func albumKey(_ album: Album) -> String {
+        if let appleMusicID = album.appleMusicID?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !appleMusicID.isEmpty {
+            return "amid:\(appleMusicID)"
+        }
+
+        return "ta:\(album.title.normalizedRecommendationText)|\(album.artistName.normalizedRecommendationText)"
+    }
+}
+
 struct LocalRecommendationService {
     private let catalogAlbums: [AlbumSearchResult]
     private let candidateProvider: CatalogRecommendationCandidateProvider?
@@ -61,10 +99,15 @@ struct LocalRecommendationService {
         }
 
         let logs = try modelContext.fetch(FetchDescriptor<LogEntry>())
+        guard TodayPickEligibility(logs: logs).isEligible else {
+            throw LocalRecommendationError.needsMoreLogs
+        }
+
         let albums = try modelContext.fetch(FetchDescriptor<Album>())
         let evidence = try modelContext.fetch(FetchDescriptor<TasteEvidence>())
+        let avoidanceSignals = try modelContext.fetch(FetchDescriptor<TasteAvoidanceSignal>())
         let recommendations = try modelContext.fetch(FetchDescriptor<Recommendation>())
-        let anchors = positiveAnchorLogs(from: logs)
+        let anchors = preferenceReferenceLogs(from: logs, evidence: evidence)
 
         guard !anchors.isEmpty else {
             throw LocalRecommendationError.needsMoreLogs
@@ -74,6 +117,7 @@ struct LocalRecommendationService {
             logs: logs,
             albums: albums,
             evidence: evidence,
+            avoidanceSignals: avoidanceSignals,
             recommendations: recommendations,
             anchors: anchors,
             in: modelContext
@@ -138,20 +182,33 @@ struct LocalRecommendationService {
             }
     }
 
-    func positiveAnchorLogs(from logs: [LogEntry]) -> [LogEntry] {
-        logs
-            .filter { log in
-                log.album != nil
-                    && !log.isNegativeSignal
-                    && log.rating >= 4.0
+    func preferenceReferenceLogs(from logs: [LogEntry], evidence: [TasteEvidence]) -> [LogEntry] {
+        let evidenceStrengthByLogID = Dictionary(grouping: evidence.filter(\.isPositiveEvidence), by: \.logEntryID)
+            .mapValues { items in
+                items.map { $0.strength * $0.confidence }.max() ?? 0
             }
-            .sorted {
-                if $0.rating == $1.rating {
-                    return ($0.album?.title ?? "") < ($1.album?.title ?? "")
-                }
+        var bestLogByAlbum: [String: LogEntry] = [:]
 
-                return $0.rating > $1.rating
+        for log in logs {
+            guard let album = log.album else {
+                continue
             }
+
+            let key = Self.albumKey(album)
+            if let current = bestLogByAlbum[key],
+               !Self.isBetterReference(log, than: current, evidenceStrengthByLogID: evidenceStrengthByLogID) {
+                continue
+            }
+
+            bestLogByAlbum[key] = log
+        }
+
+        let ranked = bestLogByAlbum.values.sorted {
+            Self.isBetterReference($0, than: $1, evidenceStrengthByLogID: evidenceStrengthByLogID)
+        }
+        let nonNegative = ranked.filter { !$0.isNegativeSignal }
+
+        return nonNegative.isEmpty ? Array(ranked.prefix(1)) : nonNegative
     }
 
     @MainActor
@@ -162,6 +219,7 @@ struct LocalRecommendationService {
         evidence: [TasteEvidence],
         recommendations: [Recommendation],
         anchors: [LogEntry],
+        avoidanceSignals: [TasteAvoidanceSignal] = [],
         allowDismissed: Bool
     ) -> ScoredRecommendationCandidate? {
         let loggedAlbums = logs.compactMap(\.album)
@@ -178,6 +236,7 @@ struct LocalRecommendationService {
                 .compactMap { $0.album?.artistName.normalizedRecommendationText }
         )
         let negativeLogs = logs.filter(\.isNegativeSignal)
+        let avoidanceLogIDs = Set(avoidanceSignals.flatMap(\.evidenceLogEntryIDs))
 
         return (candidates ?? catalogAlbums)
             .filter { candidate in
@@ -192,6 +251,7 @@ struct LocalRecommendationService {
                     anchors: anchors,
                     negativeLogs: negativeLogs,
                     evidence: evidence,
+                    avoidanceLogIDs: avoidanceLogIDs,
                     recentlyRecommendedArtists: recentlyRecommendedArtists
                 )
             }
@@ -216,6 +276,7 @@ struct LocalRecommendationService {
         logs: [LogEntry],
         albums: [Album],
         evidence: [TasteEvidence],
+        avoidanceSignals: [TasteAvoidanceSignal],
         recommendations: [Recommendation],
         anchors: [LogEntry],
         in modelContext: ModelContext
@@ -234,6 +295,7 @@ struct LocalRecommendationService {
                     evidence: evidence,
                     recommendations: recommendations,
                     anchors: anchors,
+                    avoidanceSignals: avoidanceSignals,
                     allowDismissed: false
                 ) else {
                     throw LocalRecommendationError.noCandidates
@@ -253,6 +315,7 @@ struct LocalRecommendationService {
                     logs: logs,
                     albums: albums,
                     evidence: evidence,
+                    avoidanceSignals: avoidanceSignals,
                     recommendations: recommendations,
                     anchors: anchors
                 )
@@ -263,6 +326,7 @@ struct LocalRecommendationService {
             logs: logs,
             albums: albums,
             evidence: evidence,
+            avoidanceSignals: avoidanceSignals,
             recommendations: recommendations,
             anchors: anchors
         )
@@ -273,6 +337,7 @@ struct LocalRecommendationService {
         logs: [LogEntry],
         albums: [Album],
         evidence: [TasteEvidence],
+        avoidanceSignals: [TasteAvoidanceSignal],
         recommendations: [Recommendation],
         anchors: [LogEntry]
     ) async throws -> PendingRecommendationInput {
@@ -290,6 +355,7 @@ struct LocalRecommendationService {
             evidence: evidence,
             recommendations: recommendations,
             anchors: anchors,
+            avoidanceSignals: avoidanceSignals,
             allowDismissed: false
         ) else {
             throw LocalRecommendationError.noCandidates
@@ -372,6 +438,7 @@ struct LocalRecommendationService {
         anchors: [LogEntry],
         negativeLogs: [LogEntry],
         evidence: [TasteEvidence],
+        avoidanceLogIDs: Set<UUID>,
         recentlyRecommendedArtists: Set<String>
     ) -> ScoredRecommendationCandidate {
         var score = 0.2
@@ -411,11 +478,21 @@ struct LocalRecommendationService {
 
         let clampedScore = score.clamped(to: 0.0...1.0)
         let receipt = makeReceipt(from: matchedAnchor, linkedDimension: linkedDimension)
+        let hasPositiveEvidence = evidence.contains { $0.logEntryID == matchedAnchor.id && $0.isPositiveEvidence }
+        let confidenceCap: Double
+
+        if matchedAnchor.isNegativeSignal {
+            confidenceCap = 0.55
+        } else if !hasPositiveEvidence || avoidanceLogIDs.contains(matchedAnchor.id) {
+            confidenceCap = 0.65
+        } else {
+            confidenceCap = 0.85
+        }
 
         return ScoredRecommendationCandidate(
             album: candidate,
             score: clampedScore,
-            confidence: (0.55 + clampedScore * 0.35).clamped(to: 0.0...0.95),
+            confidence: min(0.55 + clampedScore * 0.35, confidenceCap),
             explanation: explanation(candidate: candidate, receipt: receipt),
             receipts: [receipt]
         )
@@ -476,7 +553,7 @@ struct LocalRecommendationService {
     }
 
     private func explanation(candidate: AlbumSearchResult, receipt: PendingRecommendationReceipt) -> String {
-        "Because you liked \(receipt.sourceAlbumTitle), Today's Pick is \(candidate.title) by \(candidate.artistName). \(receipt.snippet)"
+        "Based on your strongest signals around \(receipt.sourceAlbumTitle), Today's Pick is \(candidate.title) by \(candidate.artistName). \(receipt.snippet)"
     }
 
     @MainActor
@@ -532,15 +609,38 @@ struct LocalRecommendationService {
 
     @MainActor
     private static func albumKey(_ album: Album) -> String {
-        if let appleMusicID = album.appleMusicID {
-            return appleMusicID
+        if let appleMusicID = album.appleMusicID?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !appleMusicID.isEmpty {
+            return "amid:\(appleMusicID)"
         }
 
-        return "\(album.artistName.normalizedRecommendationText)|\(album.title.normalizedRecommendationText)"
+        return "ta:\(album.title.normalizedRecommendationText)|\(album.artistName.normalizedRecommendationText)"
+    }
+
+    private static func isBetterReference(
+        _ candidate: LogEntry,
+        than current: LogEntry,
+        evidenceStrengthByLogID: [UUID: Double]
+    ) -> Bool {
+        if candidate.isNegativeSignal != current.isNegativeSignal {
+            return !candidate.isNegativeSignal
+        }
+
+        if candidate.rating != current.rating {
+            return candidate.rating > current.rating
+        }
+
+        let candidateEvidence = evidenceStrengthByLogID[candidate.id, default: 0]
+        let currentEvidence = evidenceStrengthByLogID[current.id, default: 0]
+        if candidateEvidence != currentEvidence {
+            return candidateEvidence > currentEvidence
+        }
+
+        return candidate.loggedAt > current.loggedAt
     }
 
     private static func albumKey(_ album: AlbumSearchResult) -> String {
-        album.catalogID
+        "amid:\(album.catalogID)"
     }
 
     private static func matches(_ lhs: AlbumSearchResult, _ rhs: AlbumSearchResult) -> Bool {

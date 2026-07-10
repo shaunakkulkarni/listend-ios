@@ -204,7 +204,7 @@ struct TodayPickView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(isWorking || !hasPositiveAnchor)
+            .disabled(isWorking || !eligibility.isEligible)
             .accessibilityIdentifier("findTodayPickButton")
 
             if let message {
@@ -217,20 +217,20 @@ struct TodayPickView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var hasPositiveAnchor: Bool {
-        !recommendationService.positiveAnchorLogs(from: logs).isEmpty
+    private var eligibility: TodayPickEligibility {
+        TodayPickEligibility(logs: logs)
     }
 
     private var emptyTitle: String {
-        hasPositiveAnchor ? "No Active Pick" : "Log More Albums First"
+        eligibility.isEligible ? "No Active Pick" : "Log More Albums First"
     }
 
     private var emptySystemImage: String {
-        hasPositiveAnchor ? "sparkles" : "music.note.list"
+        eligibility.isEligible ? "sparkles" : "music.note.list"
     }
 
     private var emptyDescription: String {
-        hasPositiveAnchor ? "Generate one pick backed by your own logs." : "A 4-star positive log unlocks Today's Pick."
+        eligibility.isEligible ? "Generate one pick backed by your own logs." : eligibility.lockedDescription
     }
 
     @ViewBuilder
@@ -301,7 +301,7 @@ struct TodayPickView: View {
             receipts = try recommendationService.receipts(for: generated, in: modelContext)
             message = nil
         } catch LocalRecommendationError.needsMoreLogs {
-            message = "Log more albums first."
+            message = eligibility.lockedDescription
         } catch LocalRecommendationError.noCandidates {
             message = "No picks left."
         } catch {
@@ -334,7 +334,9 @@ struct TodayPickView: View {
             try recommendationService.submitFeedback(feedbackType, for: recommendation, in: modelContext)
             self.recommendation = nil
             receipts = []
-            message = "Feedback saved. You can generate the next eligible pick."
+            message = eligibility.isEligible
+                ? "Feedback saved. You can generate the next eligible pick."
+                : "Feedback saved. \(eligibility.progressDescription)"
         } catch {
             message = "Could not save feedback."
         }

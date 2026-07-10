@@ -52,24 +52,22 @@ struct HomeView: View {
                     addLog: showNewLog
                 )
 
-                if canShowTodayPick {
-                    NavigationLink {
-                        TodayPickView(
-                            catalogService: catalogService,
-                            appleMusicRecommendationService: appleMusicRecommendationService
-                        )
-                    } label: {
-                        TodayPickCard(
-                            album: activeRecommendation?.album,
-                            confidence: activeRecommendation?.confidence,
-                            title: todayPickTitle,
-                            subtitle: todayPickSubtitle,
-                            isActive: activeRecommendation != nil
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("todayPickLink")
+                NavigationLink {
+                    TodayPickView(
+                        catalogService: catalogService,
+                        appleMusicRecommendationService: appleMusicRecommendationService
+                    )
+                } label: {
+                    TodayPickCard(
+                        album: activeRecommendation?.album,
+                        confidence: activeRecommendation?.confidence,
+                        title: todayPickTitle,
+                        subtitle: todayPickSubtitle,
+                        isActive: activeRecommendation != nil
+                    )
                 }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("todayPickLink")
 
                 RecentlyPlayedAlbumsSection(
                     items: displayedRecentlyPlayedItems,
@@ -133,10 +131,8 @@ struct HomeView: View {
         recommendations.first { $0.status == RecommendationStatus.active.rawValue }
     }
 
-    private var canShowTodayPick: Bool {
-        activeRecommendation != nil || logs.contains { log in
-            log.album != nil && !log.isNegativeSignal && log.rating >= 4.0
-        }
+    private var todayPickEligibility: TodayPickEligibility {
+        TodayPickEligibility(logs: logs)
     }
 
     @MainActor
@@ -167,7 +163,9 @@ struct HomeView: View {
             return "\(album.artistName) is ready when you are."
         }
 
-        return "Generate one pick with receipts."
+        return todayPickEligibility.isEligible
+            ? "Generate one pick with receipts."
+            : todayPickEligibility.progressDescription
     }
 
     private var averageRatingText: String {

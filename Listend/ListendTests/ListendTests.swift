@@ -1949,6 +1949,40 @@ struct ListendTests {
     }
 
     @MainActor
+    @Test func todayPickEligibilityTracksDistinctAlbumsAndProgress() {
+        let albums = (0..<4).map { index in
+            Album(appleMusicID: "eligibility.\(index)", title: "Album \(index)", artistName: "Artist \(index)")
+        }
+        let oneLog = [LogEntry(album: albums[0], rating: 2.0)]
+        let fourLogs = albums.map { LogEntry(album: $0, rating: 3.0) }
+
+        #expect(TodayPickEligibility(logs: oneLog).distinctAlbumCount == 1)
+        #expect(!TodayPickEligibility(logs: oneLog).isEligible)
+        #expect(TodayPickEligibility(logs: oneLog).remainingDistinctAlbumCount == 4)
+        #expect(!TodayPickEligibility(logs: fourLogs).isEligible)
+        #expect(TodayPickEligibility(logs: fourLogs).remainingDistinctAlbumCount == 1)
+        #expect(TodayPickEligibility(logs: fourLogs).progressDescription == "Log 1 more distinct album to unlock.")
+        #expect(TodayPickEligibility(logs: fourLogs).lockedDescription == "Log 1 more distinct album to unlock Today's Pick. Ratings alone count.")
+    }
+
+    @MainActor
+    @Test func todayPickEligibilityCountsRatingOnlyLogsAndCollapsesRepeatedAlbums() {
+        let repeatedAlbum = Album(appleMusicID: "eligibility.repeated", title: "Repeated", artistName: "Artist")
+        let repeatedLogs = (0..<5).map { _ in LogEntry(album: repeatedAlbum, rating: 3.0) }
+        let distinctLogs = (0..<5).map { index in
+            LogEntry(
+                album: Album(appleMusicID: "eligibility.distinct.\(index)", title: "Distinct \(index)", artistName: "Artist \(index)"),
+                rating: Double(index + 1)
+            )
+        }
+
+        #expect(TodayPickEligibility(logs: repeatedLogs).distinctAlbumCount == 1)
+        #expect(!TodayPickEligibility(logs: repeatedLogs).isEligible)
+        #expect(TodayPickEligibility(logs: distinctLogs).isEligible)
+        #expect(TodayPickEligibility(logs: distinctLogs).remainingDistinctAlbumCount == 0)
+    }
+
+    @MainActor
     @Test func recommendationGenerationExcludesLoggedAlbumsAndCreatesReceipts() async throws {
         let container = try makeInMemoryContainer()
         let modelContext = container.mainContext
@@ -1963,6 +1997,7 @@ struct ListendTests {
 
         modelContext.insert(loggedAlbum)
         modelContext.insert(anchorLog)
+        insertRecommendationSupportLogs(in: modelContext, count: 4)
         try modelContext.save()
 
         let recommendation = try await LocalRecommendationService().currentOrGenerateRecommendation(in: modelContext)
@@ -1976,28 +2011,37 @@ struct ListendTests {
     }
 
     @MainActor
-    @Test func recommendationGenerationRequiresPositiveAnchorAndIgnoresNegativeLogs() async throws {
+    @Test func recommendationGenerationRequiresFiveDistinctAlbums() async throws {
         let container = try makeInMemoryContainer()
         let modelContext = container.mainContext
-        let negativeAlbum = Album(title: "Negative Album", artistName: "Negative Artist", genreName: "Art Pop")
-        let negativeLog = LogEntry(
-            album: negativeAlbum,
-            rating: 4.5,
-            reviewText: "Bad, boring, and disappointing.",
-            tags: ["lush"],
-            sentimentScore: -0.7
-        )
-
-        modelContext.insert(negativeAlbum)
-        modelContext.insert(negativeLog)
+        insertRecommendationSupportLogs(in: modelContext, count: 4)
         try modelContext.save()
 
         do {
             _ = try await LocalRecommendationService().currentOrGenerateRecommendation(in: modelContext)
-            Issue.record("Recommendation should require a positive anchor.")
+            Issue.record("Recommendation should require five distinct albums.")
         } catch let error as LocalRecommendationError {
             #expect(error == .needsMoreLogs)
         }
+    }
+
+    @MainActor
+    @Test func fiveLowRatedAlbumsUnlockUsingStrongestRelativeReference() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let logs = insertRecommendationSupportLogs(
+            in: modelContext,
+            ratings: [1.0, 1.5, 2.0, 2.5, 2.0]
+        )
+        try modelContext.save()
+
+        let recommendation = try await LocalRecommendationService().currentOrGenerateRecommendation(in: modelContext)
+        let receipts = try modelContext.fetch(FetchDescriptor<RecommendationReceipt>())
+
+        #expect(TodayPickEligibility(logs: logs).isEligible)
+        #expect(receipts.first?.sourceRating == 2.5)
+        #expect(recommendation.confidence <= 0.55)
+        #expect(recommendation.explanationText.contains("Based on your strongest signals around"))
     }
 
     @Test func musicKitAlbumMapperBuildsSearchResultFromMetadata() throws {
@@ -2676,6 +2720,7 @@ struct ListendTests {
         modelContext.insert(anchorAlbum)
         modelContext.insert(existingCandidateAlbum)
         modelContext.insert(anchorLog)
+        insertRecommendationSupportLogs(in: modelContext, count: 4)
         try modelContext.save()
 
         let recommendation = try await service.currentOrGenerateRecommendation(in: modelContext)
@@ -2851,6 +2896,7 @@ struct ListendTests {
 
         modelContext.insert(anchorAlbum)
         modelContext.insert(anchorLog)
+        insertRecommendationSupportLogs(in: modelContext, count: 4)
         try modelContext.save()
 
         let recommendation = try await LocalRecommendationService(
@@ -2921,6 +2967,7 @@ struct ListendTests {
         modelContext.insert(loggedAlbum)
         modelContext.insert(anchorAlbum)
         modelContext.insert(anchorLog)
+        insertRecommendationSupportLogs(in: modelContext, count: 4)
         modelContext.insert(
             AppleMusicRecentPlaySnapshot(
                 catalogID: "music.snapshot",
@@ -2949,6 +2996,7 @@ struct ListendTests {
 
         modelContext.insert(anchorAlbum)
         modelContext.insert(anchorLog)
+        insertRecommendationSupportLogs(in: modelContext, count: 4)
         modelContext.insert(
             AppleMusicRecentPlaySnapshot(
                 catalogID: "music.old-snapshot",
@@ -2977,6 +3025,7 @@ struct ListendTests {
 
         modelContext.insert(anchorAlbum)
         modelContext.insert(anchorLog)
+        insertRecommendationSupportLogs(in: modelContext, count: 4)
         try modelContext.save()
 
         let recommendation = try await LocalRecommendationService(
@@ -3014,6 +3063,7 @@ struct ListendTests {
         modelContext.insert(negativeAlbum)
         modelContext.insert(positiveLog)
         modelContext.insert(negativeLog)
+        insertRecommendationSupportLogs(in: modelContext, count: 3)
         try modelContext.save()
 
         _ = try await LocalRecommendationService(
@@ -3056,7 +3106,65 @@ struct ListendTests {
     }
 
     @MainActor
-    @Test func recommendationGenerationReusesOneActiveRecommendation() async throws {
+    @Test func recommendationConfidenceReflectsEvidenceQuality() throws {
+        let service = LocalRecommendationService(
+            catalogAlbums: [
+                AlbumSearchResult(id: "mock.evidence", title: "Vocals Forever", artistName: "New Artist", releaseYear: 2019, genreName: "Art Pop")
+            ]
+        )
+        let album = Album(title: "Reference", artistName: "Reference Artist", releaseYear: 2019, genreName: "Art Pop")
+        let log = LogEntry(album: album, rating: 4.5, tags: ["vocals"], sentimentScore: 0.8)
+        let evidence = TasteEvidence(
+            dimensionName: "vocals",
+            logEntryID: log.id,
+            snippet: "Strong vocals.",
+            evidenceType: "reviewOrTag",
+            strength: 0.9,
+            confidence: 0.9,
+            isPositiveEvidence: true
+        )
+        let avoidance = TasteAvoidanceSignal(
+            name: "skipHeavyAlbums",
+            label: "Skip-Heavy Albums",
+            summary: "Several weaker tracks.",
+            strength: 0.6,
+            confidence: 0.7,
+            evidenceLogEntryIDs: [log.id]
+        )
+
+        let evidenceBacked = try #require(service.bestCandidate(
+            logs: [log],
+            localAlbums: [album],
+            evidence: [evidence],
+            recommendations: [],
+            anchors: [log],
+            allowDismissed: false
+        ))
+        let ratingOnly = try #require(service.bestCandidate(
+            logs: [log],
+            localAlbums: [album],
+            evidence: [],
+            recommendations: [],
+            anchors: [log],
+            allowDismissed: false
+        ))
+        let conflicting = try #require(service.bestCandidate(
+            logs: [log],
+            localAlbums: [album],
+            evidence: [evidence],
+            recommendations: [],
+            anchors: [log],
+            avoidanceSignals: [avoidance],
+            allowDismissed: false
+        ))
+
+        #expect(evidenceBacked.confidence == 0.85)
+        #expect(ratingOnly.confidence == 0.65)
+        #expect(conflicting.confidence == 0.65)
+    }
+
+    @MainActor
+    @Test func activeRecommendationStillLoadsBelowEligibilityThreshold() async throws {
         let container = try makeInMemoryContainer()
         let modelContext = container.mainContext
         let anchorAlbum = Album(title: "Anchor", artistName: "Anchor Artist", releaseYear: 2019, genreName: "Art Pop")
@@ -3075,6 +3183,39 @@ struct ListendTests {
 
         #expect(returned.id == activeRecommendation.id)
         #expect(recommendations.count == 1)
+    }
+
+    @MainActor
+    @Test func deletingBelowThresholdBlocksNewGenerationWithoutDeletingHistory() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let logs = insertRecommendationSupportLogs(in: modelContext, count: 5)
+        let service = LocalRecommendationService()
+        try modelContext.save()
+
+        let recommendation = try await service.currentOrGenerateRecommendation(in: modelContext)
+        try service.submitFeedback(.savedForLater, for: recommendation, in: modelContext)
+        let originalReceipts = try modelContext.fetch(FetchDescriptor<RecommendationReceipt>())
+        let originalFeedback = try modelContext.fetch(FetchDescriptor<RecommendationFeedback>())
+
+        modelContext.delete(logs[0])
+        try modelContext.save()
+
+        do {
+            _ = try await service.currentOrGenerateRecommendation(in: modelContext)
+            Issue.record("New recommendation generation should be blocked below five distinct albums.")
+        } catch let error as LocalRecommendationError {
+            #expect(error == .needsMoreLogs)
+        }
+
+        let recommendations = try modelContext.fetch(FetchDescriptor<Recommendation>())
+        let receipts = try modelContext.fetch(FetchDescriptor<RecommendationReceipt>())
+        let feedback = try modelContext.fetch(FetchDescriptor<RecommendationFeedback>())
+
+        #expect(recommendations.map(\.id) == [recommendation.id])
+        #expect(receipts.map(\.id) == originalReceipts.map(\.id))
+        #expect(feedback.map(\.id) == originalFeedback.map(\.id))
+        #expect(recommendation.status == RecommendationStatus.saved.rawValue)
     }
 
     @MainActor
@@ -3122,6 +3263,7 @@ struct ListendTests {
         modelContext.insert(anchorAlbum)
         modelContext.insert(anchorLog)
         modelContext.insert(dismissedRecommendation)
+        insertRecommendationSupportLogs(in: modelContext, count: 4)
         try modelContext.save()
 
         let recommendation = try await service.currentOrGenerateRecommendation(in: modelContext)
@@ -3153,6 +3295,7 @@ struct ListendTests {
         modelContext.insert(anchorAlbum)
         modelContext.insert(anchorLog)
         modelContext.insert(dismissedRecommendation)
+        insertRecommendationSupportLogs(in: modelContext, count: 4)
         try modelContext.save()
 
         do {
@@ -3172,6 +3315,7 @@ struct ListendTests {
 
         modelContext.insert(album)
         modelContext.insert(log)
+        insertRecommendationSupportLogs(in: modelContext, count: 4)
         try modelContext.save()
 
         _ = try await LocalRecommendationService().currentOrGenerateRecommendation(in: modelContext)
@@ -3611,6 +3755,41 @@ struct ListendTests {
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [configuration])
+    }
+
+    @MainActor
+    @discardableResult
+    private func insertRecommendationSupportLogs(
+        in modelContext: ModelContext,
+        count: Int,
+        prefix: String = UUID().uuidString
+    ) -> [LogEntry] {
+        insertRecommendationSupportLogs(
+            in: modelContext,
+            ratings: Array(repeating: 3.0, count: count),
+            prefix: prefix
+        )
+    }
+
+    @MainActor
+    @discardableResult
+    private func insertRecommendationSupportLogs(
+        in modelContext: ModelContext,
+        ratings: [Double],
+        prefix: String = UUID().uuidString
+    ) -> [LogEntry] {
+        ratings.enumerated().map { index, rating in
+            let album = Album(
+                appleMusicID: "support.\(prefix).\(index)",
+                title: "Support Album \(prefix) \(index)",
+                artistName: "Support Artist \(index)",
+                genreName: "Support Genre \(index)"
+            )
+            let log = LogEntry(album: album, rating: rating)
+            modelContext.insert(album)
+            modelContext.insert(log)
+            return log
+        }
     }
 
     private func personaInput(tone: SoundPrintPersonaTone = .balanced) -> PersonaInput {

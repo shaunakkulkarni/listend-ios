@@ -2026,7 +2026,7 @@ struct ListendTests {
     }
 
     @MainActor
-    @Test func fiveLowRatedAlbumsUnlockUsingStrongestRelativeReference() async throws {
+    @Test func fiveLowRatedAlbumsUnlockWithNeutralAllNegativeFallback() async throws {
         let container = try makeInMemoryContainer()
         let modelContext = container.mainContext
         let logs = insertRecommendationSupportLogs(
@@ -2039,9 +2039,9 @@ struct ListendTests {
         let receipts = try modelContext.fetch(FetchDescriptor<RecommendationReceipt>())
 
         #expect(TodayPickEligibility(logs: logs).isEligible)
-        #expect(receipts.first?.sourceRating == 2.5)
+        #expect(receipts.isEmpty)
         #expect(recommendation.confidence <= 0.55)
-        #expect(recommendation.explanationText.contains("Based on your strongest signals around"))
+        #expect(recommendation.explanationText.contains("lower-confidence pick"))
     }
 
     @Test func musicKitAlbumMapperBuildsSearchResultFromMetadata() throws {
@@ -2735,12 +2735,13 @@ struct ListendTests {
         let queries = CatalogRecommendationCandidateProvider.searchQueries(
             anchors: [
                 RecommendationAnchorInput(
-                    logID: logID,
+                    logIDs: [logID],
                     albumCatalogID: "mock.weyes-blood.titanic-rising",
                     albumTitle: "Titanic Rising",
                     artistName: "Weyes Blood",
                     genreName: "Art Pop",
-                    tags: ["lush", "layered"]
+                    tags: ["lush", "layered"],
+                    strength: 0.8
                 )
             ],
             evidence: [
@@ -2753,7 +2754,30 @@ struct ListendTests {
             ]
         )
 
-        #expect(queries == ["Art Pop", "Weyes Blood", "layered", "vocalFocus", "lush"])
+        #expect(queries == ["Art Pop", "Weyes Blood", "vocalFocus", "layered", "lush"])
+    }
+
+    @Test func recommendationCandidateQueriesAggregateAlbumStrengthAndIgnoreNegativeAnchors() {
+        let sharedLogIDs = [UUID(), UUID()]
+        let evidenceLogID = sharedLogIDs[1]
+        let queries = CatalogRecommendationCandidateProvider.searchQueries(
+            anchors: [
+                RecommendationAnchorInput(logIDs: sharedLogIDs, albumCatalogID: "one", albumTitle: "One", artistName: "Artist One", genreName: "Art Pop", tags: [], strength: 0.4),
+                RecommendationAnchorInput(logIDs: [UUID()], albumCatalogID: "two", albumTitle: "Two", artistName: "Artist Two", genreName: "Art Pop", tags: [], strength: 0.4),
+                RecommendationAnchorInput(logIDs: [UUID()], albumCatalogID: "three", albumTitle: "Three", artistName: "Artist Three", genreName: "Jazz", tags: ["warm"], strength: 0.7),
+                RecommendationAnchorInput(logIDs: [UUID()], albumCatalogID: "negative", albumTitle: "Negative", artistName: "Negative Artist", genreName: "Metal", tags: ["heavy"], strength: -1)
+            ],
+            evidence: [
+                RecommendationEvidenceInput(logEntryID: evidenceLogID, dimensionName: "vocalFocus", strength: 0.9, isPositiveEvidence: true)
+            ],
+            limit: 8
+        )
+
+        #expect(queries.first == "Art Pop")
+        #expect(queries.contains("vocalFocus"))
+        #expect(!queries.contains("Metal"))
+        #expect(!queries.contains("Negative Artist"))
+        #expect(!queries.contains("heavy"))
     }
 
     @Test func recommendationCandidateProviderDedupesAndCapsCatalogResults() async {
@@ -2775,12 +2799,13 @@ struct ListendTests {
         let candidates = await provider.candidates(
             anchors: [
                 RecommendationAnchorInput(
-                    logID: UUID(),
+                    logIDs: [UUID()],
                     albumCatalogID: nil,
                     albumTitle: "Anchor",
                     artistName: "Anchor Artist",
                     genreName: "Art Pop",
-                    tags: []
+                    tags: [],
+                    strength: 0.8
                 )
             ],
             evidence: [],
@@ -2804,12 +2829,13 @@ struct ListendTests {
         )
         let anchors = [
             RecommendationAnchorInput(
-                logID: UUID(),
+                logIDs: [UUID()],
                 albumCatalogID: nil,
                 albumTitle: "Anchor",
                 artistName: "Anchor Artist",
                 genreName: "Art Pop",
-                tags: []
+                tags: [],
+                strength: 0.8
             )
         ]
 
@@ -2833,12 +2859,13 @@ struct ListendTests {
         let candidates = await provider.candidates(
             anchors: [
                 RecommendationAnchorInput(
-                    logID: UUID(),
+                    logIDs: [UUID()],
                     albumCatalogID: nil,
                     albumTitle: "Anchor",
                     artistName: "Anchor Artist",
                     genreName: "Art Pop",
-                    tags: ["lush"]
+                    tags: ["lush"],
+                    strength: 0.8
                 )
             ],
             evidence: [],
@@ -2863,12 +2890,13 @@ struct ListendTests {
         let candidates = await provider.candidates(
             anchors: [
                 RecommendationAnchorInput(
-                    logID: UUID(),
+                    logIDs: [UUID()],
                     albumCatalogID: nil,
                     albumTitle: "Anchor",
                     artistName: "Anchor Artist",
                     genreName: "Art Pop",
-                    tags: []
+                    tags: [],
+                    strength: 0.8
                 )
             ],
             evidence: [],
@@ -3047,7 +3075,7 @@ struct ListendTests {
         let positiveAlbum = Album(title: "Positive Album", artistName: "Positive Artist", genreName: "Art Pop")
         let negativeAlbum = Album(title: "Negative Album", artistName: "Negative Artist", genreName: "Metal")
         let positiveLog = LogEntry(album: positiveAlbum, rating: 4.5, tags: ["lush"], sentimentScore: 0.8)
-        let negativeLog = LogEntry(album: negativeAlbum, rating: 4.5, tags: ["heavy"], sentimentScore: -0.7)
+        let negativeLog = LogEntry(album: negativeAlbum, rating: 1.5, tags: ["heavy"], sentimentScore: -0.7)
         let catalogService = RecordingAlbumCatalogService(
             resultsByQuery: [
                 "Art Pop": [
@@ -3093,13 +3121,11 @@ struct ListendTests {
             sentimentScore: 0.8
         )
 
+        let profiles = service.recommendationAnchorProfiles(from: [anchorLog], evidence: [])
         let candidate = service.bestCandidate(
             logs: [anchorLog],
-            localAlbums: [anchorAlbum],
-            evidence: [],
             recommendations: [],
-            anchors: [anchorLog],
-            allowDismissed: false
+            anchorProfiles: profiles
         )
 
         #expect(candidate?.album.catalogID == "mock.a.match")
@@ -3132,35 +3158,265 @@ struct ListendTests {
             evidenceLogEntryIDs: [log.id]
         )
 
+        let evidenceProfiles = service.recommendationAnchorProfiles(from: [log], evidence: [evidence])
+        let ratingOnlyProfiles = service.recommendationAnchorProfiles(from: [log], evidence: [])
+        let conflictingProfiles = service.recommendationAnchorProfiles(
+            from: [log],
+            evidence: [evidence],
+            avoidanceSignals: [avoidance]
+        )
         let evidenceBacked = try #require(service.bestCandidate(
             logs: [log],
-            localAlbums: [album],
-            evidence: [evidence],
             recommendations: [],
-            anchors: [log],
-            allowDismissed: false
+            anchorProfiles: evidenceProfiles
         ))
         let ratingOnly = try #require(service.bestCandidate(
             logs: [log],
-            localAlbums: [album],
-            evidence: [],
             recommendations: [],
-            anchors: [log],
-            allowDismissed: false
+            anchorProfiles: ratingOnlyProfiles
         ))
         let conflicting = try #require(service.bestCandidate(
             logs: [log],
-            localAlbums: [album],
-            evidence: [evidence],
             recommendations: [],
-            anchors: [log],
-            avoidanceSignals: [avoidance],
-            allowDismissed: false
+            anchorProfiles: conflictingProfiles
         ))
 
-        #expect(evidenceBacked.confidence == 0.85)
+        #expect(evidenceBacked.confidence > ratingOnly.confidence)
+        #expect(evidenceBacked.confidence <= 0.85)
         #expect(ratingOnly.confidence == 0.65)
         #expect(conflicting.confidence == 0.65)
+    }
+
+    @Test func recommendationAnchorStrengthRewardsHigherRatingsAndCapsFavorites() throws {
+        let service = LocalRecommendationService()
+        let fiveStarAlbum = Album(title: "Five", artistName: "Artist A")
+        let fourStarAlbum = Album(title: "Four", artistName: "Artist B")
+        let fiveStarLog = LogEntry(
+            album: fiveStarAlbum,
+            rating: 5,
+            favoriteTracks: ["One", "Two", "Three", "one"]
+        )
+        let fourStarLog = LogEntry(album: fourStarAlbum, rating: 4)
+
+        let profiles = service.recommendationAnchorProfiles(from: [fourStarLog, fiveStarLog], evidence: [])
+        let fiveStar = try #require(profiles.first { $0.album === fiveStarAlbum })
+        let fourStar = try #require(profiles.first { $0.album === fourStarAlbum })
+
+        #expect(fiveStar.strength > fourStar.strength)
+        #expect(fiveStar.favoriteTracks.count == 3)
+        #expect(fiveStar.strengthBreakdown.favoriteTrackBoost == 0.08)
+    }
+
+    @Test func recommendationAnchorStrengthDampensSkipsAndGuardsLowRatings() throws {
+        let service = LocalRecommendationService()
+        let positiveAlbum = Album(title: "Positive", artistName: "Artist A")
+        let skippedAlbum = Album(title: "Skipped", artistName: "Artist B")
+        let lowAlbum = Album(title: "Low", artistName: "Artist C")
+        let positive = LogEntry(album: positiveAlbum, rating: 4.5)
+        let skipped = LogEntry(album: skippedAlbum, rating: 4.5, skipTracks: ["A", "B", "C", "D"])
+        let low = LogEntry(
+            album: lowAlbum,
+            rating: 2.5,
+            favoriteTracks: ["Favorite"],
+            standoutMoment: "One good bridge"
+        )
+        let lowEvidence = TasteEvidence(
+            dimensionName: "production",
+            logEntryID: low.id,
+            snippet: "One detail",
+            evidenceType: "reviewOrTag",
+            strength: 1,
+            confidence: 1,
+            isPositiveEvidence: true
+        )
+
+        let profiles = service.recommendationAnchorProfiles(
+            from: [positive, skipped, low],
+            evidence: [lowEvidence]
+        )
+        let positiveProfile = try #require(profiles.first { $0.album === positiveAlbum })
+        let skippedProfile = try #require(profiles.first { $0.album === skippedAlbum })
+        let lowProfile = try #require(profiles.first { $0.album === lowAlbum })
+
+        #expect(skippedProfile.strength < positiveProfile.strength)
+        #expect(skippedProfile.strengthBreakdown.skipPenalty == 0.09)
+        #expect(lowProfile.strength <= 0)
+    }
+
+    @Test func recommendationAnchorProfilesAggregateAlbumsAndDeduplicateEvidence() throws {
+        let service = LocalRecommendationService()
+        let album = Album(appleMusicID: "album.shared", title: "Shared", artistName: "Artist")
+        let first = LogEntry(album: album, rating: 5, tags: ["Lush"], favoriteTracks: ["Song"])
+        let second = LogEntry(album: album, rating: 3, tags: ["lush", "Layered"], favoriteTracks: ["song"])
+        let evidence = [
+            TasteEvidence(dimensionName: "Vocals", logEntryID: first.id, snippet: "A", evidenceType: "review", strength: 0.5, confidence: 1, isPositiveEvidence: true),
+            TasteEvidence(dimensionName: "vocals", logEntryID: second.id, snippet: "B", evidenceType: "review", strength: 0.9, confidence: 1, isPositiveEvidence: true)
+        ]
+
+        let profiles = service.recommendationAnchorProfiles(
+            from: [first, second],
+            evidence: evidence
+        )
+        let profile = try #require(profiles.first)
+
+        #expect(profiles.count == 1)
+        #expect(profile.logs.count == 2)
+        #expect(profile.averageRating == 4)
+        #expect(profile.tags.count == 2)
+        #expect(profile.favoriteTracks.count == 1)
+        #expect(profile.positiveEvidenceDimensions.count == 1)
+        #expect(abs(profile.strengthBreakdown.positiveEvidenceBoost - 0.036) < 0.000_001)
+    }
+
+    @Test func recommendationAnchorProfilesCapMixedEvidenceAdjustments() throws {
+        let service = LocalRecommendationService()
+        let album = Album(title: "Mixed", artistName: "Artist")
+        let log = LogEntry(
+            album: album,
+            rating: 4,
+            favoriteTracks: ["A", "B"],
+            skipTracks: ["C", "D", "E"],
+            standoutMoment: "The outro"
+        )
+        let evidence = (0..<3).map { index in
+            TasteEvidence(dimensionName: "positive-\(index)", logEntryID: log.id, snippet: "", evidenceType: "review", strength: 1, confidence: 1, isPositiveEvidence: true)
+        }
+        let avoidance = (0..<3).map { index in
+            TasteAvoidanceSignal(name: "avoid-\(index)", label: "Avoid", summary: "", strength: 1, confidence: 1, evidenceLogEntryIDs: [log.id])
+        }
+
+        let profiles = service.recommendationAnchorProfiles(
+            from: [log],
+            evidence: evidence,
+            avoidanceSignals: avoidance
+        )
+        let profile = try #require(profiles.first)
+
+        #expect(profiles.count == 1)
+        #expect(profile.strengthBreakdown.positiveEvidenceBoost == 0.08)
+        #expect(profile.strengthBreakdown.avoidancePenalty == 0.08)
+        #expect(profile.strengthBreakdown.detailAdjustment >= -0.15)
+        #expect(profile.strengthBreakdown.detailAdjustment <= 0.15)
+    }
+
+    @Test func recommendationScoringUsesNamedFactorsAndRepeatedGenreAvoidance() throws {
+        let service = LocalRecommendationService()
+        let positiveOne = LogEntry(album: Album(title: "P1", artistName: "A1", releaseYear: 2018, genreName: "Art Pop"), rating: 5, tags: ["lush"])
+        let positiveTwo = LogEntry(album: Album(title: "P2", artistName: "A2", releaseYear: 2017, genreName: "Art Pop"), rating: 4)
+        let negativeOne = LogEntry(album: Album(title: "N1", artistName: "N1", genreName: "Metal"), rating: 1)
+        let negativeTwo = LogEntry(album: Album(title: "N2", artistName: "N2", genreName: "Metal"), rating: 2)
+        let profiles = service.recommendationAnchorProfiles(
+            from: [positiveOne, positiveTwo, negativeOne, negativeTwo],
+            evidence: []
+        )
+        let artPopCandidate = AlbumSearchResult(id: "art", title: "Lush Future", artistName: "New", releaseYear: 2019, genreName: "Art Pop")
+        let metalCandidate = AlbumSearchResult(id: "metal", title: "Metal Future", artistName: "New", releaseYear: 2020, genreName: "Metal")
+
+        let artPop = service.recommendationScoreBreakdown(for: artPopCandidate, anchorProfiles: profiles)
+        let metal = service.recommendationScoreBreakdown(for: metalCandidate, anchorProfiles: profiles)
+        let oneNegative = service.recommendationScoreBreakdown(
+            for: metalCandidate,
+            anchorProfiles: profiles.filter { $0.album.title != "N2" }
+        )
+
+        #expect(artPop.base == 0.20)
+        #expect(artPop.genreAffinity > 0)
+        #expect(artPop.genreAffinity <= 0.30)
+        #expect(artPop.eraAffinity > 0)
+        #expect(artPop.tagAffinity > 0)
+        #expect(artPop.artistNovelty == 0.05)
+        #expect(metal.genreAvoidance < 0)
+        #expect(oneNegative.genreAvoidance == 0)
+    }
+
+    @Test func recommendationScoringUsesLatestFeedbackAndStoredStatusFallback() {
+        let service = LocalRecommendationService()
+        let candidate = AlbumSearchResult(id: "candidate", title: "Candidate", artistName: "New", releaseYear: 2019, genreName: "Art Pop")
+        let historyAlbum = Album(title: "History", artistName: "Old", releaseYear: 2018, genreName: "Art Pop")
+        let recommendation = Recommendation(album: historyAlbum, score: 0.5, confidence: 0.5, status: RecommendationStatus.accepted.rawValue, explanationText: "")
+        let oldLike = RecommendationFeedback(recommendationID: recommendation.id, feedbackType: RecommendationFeedbackType.liked.rawValue, createdAt: .distantPast)
+        let latestDismissal = RecommendationFeedback(recommendationID: recommendation.id, feedbackType: RecommendationFeedbackType.dismissed.rawValue, createdAt: .now)
+
+        let statusFallback = service.recommendationScoreBreakdown(for: candidate, anchorProfiles: [], recommendations: [recommendation])
+        let latestFeedback = service.recommendationScoreBreakdown(
+            for: candidate,
+            anchorProfiles: [],
+            recommendations: [recommendation],
+            feedback: [oldLike, latestDismissal]
+        )
+
+        #expect(statusFallback.feedbackAffinity == 0.06)
+        #expect(latestFeedback.feedbackAffinity == 0)
+    }
+
+    @Test func recommendationRankingExcludesEveryPriorExactAlbumAndBreaksTiesDeterministically() throws {
+        let priorAlbum = Album(appleMusicID: "a", title: "Prior", artistName: "Artist")
+        let prior = Recommendation(album: priorAlbum, score: 0.5, confidence: 0.5, status: RecommendationStatus.active.rawValue, explanationText: "")
+        let service = LocalRecommendationService(catalogAlbums: [
+            AlbumSearchResult(id: "a", title: "Prior", artistName: "Artist", releaseYear: nil, genreName: nil),
+            AlbumSearchResult(id: "c", title: "Third", artistName: "Artist C", releaseYear: nil, genreName: nil),
+            AlbumSearchResult(id: "b", title: "Second", artistName: "Artist B", releaseYear: nil, genreName: nil)
+        ])
+
+        let result = try #require(service.bestCandidate(logs: [], recommendations: [prior], anchorProfiles: []))
+
+        #expect(result.album.catalogID == "b")
+    }
+
+    @Test func repeatedLogsDoNotMultiplyAlbumInfluence() throws {
+        let service = LocalRecommendationService()
+        let album = Album(title: "Repeat", artistName: "Artist", genreName: "Art Pop")
+        let oneLog = LogEntry(album: album, rating: 4)
+        let repeatedLogs = (0..<5).map { _ in LogEntry(album: album, rating: 4) }
+        let candidate = AlbumSearchResult(id: "candidate", title: "Candidate", artistName: "New", releaseYear: nil, genreName: "Art Pop")
+        let oneProfile = service.recommendationAnchorProfiles(from: [oneLog], evidence: [])
+        let repeatedProfile = service.recommendationAnchorProfiles(from: repeatedLogs, evidence: [])
+
+        #expect(oneProfile.count == 1)
+        #expect(repeatedProfile.count == 1)
+        #expect(oneProfile[0].strength == repeatedProfile[0].strength)
+        #expect(service.recommendationScoreBreakdown(for: candidate, anchorProfiles: oneProfile).genreAffinity
+            == service.recommendationScoreBreakdown(for: candidate, anchorProfiles: repeatedProfile).genreAffinity)
+    }
+
+    @Test func recommendationReceiptsUseRealNonNegativeLogsInPriorityOrderAndCapAtTwo() throws {
+        let service = LocalRecommendationService(catalogAlbums: [
+            AlbumSearchResult(id: "candidate", title: "Candidate", artistName: "New", releaseYear: 2019, genreName: "Art Pop")
+        ])
+        let firstAlbum = Album(title: "First", artistName: "A", releaseYear: 2018, genreName: "Art Pop")
+        let secondAlbum = Album(title: "Second", artistName: "B", releaseYear: 2017, genreName: "Art Pop")
+        let thirdAlbum = Album(title: "Third", artistName: "C", releaseYear: 2016, genreName: "Art Pop")
+        let reviewLog = LogEntry(album: firstAlbum, rating: 5, reviewText: "A precise review")
+        let standoutLog = LogEntry(album: firstAlbum, rating: 4, standoutMoment: "The bridge opens up")
+        let favoriteLog = LogEntry(album: secondAlbum, rating: 4.5, favoriteTracks: ["Song"])
+        let tagLog = LogEntry(album: thirdAlbum, rating: 4, tags: ["lush"])
+        let negativeLog = LogEntry(album: thirdAlbum, rating: 1, standoutMoment: "Not enough")
+        let logs = [reviewLog, standoutLog, favoriteLog, tagLog, negativeLog]
+        let profiles = service.recommendationAnchorProfiles(from: logs, evidence: [])
+
+        let result = try #require(service.bestCandidate(logs: logs, recommendations: [], anchorProfiles: profiles))
+
+        #expect(result.receipts.count == 2)
+        #expect(result.receipts[0].logID == standoutLog.id)
+        #expect(Set(result.receipts.map(\.logID)).isSubset(of: Set(logs.filter { !$0.isNegativeSignal }.map(\.id))))
+        #expect(!result.explanation.contains("genreAffinity"))
+        #expect(!result.explanation.contains(result.score.formatted()))
+    }
+
+    @Test func allNegativeProfilesProduceNoReceiptAndLowConfidence() throws {
+        let service = LocalRecommendationService(catalogAlbums: [
+            AlbumSearchResult(id: "candidate", title: "Candidate", artistName: "New", releaseYear: nil, genreName: "Jazz")
+        ])
+        let logs = [
+            LogEntry(album: Album(title: "One", artistName: "A", genreName: "Jazz"), rating: 1),
+            LogEntry(album: Album(title: "Two", artistName: "B", genreName: "Jazz"), rating: 2)
+        ]
+        let profiles = service.recommendationAnchorProfiles(from: logs, evidence: [])
+        let result = try #require(service.bestCandidate(logs: logs, recommendations: [], anchorProfiles: profiles))
+
+        #expect(result.receipts.isEmpty)
+        #expect(result.confidence <= 0.55)
+        #expect(result.explanation.contains("lower-confidence"))
     }
 
     @MainActor
@@ -3318,7 +3574,16 @@ struct ListendTests {
         insertRecommendationSupportLogs(in: modelContext, count: 4)
         try modelContext.save()
 
-        _ = try await LocalRecommendationService().currentOrGenerateRecommendation(in: modelContext)
+        let service = LocalRecommendationService(catalogAlbums: [
+            AlbumSearchResult(
+                id: "mock.related-pick",
+                title: "Related Pick",
+                artistName: "Related Artist",
+                releaseYear: nil,
+                genreName: "Alternative R&B"
+            )
+        ])
+        _ = try await service.currentOrGenerateRecommendation(in: modelContext)
         modelContext.delete(log)
         try modelContext.save()
 

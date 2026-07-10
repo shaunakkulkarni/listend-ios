@@ -448,6 +448,58 @@ final class ListendUITests: XCTestCase {
     }
 
     @MainActor
+    func testTodayPickSavePersistsInSavedPicksAndUsesSharedMatchLabel() throws {
+        launchResetApp(additionalArguments: ["-seed-today-pick-eligible"])
+
+        openTab("Home")
+        app.buttons["todayPickLink"].tap()
+        app.buttons["findTodayPickButton"].tap()
+
+        let detailQuality = app.descendants(matching: .any)["todayPickMatchQualityText"]
+        XCTAssertTrue(detailQuality.waitForExistence(timeout: 5))
+        XCTAssertEqual(detailQuality.label, "Good match")
+        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "match confidence:")).count, 0)
+
+        let pickTitleElement = app.descendants(matching: .any)["todayPickStateText"]
+        XCTAssertTrue(pickTitleElement.waitForExistence(timeout: 5))
+        let pickTitle = pickTitleElement.label
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        let homeQuality = app.descendants(matching: .any)["homeTodayPickMatchQualityText"]
+        XCTAssertTrue(homeQuality.waitForExistence(timeout: 5))
+        XCTAssertEqual(homeQuality.label, "Good match")
+
+        app.buttons["todayPickLink"].tap()
+        app.buttons["saveRecommendationButton"].tap()
+
+        XCTAssertTrue(app.staticTexts["Saved to Saved Picks. You can generate another pick."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Saved Picks"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["saveRecommendationButton"].exists)
+
+        let savedPick = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "savedPickLink-")
+        ).firstMatch
+        XCTAssertTrue(savedPick.waitForExistence(timeout: 5))
+        XCTAssertTrue(savedPick.label.contains(pickTitle))
+        savedPick.tap()
+
+        XCTAssertTrue(app.navigationBars["Album"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts[pickTitle].waitForExistence(timeout: 5))
+
+        app.terminate()
+        launchAppPreservingData()
+        openTab("Home")
+        app.buttons["todayPickLink"].tap()
+
+        XCTAssertTrue(app.staticTexts["Saved Picks"].waitForExistence(timeout: 5))
+        let persistedSavedPick = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "savedPickLink-")
+        ).firstMatch
+        XCTAssertTrue(persistedSavedPick.waitForExistence(timeout: 5))
+        XCTAssertTrue(persistedSavedPick.label.contains(pickTitle))
+    }
+
+    @MainActor
     func testAlbumDetailShowsPreviewUnavailableWithMockService() throws {
         launchResetApp()
 

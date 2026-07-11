@@ -6,7 +6,7 @@
 import SwiftData
 
 enum ListendModelSchema {
-    static let schema = Schema([
+    static let modelTypes: [any PersistentModel.Type] = [
         Album.self,
         LogEntry.self,
         TasteDimension.self,
@@ -19,5 +19,7 @@ enum ListendModelSchema {
         RecentlyPlayedAlbumSnapshot.self,
         AppleMusicRecentPlaySnapshot.self,
         AlbumTrack.self
-    ])
+    ]
+
+    static let schema = Schema(modelTypes)
 }

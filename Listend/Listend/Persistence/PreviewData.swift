@@ -58,20 +58,7 @@ enum PreviewData {
         includeAvoidanceSignals: Bool = false,
         personaGenerationSource: SoundPrintGenerationSource = .localFallback
     ) -> ModelContainer {
-        let schema = Schema([
-            Album.self,
-            LogEntry.self,
-            TasteDimension.self,
-            TasteEvidence.self,
-            SoundPrintPersona.self,
-            TasteAvoidanceSignal.self,
-            Recommendation.self,
-            RecommendationReceipt.self,
-            RecommendationFeedback.self,
-            RecentlyPlayedAlbumSnapshot.self,
-            AppleMusicRecentPlaySnapshot.self,
-            AlbumTrack.self
-        ])
+        let schema = ListendModelSchema.schema
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
 
         do {

@@ -59,6 +59,7 @@ enum SandboxScenario: String, CaseIterable, Identifiable {
 enum SandboxPreferenceKey {
     static let scenario = "sandbox.scenario"
     static let didSeed = "sandbox.didSeed"
+    static let intelligenceProvider = "sandbox.intelligenceProvider"
 }
 
 @MainActor

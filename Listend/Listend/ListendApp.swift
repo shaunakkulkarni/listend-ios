@@ -12,11 +12,10 @@ import SwiftData
 struct ListendApp: App {
     @State private var soundPrintRefreshCoordinator = SoundPrintProfileRefreshCoordinator()
     @AppStorage(SoundPrintPreferenceKey.preferAppleIntelligence) private var preferAppleIntelligence = true
+    @AppStorage(SandboxPreferenceKey.intelligenceProvider) private var sandboxIntelligenceProviderRawValue = SandboxIntelligenceProvider.default.rawValue
     private let catalogService: AlbumCatalogServiceProtocol
     private let recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol
     private let albumPreviewService: AlbumPreviewServiceProtocol
-    private let tagSuggestionProvider: TagSuggestionProvider
-    private let journalAssistService: JournalAssistServiceProtocol
     private let albumTrackService: AlbumTrackServiceProtocol
     private let appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol?
 
@@ -75,13 +74,15 @@ struct ListendApp: App {
         catalogService = Self.makeCatalogService()
         recentlyPlayedAlbumService = Self.makeRecentlyPlayedAlbumService()
         albumPreviewService = Self.makeAlbumPreviewService()
-        tagSuggestionProvider = Self.makeTagSuggestionProvider()
-        journalAssistService = Self.makeJournalAssistService()
         albumTrackService = Self.makeAlbumTrackService()
         appleMusicRecommendationService = Self.makeAppleMusicRecommendationService()
     }
 
     var body: some Scene {
+        let sandboxIntelligenceProvider = SandboxIntelligenceProvider(
+            rawValue: Optional(sandboxIntelligenceProviderRawValue)
+        )
+
         WindowGroup {
             ContentView(
                 catalogService: catalogService,
@@ -89,10 +90,19 @@ struct ListendApp: App {
                 appleMusicRecommendationService: appleMusicRecommendationService
             )
                 .environment(soundPrintRefreshCoordinator)
-                .environment(\.soundPrintProvider, Self.makeSoundPrintProvider(preferAppleIntelligence: preferAppleIntelligence))
+                .environment(\.soundPrintProvider, Self.makeSoundPrintProvider(
+                    preferAppleIntelligence: SandboxMode.isEnabled && sandboxIntelligenceProvider == .onDevice
+                        ? true
+                        : preferAppleIntelligence,
+                    sandboxIntelligenceProvider: sandboxIntelligenceProvider
+                ))
                 .environment(\.albumPreviewService, albumPreviewService)
-                .environment(\.tagSuggestionProvider, tagSuggestionProvider)
-                .environment(\.journalAssistService, journalAssistService)
+                .environment(\.tagSuggestionProvider, Self.makeTagSuggestionProvider(
+                    sandboxIntelligenceProvider: sandboxIntelligenceProvider
+                ))
+                .environment(\.journalAssistService, Self.makeJournalAssistService(
+                    sandboxIntelligenceProvider: sandboxIntelligenceProvider
+                ))
                 .environment(\.albumTrackService, albumTrackService)
         }
         .modelContainer(sharedModelContainer)
@@ -128,7 +138,10 @@ struct ListendApp: App {
         return AppleMusicRecommendationService()
     }
 
-    private static func makeSoundPrintProvider(preferAppleIntelligence: Bool) -> SoundPrintProvider {
+    private static func makeSoundPrintProvider(
+        preferAppleIntelligence: Bool,
+        sandboxIntelligenceProvider: SandboxIntelligenceProvider
+    ) -> SoundPrintProvider {
         let arguments = ProcessInfo.processInfo.arguments
 
         #if targetEnvironment(simulator)
@@ -139,7 +152,8 @@ struct ListendApp: App {
 
         return SoundPrintProviderFactory.makeProvider(
             preferAppleIntelligence: preferAppleIntelligence,
-            isUITesting: SandboxMode.isEnabled || arguments.contains("-ui-testing"),
+            isUITesting: arguments.contains("-ui-testing")
+                || (SandboxMode.isEnabled && sandboxIntelligenceProvider == .mock),
             isSimulator: isSimulator
         )
     }
@@ -157,10 +171,13 @@ struct ListendApp: App {
         )
     }
 
-    private static func makeTagSuggestionProvider() -> TagSuggestionProvider {
+    private static func makeTagSuggestionProvider(
+        sandboxIntelligenceProvider: SandboxIntelligenceProvider
+    ) -> TagSuggestionProvider {
         let arguments = ProcessInfo.processInfo.arguments
 
-        if SandboxMode.isEnabled || arguments.contains("-ui-testing") {
+        if arguments.contains("-ui-testing")
+            || (SandboxMode.isEnabled && sandboxIntelligenceProvider == .mock) {
             return MockTagSuggestionProvider()
         }
 
@@ -174,10 +191,13 @@ struct ListendApp: App {
         #endif
     }
 
-    private static func makeJournalAssistService() -> JournalAssistServiceProtocol {
+    private static func makeJournalAssistService(
+        sandboxIntelligenceProvider: SandboxIntelligenceProvider
+    ) -> JournalAssistServiceProtocol {
         let arguments = ProcessInfo.processInfo.arguments
 
-        if SandboxMode.isEnabled || arguments.contains("-ui-testing") {
+        if arguments.contains("-ui-testing")
+            || (SandboxMode.isEnabled && sandboxIntelligenceProvider == .mock) {
             return MockJournalAssistService()
         }
 

@@ -8,12 +8,36 @@ import SwiftData
 
 struct SandboxSettingsView: View {
     @AppStorage(SandboxPreferenceKey.scenario) private var scenarioRawValue = SandboxScenario.default.rawValue
+    @AppStorage(SandboxPreferenceKey.intelligenceProvider) private var intelligenceProviderRawValue = SandboxIntelligenceProvider.default.rawValue
     @Environment(\.modelContext) private var modelContext
     @State private var message: String?
     @State private var isLoading = false
 
     var body: some View {
         List {
+            Section {
+                Picker("Provider", selection: $intelligenceProviderRawValue) {
+                    ForEach(SandboxIntelligenceProvider.allCases) { provider in
+                        Text(provider.title).tag(provider.rawValue)
+                    }
+                }
+                .pickerStyle(.inline)
+
+                Text(selectedIntelligenceProvider.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if selectedIntelligenceProvider == .onDevice {
+                    Text(SoundPrintAppleIntelligenceAvailability.current.headline)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Intelligence provider")
+            } footer: {
+                Text("This affects only AI-backed features in Listend Sandbox. Album search and playback remain mocked, and TestFlight settings are separate.")
+            }
+
             Section {
                 Picker("Scenario", selection: $scenarioRawValue) {
                     ForEach(SandboxScenario.allCases) { scenario in
@@ -54,6 +78,10 @@ struct SandboxSettingsView: View {
 
     private var selectedScenario: SandboxScenario {
         SandboxScenario(rawValue: scenarioRawValue)
+    }
+
+    private var selectedIntelligenceProvider: SandboxIntelligenceProvider {
+        SandboxIntelligenceProvider(rawValue: intelligenceProviderRawValue)
     }
 
     private func loadSelectedScenario() {

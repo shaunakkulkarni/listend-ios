@@ -95,7 +95,7 @@ struct AppleMusicRecommendationService: AppleMusicRecommendationServiceProtocol 
         try await ensureAuthorized()
 
         var request = MusicRecentlyPlayedContainerRequest()
-        request.limit = limit
+        request.limit = min(limit, 10)
 
         let response = try await request.response()
         try Task.checkCancellation()

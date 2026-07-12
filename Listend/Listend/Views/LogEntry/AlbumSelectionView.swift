@@ -344,5 +344,5 @@ private struct AlbumSelectionResultRow: View {
     NavigationStack {
         AlbumSelectionView { _ in }
     }
-    .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self, SoundPrintPersona.self, Recommendation.self, RecommendationReceipt.self, RecommendationFeedback.self, RecentlyPlayedAlbumSnapshot.self, AppleMusicRecentPlaySnapshot.self, AlbumTrack.self, TasteAvoidanceSignal.self], inMemory: true)
+    .modelContainer(for: ListendModelSchema.modelTypes, inMemory: true)
 }

@@ -17,35 +17,6 @@ enum MusicKitRecentlyPlayedAlbumError: Error, Equatable {
     case unusableResponse
 }
 
-struct MusicKitRecentlyPlayedAlbumMetadata: Equatable {
-    let id: String
-    let title: String
-    let artistName: String
-    let releaseDate: Date?
-    let genreNames: [String]
-    let artworkURL: URL?
-}
-
-struct MusicKitRecentlyPlayedAlbumMapper {
-    static func albumSearchResult(from metadata: MusicKitRecentlyPlayedAlbumMetadata) -> AlbumSearchResult? {
-        let trimmedTitle = metadata.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedArtistName = metadata.artistName.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !metadata.id.isEmpty, !trimmedTitle.isEmpty, !trimmedArtistName.isEmpty else {
-            return nil
-        }
-
-        return AlbumSearchResult(
-            id: metadata.id,
-            title: trimmedTitle,
-            artistName: trimmedArtistName,
-            releaseYear: metadata.releaseDate.map { Calendar.current.component(.year, from: $0) },
-            genreName: metadata.genreNames.first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
-            artworkURL: metadata.artworkURL?.absoluteString
-        )
-    }
-}
-
 #if canImport(MusicKit)
 struct MusicKitRecentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol {
     private let limit: Int
@@ -66,7 +37,7 @@ struct MusicKitRecentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol {
         let albums = response.items.compactMap { item in
             switch item {
             case .album(let album):
-                return MusicKitRecentlyPlayedAlbumMapper.albumSearchResult(from: Self.metadata(from: album))
+                return MusicKitAlbumMapper.albumSearchResult(from: Self.metadata(from: album))
             default:
                 return nil
             }
@@ -96,8 +67,8 @@ struct MusicKitRecentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol {
         }
     }
 
-    private static func metadata(from album: MusicKit.Album) -> MusicKitRecentlyPlayedAlbumMetadata {
-        MusicKitRecentlyPlayedAlbumMetadata(
+    private static func metadata(from album: MusicKit.Album) -> MusicKitAlbumMetadata {
+        MusicKitAlbumMetadata(
             id: album.id.rawValue,
             title: album.title,
             artistName: album.artistName,

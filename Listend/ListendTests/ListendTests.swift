@@ -2077,11 +2077,11 @@ struct ListendTests {
         #expect(result.artworkURL == "https://example.com/artwork.jpg")
     }
 
-    @Test func musicKitRecentlyPlayedAlbumMapperBuildsSearchResultFromMetadata() throws {
+    @Test func musicKitAlbumMapperHandlesRecentlyPlayedMetadata() throws {
         let releaseDate = try #require(Calendar(identifier: .gregorian).date(from: DateComponents(year: 2024, month: 2, day: 9)))
         let result = try #require(
-            MusicKitRecentlyPlayedAlbumMapper.albumSearchResult(
-                from: MusicKitRecentlyPlayedAlbumMetadata(
+            MusicKitAlbumMapper.albumSearchResult(
+                from: MusicKitAlbumMetadata(
                     id: "recent.album",
                     title: "  Recent Album  ",
                     artistName: "  Recent Artist  ",
@@ -2100,9 +2100,9 @@ struct ListendTests {
         #expect(result.artworkURL == "https://example.com/recent.jpg")
     }
 
-    @Test func musicKitRecentlyPlayedAlbumMapperRejectsInvalidMetadata() {
-        let missingID = MusicKitRecentlyPlayedAlbumMapper.albumSearchResult(
-            from: MusicKitRecentlyPlayedAlbumMetadata(
+    @Test func musicKitAlbumMapperRejectsInvalidMetadata() {
+        let missingID = MusicKitAlbumMapper.albumSearchResult(
+            from: MusicKitAlbumMetadata(
                 id: "",
                 title: "Album",
                 artistName: "Artist",
@@ -2111,8 +2111,8 @@ struct ListendTests {
                 artworkURL: nil
             )
         )
-        let missingTitle = MusicKitRecentlyPlayedAlbumMapper.albumSearchResult(
-            from: MusicKitRecentlyPlayedAlbumMetadata(
+        let missingTitle = MusicKitAlbumMapper.albumSearchResult(
+            from: MusicKitAlbumMetadata(
                 id: "recent.album",
                 title: "  ",
                 artistName: "Artist",
@@ -2121,8 +2121,8 @@ struct ListendTests {
                 artworkURL: nil
             )
         )
-        let missingArtist = MusicKitRecentlyPlayedAlbumMapper.albumSearchResult(
-            from: MusicKitRecentlyPlayedAlbumMetadata(
+        let missingArtist = MusicKitAlbumMapper.albumSearchResult(
+            from: MusicKitAlbumMetadata(
                 id: "recent.album",
                 title: "Album",
                 artistName: "  ",
@@ -4196,20 +4196,7 @@ struct ListendTests {
 
     @MainActor
     private func makeInMemoryContainer() throws -> ModelContainer {
-        let schema = Schema([
-            Album.self,
-            LogEntry.self,
-            TasteDimension.self,
-            TasteEvidence.self,
-            SoundPrintPersona.self,
-            TasteAvoidanceSignal.self,
-            Recommendation.self,
-            RecommendationReceipt.self,
-            RecommendationFeedback.self,
-            RecentlyPlayedAlbumSnapshot.self,
-            AppleMusicRecentPlaySnapshot.self,
-            AlbumTrack.self
-        ])
+        let schema = ListendModelSchema.schema
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [configuration])
     }

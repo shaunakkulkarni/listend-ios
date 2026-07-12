@@ -7,14 +7,6 @@
 
 import SwiftUI
 
-private struct TagSuggestionProviderEnvironmentKey: EnvironmentKey {
-    static let defaultValue: TagSuggestionProvider = MockTagSuggestionProvider()
-}
-
 extension EnvironmentValues {
-    var tagSuggestionProvider: TagSuggestionProvider {
-        get { self[TagSuggestionProviderEnvironmentKey.self] }
-        set { self[TagSuggestionProviderEnvironmentKey.self] = newValue }
-    }
+    @Entry var tagSuggestionProvider: TagSuggestionProvider = MockTagSuggestionProvider()
 }
-

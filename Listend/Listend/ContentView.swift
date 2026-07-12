@@ -19,10 +19,8 @@ struct ContentView: View {
     private let catalogService: AlbumCatalogServiceProtocol
     private let recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol
     private let appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol?
-    private let pendingSharedAlbumStore = PendingSharedAlbumStore()
 
     @State private var selectedTab: ListendTab = .home
-    @State private var sharedIntakeLink: SharedIntakeLink?
 
     init(
         catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService(),
@@ -89,37 +87,11 @@ struct ContentView: View {
                     .accessibilityIdentifier("sandboxModeBanner")
             }
         }
-        .onOpenURL(perform: handleOpenURL)
-        .sheet(item: $sharedIntakeLink) { link in
-            ShareIntakeView(
-                catalogService: catalogService,
-                prefilledText: link.text,
-                autoResolveOnAppear: true
-            )
-        }
     }
-
-    /// Handles the `listend://shared-album` launch from the share extension.
-    /// Consumes the pending payload once (clearing it) so it never re-opens on
-    /// relaunch, switches to Search, and reuses the existing intake sheet.
-    private func handleOpenURL(_ url: URL) {
-        guard SharedAlbumDeepLink.isSharedAlbumURL(url),
-              let payload = pendingSharedAlbumStore.consume() else {
-            return
-        }
-
-        selectedTab = .search
-        sharedIntakeLink = SharedIntakeLink(text: payload)
-    }
-}
-
-private struct SharedIntakeLink: Identifiable {
-    let id = UUID()
-    let text: String
 }
 
 #Preview {
     ContentView()
-        .modelContainer(for: [Album.self, LogEntry.self, TasteDimension.self, TasteEvidence.self, SoundPrintPersona.self, Recommendation.self, RecommendationReceipt.self, RecommendationFeedback.self, RecentlyPlayedAlbumSnapshot.self, AppleMusicRecentPlaySnapshot.self, AlbumTrack.self, TasteAvoidanceSignal.self], inMemory: true)
+        .modelContainer(for: ListendModelSchema.modelTypes, inMemory: true)
         .environment(SoundPrintProfileRefreshCoordinator())
 }

@@ -7,13 +7,6 @@
 
 import SwiftUI
 
-private struct SoundPrintProviderEnvironmentKey: EnvironmentKey {
-    static let defaultValue: SoundPrintProvider = MockSoundPrintProvider()
-}
-
 extension EnvironmentValues {
-    var soundPrintProvider: SoundPrintProvider {
-        get { self[SoundPrintProviderEnvironmentKey.self] }
-        set { self[SoundPrintProviderEnvironmentKey.self] = newValue }
-    }
+    @Entry var soundPrintProvider: SoundPrintProvider = MockSoundPrintProvider()
 }

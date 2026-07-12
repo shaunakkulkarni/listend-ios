@@ -95,7 +95,7 @@ struct AppleMusicRecommendationService: AppleMusicRecommendationServiceProtocol 
         try await ensureAuthorized()
 
         var request = MusicRecentlyPlayedContainerRequest()
-        request.limit = limit
+        request.limit = min(limit, 10)
 
         let response = try await request.response()
         try Task.checkCancellation()
@@ -103,7 +103,7 @@ struct AppleMusicRecommendationService: AppleMusicRecommendationServiceProtocol 
         let albums = response.items.compactMap { item in
             switch item {
             case .album(let album):
-                return MusicKitRecentlyPlayedAlbumMapper.albumSearchResult(from: MusicKitRecentlyPlayedAlbumMetadata(
+                return MusicKitAlbumMapper.albumSearchResult(from: MusicKitAlbumMetadata(
                     id: album.id.rawValue,
                     title: album.title,
                     artistName: album.artistName,

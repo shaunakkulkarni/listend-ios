@@ -31,6 +31,10 @@ struct RecommendationLoggedAlbumInput: Hashable {
 }
 
 struct CatalogRecommendationCandidateProvider {
+    private static let genreStyleResolver = LocalGenreStyleResolver(
+        catalog: TaxonomyCatalogLoader.shared
+    )
+
     private let catalogService: AlbumCatalogServiceProtocol
     private let fallbackCandidates: [AlbumSearchResult]
     private let candidateLimit: Int
@@ -104,9 +108,12 @@ struct CatalogRecommendationCandidateProvider {
             anchor.genreName.map { ($0, anchor.strength) }
         })
         let artistValues = rankedWeightedValues(positiveAnchors.map { ($0.artistName, $0.strength) })
-        let tagValues = rankedWeightedValues(positiveAnchors.flatMap { anchor in
-            anchor.tags.map { ($0, anchor.strength) }
-        })
+        let tagPairs = positiveAnchors.flatMap { anchor in
+            anchor.tags.compactMap { tag in
+                isApprovedCatalogQueryTag(tag) ? (tag, anchor.strength) : nil
+            }
+        }
+        let tagValues = rankedWeightedValues(tagPairs)
         let evidencePairs = strongestWeightedValues(evidence
             .filter { $0.isPositiveEvidence && anchorIDs.contains($0.logEntryID) }
             .map { ($0.dimensionName, $0.strength) })
@@ -124,7 +131,7 @@ struct CatalogRecommendationCandidateProvider {
                 positiveAnchors.map { ($0.artistName, $0.strength) }
                     + positiveAnchors.compactMap { anchor in anchor.genreName.map { ($0, anchor.strength) } }
                     + evidencePairs
-                    + positiveAnchors.flatMap { anchor in anchor.tags.map { ($0, anchor.strength) } }
+                    + tagPairs
             )
         case .balanced:
             appendFirst(from: genreValues, to: &queries)
@@ -135,7 +142,7 @@ struct CatalogRecommendationCandidateProvider {
                 positiveAnchors.compactMap { anchor in anchor.genreName.map { ($0, anchor.strength) } }
                     + positiveAnchors.map { ($0.artistName, $0.strength) }
                     + evidencePairs
-                    + positiveAnchors.flatMap { anchor in anchor.tags.map { ($0, anchor.strength) } }
+                    + tagPairs
             )
         case .adventurous:
             appendFirst(from: genreValues, to: &queries)
@@ -144,7 +151,7 @@ struct CatalogRecommendationCandidateProvider {
             remainingValues = rankedWeightedValues(
                 positiveAnchors.compactMap { anchor in anchor.genreName.map { ($0, anchor.strength) } }
                     + evidencePairs
-                    + positiveAnchors.flatMap { anchor in anchor.tags.map { ($0, anchor.strength) } }
+                    + tagPairs
             )
         }
 
@@ -153,6 +160,19 @@ struct CatalogRecommendationCandidateProvider {
         }
 
         return Array(queries.prefix(limit))
+    }
+
+    private static func isApprovedCatalogQueryTag(_ tag: String) -> Bool {
+        let style: GenreStyleDefinition
+
+        switch genreStyleResolver.resolveExact(tag) {
+        case .canonical(let match), .exactAlias(_, let match):
+            style = match
+        case .unresolved:
+            return false
+        }
+
+        return style.recommendationRole == .catalogQuery
     }
 
     private func isUsable(_ candidate: AlbumSearchResult) -> Bool {

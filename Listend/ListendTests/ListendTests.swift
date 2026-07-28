@@ -2750,7 +2750,7 @@ struct ListendTests {
                     albumTitle: "Titanic Rising",
                     artistName: "Weyes Blood",
                     genreName: "Art Pop",
-                    tags: ["lush", "layered"],
+                    tags: ["dream pop", "neo soul", "lush"],
                     strength: 0.8
                 )
             ],
@@ -2764,7 +2764,7 @@ struct ListendTests {
             ]
         )
 
-        #expect(queries == ["Art Pop", "Weyes Blood", "vocalFocus", "layered", "lush"])
+        #expect(queries == ["Art Pop", "Weyes Blood", "vocalFocus", "dream pop", "neo soul"])
     }
 
     @Test func todayPickRecommendationModeDefaultsAndStoredRawValuesAreStable() throws {
@@ -2799,7 +2799,7 @@ struct ListendTests {
                 albumTitle: "Anchor",
                 artistName: "Anchor Artist",
                 genreName: "Art Pop",
-                tags: ["lush"],
+                tags: ["dream pop", "hype", "bars", "gym", "no skips", "graduation summer"],
                 strength: 0.8
             )
         ]
@@ -2828,10 +2828,17 @@ struct ListendTests {
             mode: .adventurous
         )
 
-        #expect(familiar == ["Anchor Artist", "Art Pop", "vocalFocus", "lush"])
-        #expect(balanced == ["Art Pop", "Anchor Artist", "vocalFocus", "lush"])
-        #expect(adventurous == ["Art Pop", "vocalFocus", "lush"])
+        #expect(familiar == ["Anchor Artist", "Art Pop", "vocalFocus", "dream pop"])
+        #expect(balanced == ["Art Pop", "Anchor Artist", "vocalFocus", "dream pop"])
+        #expect(adventurous == ["Art Pop", "vocalFocus", "dream pop"])
         #expect(!adventurous.contains("Anchor Artist"))
+        for queries in [familiar, balanced, adventurous] {
+            #expect(!queries.contains("hype"))
+            #expect(!queries.contains("bars"))
+            #expect(!queries.contains("gym"))
+            #expect(!queries.contains("no skips"))
+            #expect(!queries.contains("graduation summer"))
+        }
     }
 
     @Test func recommendationCandidateQueriesAggregateAlbumStrengthAndIgnoreNegativeAnchors() {
@@ -2841,8 +2848,8 @@ struct ListendTests {
             anchors: [
                 RecommendationAnchorInput(logIDs: sharedLogIDs, albumCatalogID: "one", albumTitle: "One", artistName: "Artist One", genreName: "Art Pop", tags: [], strength: 0.4),
                 RecommendationAnchorInput(logIDs: [UUID()], albumCatalogID: "two", albumTitle: "Two", artistName: "Artist Two", genreName: "Art Pop", tags: [], strength: 0.4),
-                RecommendationAnchorInput(logIDs: [UUID()], albumCatalogID: "three", albumTitle: "Three", artistName: "Artist Three", genreName: "Jazz", tags: ["warm"], strength: 0.7),
-                RecommendationAnchorInput(logIDs: [UUID()], albumCatalogID: "negative", albumTitle: "Negative", artistName: "Negative Artist", genreName: "Metal", tags: ["heavy"], strength: -1)
+                RecommendationAnchorInput(logIDs: [UUID()], albumCatalogID: "three", albumTitle: "Three", artistName: "Artist Three", genreName: "Jazz", tags: ["dream pop"], strength: 0.7),
+                RecommendationAnchorInput(logIDs: [UUID()], albumCatalogID: "negative", albumTitle: "Negative", artistName: "Negative Artist", genreName: "Metal", tags: ["doom metal"], strength: -1)
             ],
             evidence: [
                 RecommendationEvidenceInput(logEntryID: evidenceLogID, dimensionName: "vocalFocus", strength: 0.9, isPositiveEvidence: true)
@@ -2852,9 +2859,10 @@ struct ListendTests {
 
         #expect(queries.first == "Art Pop")
         #expect(queries.contains("vocalFocus"))
+        #expect(queries.contains("dream pop"))
         #expect(!queries.contains("Metal"))
         #expect(!queries.contains("Negative Artist"))
-        #expect(!queries.contains("heavy"))
+        #expect(!queries.contains("doom metal"))
     }
 
     @Test func recommendationCandidateProviderDedupesAndCapsCatalogResults() async {
@@ -3151,8 +3159,8 @@ struct ListendTests {
         let modelContext = container.mainContext
         let positiveAlbum = Album(title: "Positive Album", artistName: "Positive Artist", genreName: "Art Pop")
         let negativeAlbum = Album(title: "Negative Album", artistName: "Negative Artist", genreName: "Metal")
-        let positiveLog = LogEntry(album: positiveAlbum, rating: 4.5, tags: ["lush"], sentimentScore: 0.8)
-        let negativeLog = LogEntry(album: negativeAlbum, rating: 1.5, tags: ["heavy"], sentimentScore: -0.7)
+        let positiveLog = LogEntry(album: positiveAlbum, rating: 4.5, tags: ["dream pop"], sentimentScore: 0.8)
+        let negativeLog = LogEntry(album: negativeAlbum, rating: 1.5, tags: ["doom metal"], sentimentScore: -0.7)
         let catalogService = RecordingAlbumCatalogService(
             resultsByQuery: [
                 "Art Pop": [
@@ -3177,8 +3185,9 @@ struct ListendTests {
         ).currentOrGenerateRecommendation(in: modelContext)
 
         #expect(catalogService.queries.contains("Art Pop"))
+        #expect(catalogService.queries.contains("dream pop"))
         #expect(!catalogService.queries.contains("Metal"))
-        #expect(!catalogService.queries.contains("heavy"))
+        #expect(!catalogService.queries.contains("doom metal"))
     }
 
     @MainActor
@@ -3323,8 +3332,8 @@ struct ListendTests {
     @Test func recommendationAnchorProfilesAggregateAlbumsAndDeduplicateEvidence() throws {
         let service = LocalRecommendationService()
         let album = Album(appleMusicID: "album.shared", title: "Shared", artistName: "Artist")
-        let first = LogEntry(album: album, rating: 5, tags: ["Lush"], favoriteTracks: ["Song"])
-        let second = LogEntry(album: album, rating: 3, tags: ["lush", "Layered"], favoriteTracks: ["song"])
+        let first = LogEntry(album: album, rating: 5, tags: ["Hype", "my impossible tag"], favoriteTracks: ["Song"])
+        let second = LogEntry(album: album, rating: 3, tags: ["hype", "Layered"], favoriteTracks: ["song"])
         let evidence = [
             TasteEvidence(dimensionName: "Vocals", logEntryID: first.id, snippet: "A", evidenceType: "review", strength: 0.5, confidence: 1, isPositiveEvidence: true),
             TasteEvidence(dimensionName: "vocals", logEntryID: second.id, snippet: "B", evidenceType: "review", strength: 0.9, confidence: 1, isPositiveEvidence: true)
@@ -3339,7 +3348,7 @@ struct ListendTests {
         #expect(profiles.count == 1)
         #expect(profile.logs.count == 2)
         #expect(profile.averageRating == 4)
-        #expect(profile.tags.count == 2)
+        #expect(Set(profile.tags) == Set(["Hype", "Layered", "my impossible tag"]))
         #expect(profile.favoriteTracks.count == 1)
         #expect(profile.positiveEvidenceDimensions.count == 1)
         #expect(abs(profile.strengthBreakdown.positiveEvidenceBoost - 0.036) < 0.000_001)

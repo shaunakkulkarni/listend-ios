@@ -1,0 +1,26 @@
+Listend Canonical Taxonomy Validation Report
+Version: 1.0.0-draft
+Generated: 2026-07-27
+
+Reaction tags: 243
+Primary-suggestion eligible reactions: 169
+Reaction exact aliases: 723
+Explicit ambiguous aliases: 20
+Genre/style entries: 355
+Genre aliases: 156
+
+Duplicate reaction IDs: 0
+Duplicate reaction display keys: 0
+Unresolved exact reaction alias collisions: 0
+Ambiguous terms overlapping exact aliases: 0
+Duplicate genre IDs: 0
+Duplicate genre display keys: 0
+Unresolved genre alias collisions: 0
+Invalid SoundPrint dimension references: 0
+Invalid avoidance-signal references: 0
+Invalid genre-affinity family references: 0
+Invalid parent genre references: 0
+Duplicate ambiguous terms: 0
+Reaction labels over 28 characters: 0
+
+Result: PASS

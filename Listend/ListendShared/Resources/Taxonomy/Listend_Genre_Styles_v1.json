@@ -1,0 +1,3220 @@
+{
+  "taxonomyVersion": "1.0.0-draft",
+  "generatedDate": "2026-07-27",
+  "purpose": "Genre and style normalization catalog for music-service metadata.",
+  "families": [
+    {
+      "id": "hip-hop-rap",
+      "displayName": "Hip-Hop & Rap"
+    },
+    {
+      "id": "rnb-soul-funk",
+      "displayName": "R&B, Soul & Funk"
+    },
+    {
+      "id": "pop",
+      "displayName": "Pop"
+    },
+    {
+      "id": "rock",
+      "displayName": "Rock"
+    },
+    {
+      "id": "punk-hardcore-metal",
+      "displayName": "Punk, Hardcore & Metal"
+    },
+    {
+      "id": "electronic-dance",
+      "displayName": "Electronic & Dance"
+    },
+    {
+      "id": "jazz-blues",
+      "displayName": "Jazz & Blues"
+    },
+    {
+      "id": "country-folk-americana",
+      "displayName": "Country, Folk & Americana"
+    },
+    {
+      "id": "caribbean",
+      "displayName": "Caribbean"
+    },
+    {
+      "id": "african",
+      "displayName": "African"
+    },
+    {
+      "id": "latin",
+      "displayName": "Latin"
+    },
+    {
+      "id": "brazilian",
+      "displayName": "Brazilian"
+    },
+    {
+      "id": "south-asian",
+      "displayName": "South Asian"
+    },
+    {
+      "id": "east-asian",
+      "displayName": "East Asian"
+    },
+    {
+      "id": "mena",
+      "displayName": "Middle Eastern & North African"
+    },
+    {
+      "id": "classical",
+      "displayName": "Classical"
+    },
+    {
+      "id": "ambient-experimental",
+      "displayName": "Ambient, New Age & Experimental"
+    },
+    {
+      "id": "soundtrack-stage",
+      "displayName": "Soundtrack & Stage"
+    },
+    {
+      "id": "spiritual-religious",
+      "displayName": "Spiritual & Religious"
+    },
+    {
+      "id": "global-traditional",
+      "displayName": "Global & Traditional"
+    }
+  ],
+  "styles": [
+    {
+      "id": "genre.hip-hop",
+      "displayName": "hip-hop",
+      "family": "hip-hop-rap",
+      "aliases": [
+        "hip hop",
+        "rap",
+        "hip-hop/rap"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.boom-bap",
+      "displayName": "boom bap",
+      "family": "hip-hop-rap",
+      "aliases": [
+        "boom-bap"
+      ],
+      "parentID": "genre.hip-hop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.trap",
+      "displayName": "trap",
+      "family": "hip-hop-rap",
+      "aliases": [],
+      "parentID": "genre.hip-hop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.drill",
+      "displayName": "drill",
+      "family": "hip-hop-rap",
+      "aliases": [
+        "uk drill",
+        "chicago drill",
+        "brooklyn drill"
+      ],
+      "parentID": "genre.hip-hop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.cloud-rap",
+      "displayName": "cloud rap",
+      "family": "hip-hop-rap",
+      "aliases": [],
+      "parentID": "genre.hip-hop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.melodic-rap",
+      "displayName": "melodic rap",
+      "family": "hip-hop-rap",
+      "aliases": [
+        "sing-rap"
+      ],
+      "parentID": "genre.hip-hop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.alternative-hip-hop",
+      "displayName": "alternative hip-hop",
+      "family": "hip-hop-rap",
+      "aliases": [
+        "alternative rap"
+      ],
+      "parentID": "genre.hip-hop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.experimental-hip-hop",
+      "displayName": "experimental hip-hop",
+      "family": "hip-hop-rap",
+      "aliases": [
+        "experimental rap"
+      ],
+      "parentID": "genre.hip-hop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.conscious-hip-hop",
+      "displayName": "conscious hip-hop",
+      "family": "hip-hop-rap",
+      "aliases": [
+        "conscious rap"
+      ],
+      "parentID": "genre.hip-hop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.gangsta-rap",
+      "displayName": "gangsta rap",
+      "family": "hip-hop-rap",
+      "aliases": [
+        "gangster rap"
+      ],
+      "parentID": "genre.hip-hop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.southern-hip-hop",
+      "displayName": "southern hip-hop",
+      "family": "hip-hop-rap",
+      "aliases": [
+        "southern rap"
+      ],
+      "parentID": "genre.hip-hop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.jazz-rap",
+      "displayName": "jazz rap",
+      "family": "hip-hop-rap",
+      "aliases": [],
+      "parentID": "genre.hip-hop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.lo-fi-hip-hop",
+      "displayName": "lo-fi hip-hop",
+      "family": "hip-hop-rap",
+      "aliases": [
+        "lofi hip hop",
+        "chillhop"
+      ],
+      "parentID": "genre.hip-hop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.grime",
+      "displayName": "grime",
+      "family": "hip-hop-rap",
+      "aliases": [],
+      "parentID": "genre.hip-hop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.horrorcore",
+      "displayName": "horrorcore",
+      "family": "hip-hop-rap",
+      "aliases": [],
+      "parentID": "genre.hip-hop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.abstract-hip-hop",
+      "displayName": "abstract hip-hop",
+      "family": "hip-hop-rap",
+      "aliases": [
+        "abstract rap"
+      ],
+      "parentID": "genre.hip-hop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.rnb",
+      "displayName": "r&b",
+      "family": "rnb-soul-funk",
+      "aliases": [
+        "rnb",
+        "rhythm and blues",
+        "r&b/soul"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.contemporary-rnb",
+      "displayName": "contemporary r&b",
+      "family": "rnb-soul-funk",
+      "aliases": [
+        "modern r&b"
+      ],
+      "parentID": "genre.rnb",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.alternative-rnb",
+      "displayName": "alternative r&b",
+      "family": "rnb-soul-funk",
+      "aliases": [
+        "alt r&b"
+      ],
+      "parentID": "genre.rnb",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.neo-soul",
+      "displayName": "neo-soul",
+      "family": "rnb-soul-funk",
+      "aliases": [
+        "neo soul"
+      ],
+      "parentID": "genre.rnb",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.soul",
+      "displayName": "soul",
+      "family": "rnb-soul-funk",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.southern-soul",
+      "displayName": "southern soul",
+      "family": "rnb-soul-funk",
+      "aliases": [],
+      "parentID": "genre.soul",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.psychedelic-soul",
+      "displayName": "psychedelic soul",
+      "family": "rnb-soul-funk",
+      "aliases": [],
+      "parentID": "genre.soul",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.quiet-storm",
+      "displayName": "quiet storm",
+      "family": "rnb-soul-funk",
+      "aliases": [],
+      "parentID": "genre.rnb",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.funk",
+      "displayName": "funk",
+      "family": "rnb-soul-funk",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.p-funk",
+      "displayName": "p-funk",
+      "family": "rnb-soul-funk",
+      "aliases": [
+        "parliament-funkadelic"
+      ],
+      "parentID": "genre.funk",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.new-jack-swing",
+      "displayName": "new jack swing",
+      "family": "rnb-soul-funk",
+      "aliases": [],
+      "parentID": "genre.rnb",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.motown",
+      "displayName": "motown",
+      "family": "rnb-soul-funk",
+      "aliases": [
+        "motown sound"
+      ],
+      "parentID": "genre.soul",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.blue-eyed-soul",
+      "displayName": "blue-eyed soul",
+      "family": "rnb-soul-funk",
+      "aliases": [
+        "blue eyed soul"
+      ],
+      "parentID": "genre.soul",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.gospel-soul",
+      "displayName": "gospel soul",
+      "family": "rnb-soul-funk",
+      "aliases": [],
+      "parentID": "genre.soul",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.pop",
+      "displayName": "pop",
+      "family": "pop",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.dance-pop",
+      "displayName": "dance-pop",
+      "family": "pop",
+      "aliases": [
+        "dance pop"
+      ],
+      "parentID": "genre.pop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.synth-pop",
+      "displayName": "synth-pop",
+      "family": "pop",
+      "aliases": [
+        "synthpop"
+      ],
+      "parentID": "genre.pop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.indie-pop",
+      "displayName": "indie pop",
+      "family": "pop",
+      "aliases": [],
+      "parentID": "genre.pop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.art-pop",
+      "displayName": "art pop",
+      "family": "pop",
+      "aliases": [],
+      "parentID": "genre.pop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.electropop",
+      "displayName": "electropop",
+      "family": "pop",
+      "aliases": [
+        "electro pop"
+      ],
+      "parentID": "genre.pop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.bedroom-pop",
+      "displayName": "bedroom pop",
+      "family": "pop",
+      "aliases": [],
+      "parentID": "genre.pop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.dream-pop",
+      "displayName": "dream pop",
+      "family": "pop",
+      "aliases": [],
+      "parentID": "genre.pop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.hyperpop",
+      "displayName": "hyperpop",
+      "family": "pop",
+      "aliases": [],
+      "parentID": "genre.pop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.pop-rock",
+      "displayName": "pop rock",
+      "family": "pop",
+      "aliases": [],
+      "parentID": "genre.pop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.chamber-pop",
+      "displayName": "chamber pop",
+      "family": "pop",
+      "aliases": [],
+      "parentID": "genre.pop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.power-pop",
+      "displayName": "power pop",
+      "family": "pop",
+      "aliases": [],
+      "parentID": "genre.pop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.sophisti-pop",
+      "displayName": "sophisti-pop",
+      "family": "pop",
+      "aliases": [
+        "sophisti pop"
+      ],
+      "parentID": "genre.pop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.teen-pop",
+      "displayName": "teen pop",
+      "family": "pop",
+      "aliases": [],
+      "parentID": "genre.pop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.bubblegum-pop",
+      "displayName": "bubblegum pop",
+      "family": "pop",
+      "aliases": [],
+      "parentID": "genre.pop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.alt-pop",
+      "displayName": "alternative pop",
+      "family": "pop",
+      "aliases": [
+        "alt pop"
+      ],
+      "parentID": "genre.pop",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.rock",
+      "displayName": "rock",
+      "family": "rock",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.alternative-rock",
+      "displayName": "alternative rock",
+      "family": "rock",
+      "aliases": [
+        "alt rock"
+      ],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.indie-rock",
+      "displayName": "indie rock",
+      "family": "rock",
+      "aliases": [],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.classic-rock",
+      "displayName": "classic rock",
+      "family": "rock",
+      "aliases": [],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.hard-rock",
+      "displayName": "hard rock",
+      "family": "rock",
+      "aliases": [],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.soft-rock",
+      "displayName": "soft rock",
+      "family": "rock",
+      "aliases": [],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.garage-rock",
+      "displayName": "garage rock",
+      "family": "rock",
+      "aliases": [],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.psychedelic-rock",
+      "displayName": "psychedelic rock",
+      "family": "rock",
+      "aliases": [
+        "psych rock"
+      ],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.progressive-rock",
+      "displayName": "progressive rock",
+      "family": "rock",
+      "aliases": [
+        "prog rock"
+      ],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.post-rock",
+      "displayName": "post-rock",
+      "family": "rock",
+      "aliases": [],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.shoegaze",
+      "displayName": "shoegaze",
+      "family": "rock",
+      "aliases": [],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.grunge",
+      "displayName": "grunge",
+      "family": "rock",
+      "aliases": [],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.britpop",
+      "displayName": "britpop",
+      "family": "rock",
+      "aliases": [],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.krautrock",
+      "displayName": "krautrock",
+      "family": "rock",
+      "aliases": [],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.surf-rock",
+      "displayName": "surf rock",
+      "family": "rock",
+      "aliases": [],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.glam-rock",
+      "displayName": "glam rock",
+      "family": "rock",
+      "aliases": [],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.math-rock",
+      "displayName": "math rock",
+      "family": "rock",
+      "aliases": [],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.noise-rock",
+      "displayName": "noise rock",
+      "family": "rock",
+      "aliases": [],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.southern-rock",
+      "displayName": "southern rock",
+      "family": "rock",
+      "aliases": [],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.heartland-rock",
+      "displayName": "heartland rock",
+      "family": "rock",
+      "aliases": [],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.punk",
+      "displayName": "punk",
+      "family": "punk-hardcore-metal",
+      "aliases": [
+        "punk rock"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.pop-punk",
+      "displayName": "pop punk",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": "genre.punk",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.post-punk",
+      "displayName": "post-punk",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": "genre.punk",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.hardcore-punk",
+      "displayName": "hardcore punk",
+      "family": "punk-hardcore-metal",
+      "aliases": [
+        "hardcore"
+      ],
+      "parentID": "genre.punk",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.post-hardcore",
+      "displayName": "post-hardcore",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": "genre.hardcore-punk",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.emo",
+      "displayName": "emo",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.screamo",
+      "displayName": "screamo",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": "genre.emo",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.metal",
+      "displayName": "metal",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.heavy-metal",
+      "displayName": "heavy metal",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": "genre.metal",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.thrash-metal",
+      "displayName": "thrash metal",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": "genre.metal",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.death-metal",
+      "displayName": "death metal",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": "genre.metal",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.black-metal",
+      "displayName": "black metal",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": "genre.metal",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.doom-metal",
+      "displayName": "doom metal",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": "genre.metal",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.progressive-metal",
+      "displayName": "progressive metal",
+      "family": "punk-hardcore-metal",
+      "aliases": [
+        "prog metal"
+      ],
+      "parentID": "genre.metal",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.metalcore",
+      "displayName": "metalcore",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": "genre.metal",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.deathcore",
+      "displayName": "deathcore",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": "genre.metal",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.nu-metal",
+      "displayName": "nu metal",
+      "family": "punk-hardcore-metal",
+      "aliases": [
+        "nu-metal"
+      ],
+      "parentID": "genre.metal",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.sludge-metal",
+      "displayName": "sludge metal",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": "genre.metal",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.industrial-metal",
+      "displayName": "industrial metal",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": "genre.metal",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.power-metal",
+      "displayName": "power metal",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": "genre.metal",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.folk-metal",
+      "displayName": "folk metal",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": "genre.metal",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.gothic-metal",
+      "displayName": "gothic metal",
+      "family": "punk-hardcore-metal",
+      "aliases": [],
+      "parentID": "genre.metal",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.electronic",
+      "displayName": "electronic",
+      "family": "electronic-dance",
+      "aliases": [
+        "dance"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.house",
+      "displayName": "house",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.deep-house",
+      "displayName": "deep house",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.house",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.tech-house",
+      "displayName": "tech house",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.house",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.progressive-house",
+      "displayName": "progressive house",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.house",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.afro-house",
+      "displayName": "afro house",
+      "family": "electronic-dance",
+      "aliases": [
+        "afro-house"
+      ],
+      "parentID": "genre.house",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.french-house",
+      "displayName": "french house",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.house",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.acid-house",
+      "displayName": "acid house",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.house",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.techno",
+      "displayName": "techno",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.detroit-techno",
+      "displayName": "detroit techno",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.techno",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.minimal-techno",
+      "displayName": "minimal techno",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.techno",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.trance",
+      "displayName": "trance",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.progressive-trance",
+      "displayName": "progressive trance",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.trance",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.psytrance",
+      "displayName": "psytrance",
+      "family": "electronic-dance",
+      "aliases": [
+        "psychedelic trance"
+      ],
+      "parentID": "genre.trance",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.electro",
+      "displayName": "electro",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.electroclash",
+      "displayName": "electroclash",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.edm",
+      "displayName": "edm",
+      "family": "electronic-dance",
+      "aliases": [
+        "electronic dance music"
+      ],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.dubstep",
+      "displayName": "dubstep",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.drum-and-bass",
+      "displayName": "drum and bass",
+      "family": "electronic-dance",
+      "aliases": [
+        "dnb",
+        "d&b"
+      ],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.jungle",
+      "displayName": "jungle",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.drum-and-bass",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.uk-garage",
+      "displayName": "uk garage",
+      "family": "electronic-dance",
+      "aliases": [
+        "2-step",
+        "2 step garage"
+      ],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.breakbeat",
+      "displayName": "breakbeat",
+      "family": "electronic-dance",
+      "aliases": [
+        "breaks"
+      ],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.idm",
+      "displayName": "idm",
+      "family": "electronic-dance",
+      "aliases": [
+        "intelligent dance music"
+      ],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.downtempo",
+      "displayName": "downtempo",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.trip-hop",
+      "displayName": "trip-hop",
+      "family": "electronic-dance",
+      "aliases": [
+        "trip hop"
+      ],
+      "parentID": "genre.downtempo",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.disco",
+      "displayName": "disco",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.nu-disco",
+      "displayName": "nu-disco",
+      "family": "electronic-dance",
+      "aliases": [
+        "nu disco"
+      ],
+      "parentID": "genre.disco",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.future-bass",
+      "displayName": "future bass",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.hardstyle",
+      "displayName": "hardstyle",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.gabber",
+      "displayName": "gabber",
+      "family": "electronic-dance",
+      "aliases": [
+        "hardcore techno"
+      ],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.synthwave",
+      "displayName": "synthwave",
+      "family": "electronic-dance",
+      "aliases": [
+        "retrowave"
+      ],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.footwork",
+      "displayName": "footwork",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.bass-music",
+      "displayName": "bass music",
+      "family": "electronic-dance",
+      "aliases": [],
+      "parentID": "genre.electronic",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.jazz",
+      "displayName": "jazz",
+      "family": "jazz-blues",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.vocal-jazz",
+      "displayName": "vocal jazz",
+      "family": "jazz-blues",
+      "aliases": [],
+      "parentID": "genre.jazz",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.smooth-jazz",
+      "displayName": "smooth jazz",
+      "family": "jazz-blues",
+      "aliases": [],
+      "parentID": "genre.jazz",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.jazz-fusion",
+      "displayName": "jazz fusion",
+      "family": "jazz-blues",
+      "aliases": [
+        "fusion jazz"
+      ],
+      "parentID": "genre.jazz",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.bebop",
+      "displayName": "bebop",
+      "family": "jazz-blues",
+      "aliases": [],
+      "parentID": "genre.jazz",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.hard-bop",
+      "displayName": "hard bop",
+      "family": "jazz-blues",
+      "aliases": [],
+      "parentID": "genre.jazz",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.cool-jazz",
+      "displayName": "cool jazz",
+      "family": "jazz-blues",
+      "aliases": [],
+      "parentID": "genre.jazz",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.free-jazz",
+      "displayName": "free jazz",
+      "family": "jazz-blues",
+      "aliases": [],
+      "parentID": "genre.jazz",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.modal-jazz",
+      "displayName": "modal jazz",
+      "family": "jazz-blues",
+      "aliases": [],
+      "parentID": "genre.jazz",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.spiritual-jazz",
+      "displayName": "spiritual jazz",
+      "family": "jazz-blues",
+      "aliases": [],
+      "parentID": "genre.jazz",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.swing",
+      "displayName": "swing",
+      "family": "jazz-blues",
+      "aliases": [],
+      "parentID": "genre.jazz",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.big-band",
+      "displayName": "big band",
+      "family": "jazz-blues",
+      "aliases": [],
+      "parentID": "genre.jazz",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.jazz-funk",
+      "displayName": "jazz-funk",
+      "family": "jazz-blues",
+      "aliases": [
+        "jazz funk"
+      ],
+      "parentID": "genre.jazz",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.blues",
+      "displayName": "blues",
+      "family": "jazz-blues",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.electric-blues",
+      "displayName": "electric blues",
+      "family": "jazz-blues",
+      "aliases": [],
+      "parentID": "genre.blues",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.delta-blues",
+      "displayName": "delta blues",
+      "family": "jazz-blues",
+      "aliases": [],
+      "parentID": "genre.blues",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.chicago-blues",
+      "displayName": "chicago blues",
+      "family": "jazz-blues",
+      "aliases": [],
+      "parentID": "genre.blues",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.blues-rock",
+      "displayName": "blues rock",
+      "family": "jazz-blues",
+      "aliases": [],
+      "parentID": "genre.blues",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.country",
+      "displayName": "country",
+      "family": "country-folk-americana",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.contemporary-country",
+      "displayName": "contemporary country",
+      "family": "country-folk-americana",
+      "aliases": [],
+      "parentID": "genre.country",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.country-pop",
+      "displayName": "country pop",
+      "family": "country-folk-americana",
+      "aliases": [],
+      "parentID": "genre.country",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.alt-country",
+      "displayName": "alt-country",
+      "family": "country-folk-americana",
+      "aliases": [
+        "alternative country"
+      ],
+      "parentID": "genre.country",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.outlaw-country",
+      "displayName": "outlaw country",
+      "family": "country-folk-americana",
+      "aliases": [],
+      "parentID": "genre.country",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.honky-tonk",
+      "displayName": "honky-tonk",
+      "family": "country-folk-americana",
+      "aliases": [
+        "honky tonk"
+      ],
+      "parentID": "genre.country",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.bluegrass",
+      "displayName": "bluegrass",
+      "family": "country-folk-americana",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.folk",
+      "displayName": "folk",
+      "family": "country-folk-americana",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.indie-folk",
+      "displayName": "indie folk",
+      "family": "country-folk-americana",
+      "aliases": [],
+      "parentID": "genre.folk",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.folk-rock",
+      "displayName": "folk rock",
+      "family": "country-folk-americana",
+      "aliases": [],
+      "parentID": "genre.folk",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.americana",
+      "displayName": "americana",
+      "family": "country-folk-americana",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.singer-songwriter",
+      "displayName": "singer-songwriter",
+      "family": "country-folk-americana",
+      "aliases": [
+        "singer songwriter",
+        "singer/songwriter"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.acoustic-folk",
+      "displayName": "acoustic folk",
+      "family": "country-folk-americana",
+      "aliases": [],
+      "parentID": "genre.folk",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.traditional-folk",
+      "displayName": "traditional folk",
+      "family": "country-folk-americana",
+      "aliases": [],
+      "parentID": "genre.folk",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.roots-rock",
+      "displayName": "roots rock",
+      "family": "country-folk-americana",
+      "aliases": [],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.western-swing",
+      "displayName": "western swing",
+      "family": "country-folk-americana",
+      "aliases": [],
+      "parentID": "genre.country",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.cowboy-country",
+      "displayName": "cowboy country",
+      "family": "country-folk-americana",
+      "aliases": [
+        "western country"
+      ],
+      "parentID": "genre.country",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.reggae",
+      "displayName": "reggae",
+      "family": "caribbean",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.roots-reggae",
+      "displayName": "roots reggae",
+      "family": "caribbean",
+      "aliases": [],
+      "parentID": "genre.reggae",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.dub",
+      "displayName": "dub",
+      "family": "caribbean",
+      "aliases": [],
+      "parentID": "genre.reggae",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.dancehall",
+      "displayName": "dancehall",
+      "family": "caribbean",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.soca",
+      "displayName": "soca",
+      "family": "caribbean",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.calypso",
+      "displayName": "calypso",
+      "family": "caribbean",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.zouk",
+      "displayName": "zouk",
+      "family": "caribbean",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.kompa",
+      "displayName": "kompa",
+      "family": "caribbean",
+      "aliases": [
+        "compas"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.reggae-fusion",
+      "displayName": "reggae fusion",
+      "family": "caribbean",
+      "aliases": [],
+      "parentID": "genre.reggae",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.mento",
+      "displayName": "mento",
+      "family": "caribbean",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.lovers-rock",
+      "displayName": "lovers rock",
+      "family": "caribbean",
+      "aliases": [],
+      "parentID": "genre.reggae",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.afrobeats",
+      "displayName": "afrobeats",
+      "family": "african",
+      "aliases": [
+        "afrobeats pop"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.afrobeat",
+      "displayName": "Afrobeat",
+      "family": "african",
+      "aliases": [
+        "fela-style afrobeat"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.afropop",
+      "displayName": "afropop",
+      "family": "african",
+      "aliases": [
+        "afro-pop"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.amapiano",
+      "displayName": "amapiano",
+      "family": "african",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.highlife",
+      "displayName": "highlife",
+      "family": "african",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.afro-fusion",
+      "displayName": "afro-fusion",
+      "family": "african",
+      "aliases": [
+        "afrofusion"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.soukous",
+      "displayName": "soukous",
+      "family": "african",
+      "aliases": [
+        "congolese rumba"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.mbaqanga",
+      "displayName": "mbaqanga",
+      "family": "african",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.gqom",
+      "displayName": "gqom",
+      "family": "african",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.alte",
+      "displayName": "alté",
+      "family": "african",
+      "aliases": [
+        "alte"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.coupe-decale",
+      "displayName": "coupé-décalé",
+      "family": "african",
+      "aliases": [
+        "coupe decale"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.mbalax",
+      "displayName": "mbalax",
+      "family": "african",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.ethio-jazz",
+      "displayName": "Ethio-jazz",
+      "family": "african",
+      "aliases": [
+        "ethiopian jazz"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.african-gospel",
+      "displayName": "African gospel",
+      "family": "african",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.kwaito",
+      "displayName": "kwaito",
+      "family": "african",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.afro-soul",
+      "displayName": "Afro-soul",
+      "family": "african",
+      "aliases": [
+        "afrosoul"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.latin-pop",
+      "displayName": "Latin pop",
+      "family": "latin",
+      "aliases": [
+        "pop latino"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.reggaeton",
+      "displayName": "reggaeton",
+      "family": "latin",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.latin-trap",
+      "displayName": "Latin trap",
+      "family": "latin",
+      "aliases": [
+        "trap latino"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.salsa",
+      "displayName": "salsa",
+      "family": "latin",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.bachata",
+      "displayName": "bachata",
+      "family": "latin",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.cumbia",
+      "displayName": "cumbia",
+      "family": "latin",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.merengue",
+      "displayName": "merengue",
+      "family": "latin",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.bolero",
+      "displayName": "bolero",
+      "family": "latin",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.musica-mexicana",
+      "displayName": "música mexicana",
+      "family": "latin",
+      "aliases": [
+        "musica mexicana",
+        "música mexicana"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.regional-mexican",
+      "displayName": "regional Mexican",
+      "family": "latin",
+      "aliases": [
+        "regional mexicano"
+      ],
+      "parentID": "genre.musica-mexicana",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.mariachi",
+      "displayName": "mariachi",
+      "family": "latin",
+      "aliases": [],
+      "parentID": "genre.musica-mexicana",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.norteno",
+      "displayName": "norteño",
+      "family": "latin",
+      "aliases": [
+        "norteno"
+      ],
+      "parentID": "genre.musica-mexicana",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.banda",
+      "displayName": "banda",
+      "family": "latin",
+      "aliases": [],
+      "parentID": "genre.musica-mexicana",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.corridos",
+      "displayName": "corridos",
+      "family": "latin",
+      "aliases": [
+        "corrido"
+      ],
+      "parentID": "genre.musica-mexicana",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.corridos-tumbados",
+      "displayName": "corridos tumbados",
+      "family": "latin",
+      "aliases": [
+        "tumbados"
+      ],
+      "parentID": "genre.corridos",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.tejano",
+      "displayName": "Tejano",
+      "family": "latin",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.vallenato",
+      "displayName": "vallenato",
+      "family": "latin",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.tango",
+      "displayName": "tango",
+      "family": "latin",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.son-cubano",
+      "displayName": "son cubano",
+      "family": "latin",
+      "aliases": [
+        "cuban son"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.afro-cuban",
+      "displayName": "Afro-Cuban",
+      "family": "latin",
+      "aliases": [
+        "afro cuban"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.dembow",
+      "displayName": "dembow",
+      "family": "latin",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.latin-alternative",
+      "displayName": "Latin alternative",
+      "family": "latin",
+      "aliases": [
+        "alternativo latino"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.samba",
+      "displayName": "samba",
+      "family": "brazilian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.bossa-nova",
+      "displayName": "bossa nova",
+      "family": "brazilian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.mpb",
+      "displayName": "MPB",
+      "family": "brazilian",
+      "aliases": [
+        "música popular brasileira",
+        "musica popular brasileira"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.pagode",
+      "displayName": "pagode",
+      "family": "brazilian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.forro",
+      "displayName": "forró",
+      "family": "brazilian",
+      "aliases": [
+        "forro"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.sertanejo",
+      "displayName": "sertanejo",
+      "family": "brazilian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.brazilian-funk",
+      "displayName": "Brazilian funk",
+      "family": "brazilian",
+      "aliases": [
+        "funk carioca",
+        "baile funk"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.tropicalia",
+      "displayName": "tropicália",
+      "family": "brazilian",
+      "aliases": [
+        "tropicalia"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.choro",
+      "displayName": "choro",
+      "family": "brazilian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.axé",
+      "displayName": "axé",
+      "family": "brazilian",
+      "aliases": [
+        "axe"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.brazilian-jazz",
+      "displayName": "Brazilian jazz",
+      "family": "brazilian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.brazilian-rock",
+      "displayName": "Brazilian rock",
+      "family": "brazilian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.indian-classical",
+      "displayName": "Indian classical",
+      "family": "south-asian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.hindustani-classical",
+      "displayName": "Hindustani classical",
+      "family": "south-asian",
+      "aliases": [
+        "north indian classical"
+      ],
+      "parentID": "genre.indian-classical",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.carnatic-classical",
+      "displayName": "Carnatic classical",
+      "family": "south-asian",
+      "aliases": [
+        "south indian classical"
+      ],
+      "parentID": "genre.indian-classical",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.bollywood",
+      "displayName": "Bollywood",
+      "family": "south-asian",
+      "aliases": [
+        "hindi film music"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.indian-film-music",
+      "displayName": "Indian film music",
+      "family": "south-asian",
+      "aliases": [
+        "filmi"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.tamil-film-music",
+      "displayName": "Tamil film music",
+      "family": "south-asian",
+      "aliases": [
+        "kollywood"
+      ],
+      "parentID": "genre.indian-film-music",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.telugu-film-music",
+      "displayName": "Telugu film music",
+      "family": "south-asian",
+      "aliases": [
+        "tollywood"
+      ],
+      "parentID": "genre.indian-film-music",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.malayalam-film-music",
+      "displayName": "Malayalam film music",
+      "family": "south-asian",
+      "aliases": [],
+      "parentID": "genre.indian-film-music",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.ghazal",
+      "displayName": "ghazal",
+      "family": "south-asian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.qawwali",
+      "displayName": "qawwali",
+      "family": "south-asian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.punjabi-pop",
+      "displayName": "Punjabi pop",
+      "family": "south-asian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.bhangra",
+      "displayName": "bhangra",
+      "family": "south-asian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.desi-hip-hop",
+      "displayName": "desi hip-hop",
+      "family": "south-asian",
+      "aliases": [
+        "desi rap"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.indian-indie",
+      "displayName": "Indian indie",
+      "family": "south-asian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.indipop",
+      "displayName": "Indipop",
+      "family": "south-asian",
+      "aliases": [
+        "Indian pop"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.bengali-modern",
+      "displayName": "Bengali modern",
+      "family": "south-asian",
+      "aliases": [
+        "adhunik"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.sufi-music",
+      "displayName": "Sufi music",
+      "family": "south-asian",
+      "aliases": [
+        "sufi"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.bhajan",
+      "displayName": "bhajan",
+      "family": "south-asian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.pakistani-pop",
+      "displayName": "Pakistani pop",
+      "family": "south-asian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.sri-lankan-pop",
+      "displayName": "Sri Lankan pop",
+      "family": "south-asian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.k-pop",
+      "displayName": "K-pop",
+      "family": "east-asian",
+      "aliases": [
+        "kpop"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.k-hip-hop",
+      "displayName": "K-hip-hop",
+      "family": "east-asian",
+      "aliases": [
+        "korean hip-hop",
+        "k-rap"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.k-rnb",
+      "displayName": "K-R&B",
+      "family": "east-asian",
+      "aliases": [
+        "korean r&b",
+        "k-rnb"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.k-indie",
+      "displayName": "K-indie",
+      "family": "east-asian",
+      "aliases": [
+        "korean indie"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.j-pop",
+      "displayName": "J-pop",
+      "family": "east-asian",
+      "aliases": [
+        "jpop"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.j-rock",
+      "displayName": "J-rock",
+      "family": "east-asian",
+      "aliases": [
+        "japanese rock"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.city-pop",
+      "displayName": "city pop",
+      "family": "east-asian",
+      "aliases": [
+        "japanese city pop"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.visual-kei",
+      "displayName": "visual kei",
+      "family": "east-asian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.anisong",
+      "displayName": "anisong",
+      "family": "east-asian",
+      "aliases": [
+        "anime songs"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.c-pop",
+      "displayName": "C-pop",
+      "family": "east-asian",
+      "aliases": [
+        "chinese pop"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.mandopop",
+      "displayName": "Mandopop",
+      "family": "east-asian",
+      "aliases": [
+        "mandarin pop"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.cantopop",
+      "displayName": "Cantopop",
+      "family": "east-asian",
+      "aliases": [
+        "cantonese pop"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.chinese-hip-hop",
+      "displayName": "Chinese hip-hop",
+      "family": "east-asian",
+      "aliases": [
+        "chinese rap"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.taiwanese-pop",
+      "displayName": "Taiwanese pop",
+      "family": "east-asian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.japanese-hip-hop",
+      "displayName": "Japanese hip-hop",
+      "family": "east-asian",
+      "aliases": [
+        "j-rap"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.japanese-jazz",
+      "displayName": "Japanese jazz",
+      "family": "east-asian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.korean-ballad",
+      "displayName": "Korean ballad",
+      "family": "east-asian",
+      "aliases": [
+        "k-ballad"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.enka",
+      "displayName": "enka",
+      "family": "east-asian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.shibuya-kei",
+      "displayName": "Shibuya-kei",
+      "family": "east-asian",
+      "aliases": [
+        "shibuya kei"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.vocaloid",
+      "displayName": "Vocaloid",
+      "family": "east-asian",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.arabic-pop",
+      "displayName": "Arabic pop",
+      "family": "mena",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.arabic-classical",
+      "displayName": "Arabic classical",
+      "family": "mena",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.rai",
+      "displayName": "raï",
+      "family": "mena",
+      "aliases": [
+        "rai"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.dabke",
+      "displayName": "dabke",
+      "family": "mena",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.khaliji",
+      "displayName": "Khaliji",
+      "family": "mena",
+      "aliases": [
+        "khaleeji"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.shaabi",
+      "displayName": "shaabi",
+      "family": "mena",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.mahraganat",
+      "displayName": "mahraganat",
+      "family": "mena",
+      "aliases": [
+        "electro shaabi"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.persian-pop",
+      "displayName": "Persian pop",
+      "family": "mena",
+      "aliases": [
+        "iranian pop"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.persian-classical",
+      "displayName": "Persian classical",
+      "family": "mena",
+      "aliases": [
+        "iranian classical"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.anatolian-rock",
+      "displayName": "Anatolian rock",
+      "family": "mena",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.turkish-pop",
+      "displayName": "Turkish pop",
+      "family": "mena",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.turkish-folk",
+      "displayName": "Turkish folk",
+      "family": "mena",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.mizrahi",
+      "displayName": "Mizrahi",
+      "family": "mena",
+      "aliases": [
+        "mizrahi music"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.gnawa",
+      "displayName": "Gnawa",
+      "family": "mena",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.arabic-hip-hop",
+      "displayName": "Arabic hip-hop",
+      "family": "mena",
+      "aliases": [
+        "arab rap"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.middle-eastern-electronic",
+      "displayName": "Middle Eastern electronic",
+      "family": "mena",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.classical",
+      "displayName": "classical",
+      "family": "classical",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.baroque",
+      "displayName": "Baroque",
+      "family": "classical",
+      "aliases": [],
+      "parentID": "genre.classical",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.classical-period",
+      "displayName": "Classical period",
+      "family": "classical",
+      "aliases": [],
+      "parentID": "genre.classical",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.romantic-classical",
+      "displayName": "Romantic classical",
+      "family": "classical",
+      "aliases": [
+        "romantic era"
+      ],
+      "parentID": "genre.classical",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.modern-classical",
+      "displayName": "modern classical",
+      "family": "classical",
+      "aliases": [],
+      "parentID": "genre.classical",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.contemporary-classical",
+      "displayName": "contemporary classical",
+      "family": "classical",
+      "aliases": [],
+      "parentID": "genre.classical",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.orchestral",
+      "displayName": "orchestral",
+      "family": "classical",
+      "aliases": [],
+      "parentID": "genre.classical",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.chamber-music",
+      "displayName": "chamber music",
+      "family": "classical",
+      "aliases": [],
+      "parentID": "genre.classical",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.opera",
+      "displayName": "opera",
+      "family": "classical",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.choral",
+      "displayName": "choral",
+      "family": "classical",
+      "aliases": [
+        "choir"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.minimalist-classical",
+      "displayName": "minimalist classical",
+      "family": "classical",
+      "aliases": [
+        "minimalism"
+      ],
+      "parentID": "genre.classical",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.piano-solo",
+      "displayName": "piano solo",
+      "family": "classical",
+      "aliases": [
+        "solo piano"
+      ],
+      "parentID": "genre.classical",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.string-quartet",
+      "displayName": "string quartet",
+      "family": "classical",
+      "aliases": [],
+      "parentID": "genre.chamber-music",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.early-music",
+      "displayName": "early music",
+      "family": "classical",
+      "aliases": [],
+      "parentID": "genre.classical",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.avant-garde-classical",
+      "displayName": "avant-garde classical",
+      "family": "classical",
+      "aliases": [],
+      "parentID": "genre.classical",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.neoclassical",
+      "displayName": "neoclassical",
+      "family": "classical",
+      "aliases": [
+        "neo-classical"
+      ],
+      "parentID": "genre.classical",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.ambient",
+      "displayName": "ambient",
+      "family": "ambient-experimental",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.dark-ambient",
+      "displayName": "dark ambient",
+      "family": "ambient-experimental",
+      "aliases": [],
+      "parentID": "genre.ambient",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.drone",
+      "displayName": "drone",
+      "family": "ambient-experimental",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.new-age",
+      "displayName": "new age",
+      "family": "ambient-experimental",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.experimental",
+      "displayName": "experimental",
+      "family": "ambient-experimental",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.avant-garde",
+      "displayName": "avant-garde",
+      "family": "ambient-experimental",
+      "aliases": [
+        "avant garde"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.noise",
+      "displayName": "noise",
+      "family": "ambient-experimental",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.harsh-noise",
+      "displayName": "harsh noise",
+      "family": "ambient-experimental",
+      "aliases": [],
+      "parentID": "genre.noise",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.musique-concrete",
+      "displayName": "musique concrète",
+      "family": "ambient-experimental",
+      "aliases": [
+        "musique concrete"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.sound-art",
+      "displayName": "sound art",
+      "family": "ambient-experimental",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.lowercase",
+      "displayName": "lowercase",
+      "family": "ambient-experimental",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.onkyo",
+      "displayName": "onkyo",
+      "family": "ambient-experimental",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.vaporwave",
+      "displayName": "vaporwave",
+      "family": "ambient-experimental",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.plunderphonics",
+      "displayName": "plunderphonics",
+      "family": "ambient-experimental",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.free-improvisation",
+      "displayName": "free improvisation",
+      "family": "ambient-experimental",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.electroacoustic",
+      "displayName": "electroacoustic",
+      "family": "ambient-experimental",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.soundtrack",
+      "displayName": "soundtrack",
+      "family": "soundtrack-stage",
+      "aliases": [
+        "original score"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.film-score",
+      "displayName": "film score",
+      "family": "soundtrack-stage",
+      "aliases": [
+        "movie score"
+      ],
+      "parentID": "genre.soundtrack",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.television-score",
+      "displayName": "television score",
+      "family": "soundtrack-stage",
+      "aliases": [
+        "tv score"
+      ],
+      "parentID": "genre.soundtrack",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.video-game-music",
+      "displayName": "video game music",
+      "family": "soundtrack-stage",
+      "aliases": [
+        "game soundtrack",
+        "vgm"
+      ],
+      "parentID": "genre.soundtrack",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.musical-theatre",
+      "displayName": "musical theatre",
+      "family": "soundtrack-stage",
+      "aliases": [
+        "musical theater"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.cast-recording",
+      "displayName": "cast recording",
+      "family": "soundtrack-stage",
+      "aliases": [
+        "original cast recording"
+      ],
+      "parentID": "genre.musical-theatre",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.anime-soundtrack",
+      "displayName": "anime soundtrack",
+      "family": "soundtrack-stage",
+      "aliases": [],
+      "parentID": "genre.soundtrack",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.library-music",
+      "displayName": "library music",
+      "family": "soundtrack-stage",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.incidental-music",
+      "displayName": "incidental music",
+      "family": "soundtrack-stage",
+      "aliases": [],
+      "parentID": "genre.soundtrack",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.gospel",
+      "displayName": "gospel",
+      "family": "spiritual-religious",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.contemporary-gospel",
+      "displayName": "contemporary gospel",
+      "family": "spiritual-religious",
+      "aliases": [],
+      "parentID": "genre.gospel",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.southern-gospel",
+      "displayName": "southern gospel",
+      "family": "spiritual-religious",
+      "aliases": [],
+      "parentID": "genre.gospel",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.contemporary-christian",
+      "displayName": "contemporary Christian",
+      "family": "spiritual-religious",
+      "aliases": [
+        "ccm",
+        "christian"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.worship",
+      "displayName": "worship",
+      "family": "spiritual-religious",
+      "aliases": [
+        "praise and worship"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.devotional",
+      "displayName": "devotional",
+      "family": "spiritual-religious",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.kirtan",
+      "displayName": "kirtan",
+      "family": "spiritual-religious",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.chant",
+      "displayName": "chant",
+      "family": "spiritual-religious",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.jewish-liturgical",
+      "displayName": "Jewish liturgical",
+      "family": "spiritual-religious",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.islamic-nasheed",
+      "displayName": "nasheed",
+      "family": "spiritual-religious",
+      "aliases": [
+        "islamic devotional"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.buddhist-chant",
+      "displayName": "Buddhist chant",
+      "family": "spiritual-religious",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.sacred-choral",
+      "displayName": "sacred choral",
+      "family": "spiritual-religious",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.flamenco",
+      "displayName": "flamenco",
+      "family": "global-traditional",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.fado",
+      "displayName": "fado",
+      "family": "global-traditional",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.celtic-folk",
+      "displayName": "Celtic folk",
+      "family": "global-traditional",
+      "aliases": [
+        "celtic"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.klezmer",
+      "displayName": "klezmer",
+      "family": "global-traditional",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.gamelan",
+      "displayName": "gamelan",
+      "family": "global-traditional",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.taiko",
+      "displayName": "taiko",
+      "family": "global-traditional",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.japanese-traditional",
+      "displayName": "Japanese traditional",
+      "family": "global-traditional",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.chinese-traditional",
+      "displayName": "Chinese traditional",
+      "family": "global-traditional",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.korean-traditional",
+      "displayName": "Korean traditional",
+      "family": "global-traditional",
+      "aliases": [
+        "gugak"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.andean-folk",
+      "displayName": "Andean folk",
+      "family": "global-traditional",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.balkan-folk",
+      "displayName": "Balkan folk",
+      "family": "global-traditional",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.romani-music",
+      "displayName": "Romani music",
+      "family": "global-traditional",
+      "aliases": [
+        "gypsy music"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.polynesian",
+      "displayName": "Polynesian",
+      "family": "global-traditional",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.hawaiian",
+      "displayName": "Hawaiian",
+      "family": "global-traditional",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.indonesian-pop",
+      "displayName": "Indonesian pop",
+      "family": "global-traditional",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.thai-pop",
+      "displayName": "Thai pop",
+      "family": "global-traditional",
+      "aliases": [
+        "t-pop"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.vietnamese-pop",
+      "displayName": "Vietnamese pop",
+      "family": "global-traditional",
+      "aliases": [
+        "v-pop"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.filipino-pop",
+      "displayName": "Filipino pop",
+      "family": "global-traditional",
+      "aliases": [
+        "opm",
+        "p-pop"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.mongolian-folk",
+      "displayName": "Mongolian folk",
+      "family": "global-traditional",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.tuvan-throat-singing",
+      "displayName": "Tuvan throat singing",
+      "family": "global-traditional",
+      "aliases": [
+        "throat singing"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.alternative",
+      "displayName": "alternative",
+      "family": "rock",
+      "aliases": [
+        "alternative music"
+      ],
+      "parentID": "genre.rock",
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.global",
+      "displayName": "global",
+      "family": "global-traditional",
+      "aliases": [
+        "worldwide",
+        "world music"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.easy-listening",
+      "displayName": "easy listening",
+      "family": "pop",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.holiday",
+      "displayName": "holiday",
+      "family": "pop",
+      "aliases": [
+        "christmas",
+        "seasonal"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.childrens-music",
+      "displayName": "children's music",
+      "family": "pop",
+      "aliases": [
+        "kids music",
+        "children"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.comedy",
+      "displayName": "comedy",
+      "family": "global-traditional",
+      "aliases": [
+        "comedy album"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.spoken-word",
+      "displayName": "spoken word",
+      "family": "global-traditional",
+      "aliases": [
+        "spoken-word"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.poetry",
+      "displayName": "poetry",
+      "family": "global-traditional",
+      "aliases": [
+        "poetry reading"
+      ],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    },
+    {
+      "id": "genre.karaoke",
+      "displayName": "karaoke",
+      "family": "global-traditional",
+      "aliases": [],
+      "parentID": null,
+      "recommendationRole": "catalogQuery"
+    }
+  ]
+}

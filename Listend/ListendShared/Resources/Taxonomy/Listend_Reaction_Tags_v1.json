@@ -1,0 +1,4747 @@
+{
+  "taxonomyVersion": "1.0.0-draft",
+  "generatedDate": "2026-07-27",
+  "purpose": "Canonical listener reaction vocabulary for Listend album logs.",
+  "categories": [
+    {
+      "id": "mood-vibe",
+      "displayName": "Mood & Vibe"
+    },
+    {
+      "id": "energy-movement",
+      "displayName": "Energy & Movement"
+    },
+    {
+      "id": "sonic-character",
+      "displayName": "Sonic Character"
+    },
+    {
+      "id": "craft-performance",
+      "displayName": "Craft & Performance"
+    },
+    {
+      "id": "listening-context",
+      "displayName": "Listening Context"
+    },
+    {
+      "id": "personal-reaction",
+      "displayName": "Personal Reaction"
+    },
+    {
+      "id": "friction-critique",
+      "displayName": "Friction & Critique"
+    }
+  ],
+  "allowedPolarities": [
+    "mixed",
+    "negative",
+    "neutral",
+    "positive"
+  ],
+  "allowedRecommendationRoles": [
+    "avoidanceSignal",
+    "displayOnly",
+    "tasteSignalOnly"
+  ],
+  "soundPrintDimensions": [
+    "emotionalDirectness",
+    "energy",
+    "eraAffinity",
+    "experimentation",
+    "genreOpenness",
+    "instrumentalRichness",
+    "lyricFocus",
+    "mood",
+    "productionStyle",
+    "replayability",
+    "texturePreference",
+    "tracklistConsistency",
+    "vocalFocus"
+  ],
+  "avoidanceSignals": [
+    "energyWithoutPayoff",
+    "fillerSensitivity",
+    "lowReplayValue",
+    "moodMismatch",
+    "skipHeavyAlbums",
+    "sterileProduction",
+    "weakWriting"
+  ],
+  "tags": [
+    {
+      "id": "mood.feel-good",
+      "displayName": "feel-good",
+      "category": "mood-vibe",
+      "definition": "Light, positive, easy-to-enjoy emotional energy.",
+      "aliases": [
+        "happy",
+        "good vibes",
+        "cheerful",
+        "positive"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.uplifting",
+      "displayName": "uplifting",
+      "category": "mood-vibe",
+      "definition": "Leaves the listener feeling encouraged, lighter, or more hopeful.",
+      "aliases": [
+        "hopeful",
+        "inspiring",
+        "raises me up"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.euphoric",
+      "displayName": "euphoric",
+      "category": "mood-vibe",
+      "definition": "Creates an intense rush of joy, release, or emotional elevation.",
+      "aliases": [
+        "ecstatic",
+        "blissful",
+        "pure euphoria"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.celebratory",
+      "displayName": "celebratory",
+      "category": "mood-vibe",
+      "definition": "Feels built for a win, milestone, or shared celebration.",
+      "aliases": [
+        "victory lap",
+        "celebration",
+        "champagne music"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.playful",
+      "displayName": "playful",
+      "category": "mood-vibe",
+      "definition": "Uses humor, lightness, or mischievous energy.",
+      "aliases": [
+        "fun",
+        "silly",
+        "cheeky"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.carefree",
+      "displayName": "carefree",
+      "category": "mood-vibe",
+      "definition": "Feels loose, unburdened, and unconcerned with consequences.",
+      "aliases": [
+        "free-spirited",
+        "no worries"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "mood.confident",
+      "displayName": "confident",
+      "category": "mood-vibe",
+      "definition": "Projects assurance, control, and self-belief.",
+      "aliases": [
+        "swagger",
+        "self-assured",
+        "bossed up",
+        "main character"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.hype",
+      "displayName": "hype",
+      "category": "mood-vibe",
+      "definition": "Creates an excited, fired-up reaction that makes the listener feel ready for the moment.",
+      "aliases": [
+        "turnt",
+        "hyped",
+        "fired up",
+        "lit"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.triumphant",
+      "displayName": "triumphant",
+      "category": "mood-vibe",
+      "definition": "Feels victorious, overcoming, or earned after struggle.",
+      "aliases": [
+        "victorious",
+        "winning",
+        "comeback music"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "mood.empowering",
+      "displayName": "empowering",
+      "category": "mood-vibe",
+      "definition": "Makes the listener feel capable, resilient, or stronger.",
+      "aliases": [
+        "motivating",
+        "powerful",
+        "confidence boost"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.rebellious",
+      "displayName": "rebellious",
+      "category": "mood-vibe",
+      "definition": "Pushes against rules, expectations, or authority.",
+      "aliases": [
+        "defiant",
+        "anti-establishment",
+        "fuck the rules"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "mood.romantic",
+      "displayName": "romantic",
+      "category": "mood-vibe",
+      "definition": "Centers affection, longing, devotion, or idealized love.",
+      "aliases": [
+        "love song energy",
+        "in love",
+        "romance"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "emotionalDirectness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.intimate",
+      "displayName": "intimate",
+      "category": "mood-vibe",
+      "definition": "Feels private, close, and emotionally near to the performer.",
+      "aliases": [
+        "close-up",
+        "personal",
+        "private"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "emotionalDirectness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.sensual",
+      "displayName": "sensual",
+      "category": "mood-vibe",
+      "definition": "Feels tactile, seductive, or physically expressive.",
+      "aliases": [
+        "sexy",
+        "seductive",
+        "sultry"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.tender",
+      "displayName": "tender",
+      "category": "mood-vibe",
+      "definition": "Expresses softness, care, or emotional gentleness.",
+      "aliases": [
+        "gentle",
+        "soft-hearted",
+        "delicate feeling"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "emotionalDirectness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.melancholic",
+      "displayName": "melancholic",
+      "category": "mood-vibe",
+      "definition": "Carries sustained sadness, reflection, or emotional heaviness.",
+      "aliases": [
+        "melancholy",
+        "blue",
+        "sad but beautiful"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.heartbroken",
+      "displayName": "heartbroken",
+      "category": "mood-vibe",
+      "definition": "Centers romantic loss, grief, or the aftermath of a breakup.",
+      "aliases": [
+        "breakup music",
+        "brokenhearted",
+        "post-breakup"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "emotionalDirectness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.lonely",
+      "displayName": "lonely",
+      "category": "mood-vibe",
+      "definition": "Evokes isolation, disconnection, or being emotionally alone.",
+      "aliases": [
+        "isolated",
+        "solitary"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "mood.vulnerable",
+      "displayName": "vulnerable",
+      "category": "mood-vibe",
+      "definition": "Feels emotionally exposed, honest, and unguarded.",
+      "aliases": [
+        "open-hearted",
+        "unguarded",
+        "emotionally exposed"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "emotionalDirectness",
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.yearning",
+      "displayName": "yearning",
+      "category": "mood-vibe",
+      "definition": "Expresses unresolved desire, longing, or reaching for something absent.",
+      "aliases": [
+        "longing",
+        "aching",
+        "pining"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "emotionalDirectness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.bittersweet",
+      "displayName": "bittersweet",
+      "category": "mood-vibe",
+      "definition": "Blends pleasure and sadness without resolving fully into either.",
+      "aliases": [
+        "happy-sad",
+        "sweet and sad",
+        "mixed emotions"
+      ],
+      "polarity": "mixed",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.nostalgic",
+      "displayName": "nostalgic",
+      "category": "mood-vibe",
+      "definition": "Pulls the listener toward a remembered time, place, or version of themselves.",
+      "aliases": [
+        "nostalgia",
+        "throwback feeling",
+        "memory lane"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "eraAffinity"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.reflective",
+      "displayName": "reflective",
+      "category": "mood-vibe",
+      "definition": "Encourages thoughtful consideration of experience or memory.",
+      "aliases": [
+        "thoughtful",
+        "contemplative",
+        "makes me reflect"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.introspective",
+      "displayName": "introspective",
+      "category": "mood-vibe",
+      "definition": "Turns inward toward identity, motives, or personal conflict.",
+      "aliases": [
+        "self-reflective",
+        "inward-looking",
+        "internal"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "emotionalDirectness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.comforting",
+      "displayName": "comforting",
+      "category": "mood-vibe",
+      "definition": "Feels reassuring, familiar, or emotionally safe.",
+      "aliases": [
+        "cozy",
+        "reassuring",
+        "safe"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.calm",
+      "displayName": "calm",
+      "category": "mood-vibe",
+      "definition": "Creates stillness, ease, or emotional quiet.",
+      "aliases": [
+        "peaceful",
+        "serene",
+        "relaxing"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.dreamy",
+      "displayName": "dreamy",
+      "category": "mood-vibe",
+      "definition": "Feels hazy, soft-focused, or suspended between waking and imagination.",
+      "aliases": [
+        "hazy",
+        "dreamlike"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.ethereal",
+      "displayName": "ethereal",
+      "category": "mood-vibe",
+      "definition": "Feels weightless, delicate, and almost otherworldly.",
+      "aliases": [
+        "angelic",
+        "celestial",
+        "weightless"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.mysterious",
+      "displayName": "mysterious",
+      "category": "mood-vibe",
+      "definition": "Withholds clarity and creates curiosity, ambiguity, or intrigue.",
+      "aliases": [
+        "enigmatic",
+        "cryptic",
+        "unknown"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.dark",
+      "displayName": "dark",
+      "category": "mood-vibe",
+      "definition": "Carries emotionally shadowed, serious, or unsettling subject matter.",
+      "aliases": [
+        "bleak",
+        "shadowy",
+        "grim"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.menacing",
+      "displayName": "menacing",
+      "category": "mood-vibe",
+      "definition": "Feels threatening, intimidating, or dangerous.",
+      "aliases": [
+        "sinister",
+        "threatening",
+        "villainous"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.haunting",
+      "displayName": "haunting",
+      "category": "mood-vibe",
+      "definition": "Lingers through eerie beauty, grief, or unresolved emotional tension.",
+      "aliases": [
+        "eerie",
+        "ghostly",
+        "lingering"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.anxious",
+      "displayName": "anxious",
+      "category": "mood-vibe",
+      "definition": "Creates unease, nervous motion, or emotional pressure.",
+      "aliases": [
+        "tense",
+        "restless",
+        "on edge"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.cathartic",
+      "displayName": "cathartic",
+      "category": "mood-vibe",
+      "definition": "Provides emotional release through intensity, honesty, or resolution.",
+      "aliases": [
+        "emotional release",
+        "cleansing",
+        "let it out"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "emotionalDirectness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "mood.spiritual",
+      "displayName": "spiritual",
+      "category": "mood-vibe",
+      "definition": "Feels connected to faith, transcendence, ritual, or a larger meaning.",
+      "aliases": [
+        "sacred",
+        "transcendent",
+        "devotional feeling"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "mood.soulful",
+      "displayName": "soulful",
+      "category": "mood-vibe",
+      "definition": "Feels deeply expressive, heartfelt, and emotionally lived-in.",
+      "aliases": [
+        "heartfelt",
+        "deep feeling"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "emotionalDirectness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "energy.high-energy",
+      "displayName": "high-energy",
+      "category": "energy-movement",
+      "definition": "Maintains a fast, forceful, or highly activated level of energy.",
+      "aliases": [
+        "energetic",
+        "amped",
+        "high energy"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "energy.hard-hitting",
+      "displayName": "hard-hitting",
+      "category": "energy-movement",
+      "definition": "Lands with physical force through drums, bass, delivery, or impact.",
+      "aliases": [
+        "hits hard",
+        "heavy impact",
+        "punchy"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "energy",
+        "productionStyle"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "energy.explosive",
+      "displayName": "explosive",
+      "category": "energy-movement",
+      "definition": "Builds or erupts into sudden, overwhelming intensity.",
+      "aliases": [
+        "erupts",
+        "blows up",
+        "bursting"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "energy.propulsive",
+      "displayName": "propulsive",
+      "category": "energy-movement",
+      "definition": "Creates constant forward motion that keeps pulling the listener ahead.",
+      "aliases": [
+        "driving rhythm",
+        "forward motion",
+        "urgent momentum"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "energy.upbeat",
+      "displayName": "upbeat",
+      "category": "energy-movement",
+      "definition": "Moves with a lively tempo and bright rhythmic feel.",
+      "aliases": [
+        "lively",
+        "brisk",
+        "up-tempo"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "energy.bouncy",
+      "displayName": "bouncy",
+      "category": "energy-movement",
+      "definition": "Has a springy, buoyant rhythmic feel.",
+      "aliases": [
+        "bounce",
+        "springy",
+        "rubbery groove"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "energy.danceable",
+      "displayName": "danceable",
+      "category": "energy-movement",
+      "definition": "Naturally invites physical movement or dancing.",
+      "aliases": [
+        "makes me dance",
+        "dance floor",
+        "moveable"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "energy.groovy",
+      "displayName": "groovy",
+      "category": "energy-movement",
+      "definition": "Locks into an easy, satisfying rhythmic pocket.",
+      "aliases": [
+        "in the pocket",
+        "smooth groove",
+        "groove-heavy"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "energy.funky",
+      "displayName": "funky",
+      "category": "energy-movement",
+      "definition": "Uses syncopation, rhythmic tension, or pocket-driven movement associated with funk.",
+      "aliases": [
+        "funky groove",
+        "syncopated",
+        "funked up"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [
+        "rnb-soul-funk",
+        "jazz-blues",
+        "electronic-dance"
+      ],
+      "soundPrintDimensions": [
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "energy.head-nodding",
+      "displayName": "head-nodding",
+      "category": "energy-movement",
+      "definition": "Has a beat or pocket that invites a steady head nod.",
+      "aliases": [
+        "head nod",
+        "neck snap",
+        "beat knocks"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [
+        "hip-hop-rap",
+        "electronic-dance",
+        "rnb-soul-funk"
+      ],
+      "soundPrintDimensions": [
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "energy.mosh-ready",
+      "displayName": "mosh-ready",
+      "category": "energy-movement",
+      "definition": "Feels suited to a pit, crowd surge, or aggressive live release.",
+      "aliases": [
+        "mosh pit",
+        "pit music",
+        "crowd killer"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [
+        "punk-hardcore-metal",
+        "rock"
+      ],
+      "soundPrintDimensions": [
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "energy.laid-back",
+      "displayName": "laid-back",
+      "category": "energy-movement",
+      "definition": "Moves with relaxed pacing and little urgency.",
+      "aliases": [
+        "unhurried"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "energy.mellow",
+      "displayName": "mellow",
+      "category": "energy-movement",
+      "definition": "Keeps its intensity soft, smooth, and restrained.",
+      "aliases": [
+        "low-key",
+        "soft energy",
+        "easy listening"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "energy.slow-burn",
+      "displayName": "slow burn",
+      "category": "energy-movement",
+      "definition": "Develops gradually and rewards patience rather than immediate impact.",
+      "aliases": [
+        "builds slowly",
+        "patient",
+        "gradual"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "energy",
+        "tracklistConsistency"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "energy.meditative",
+      "displayName": "meditative",
+      "category": "energy-movement",
+      "definition": "Uses repetition, space, or restraint to encourage focused stillness.",
+      "aliases": [
+        "zen",
+        "trance-like",
+        "centering"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "energy",
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "energy.relentless",
+      "displayName": "relentless",
+      "category": "energy-movement",
+      "definition": "Sustains pressure or intensity with very little release.",
+      "aliases": [
+        "nonstop",
+        "unrelenting",
+        "no breathing room"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "sonic.bass-heavy",
+      "displayName": "bass-heavy",
+      "category": "sonic-character",
+      "definition": "Places low-end weight and bass presence at the center of the sound.",
+      "aliases": [
+        "big bass",
+        "heavy bass",
+        "low-end heavy"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [
+        "hip-hop-rap",
+        "electronic-dance",
+        "caribbean",
+        "african"
+      ],
+      "soundPrintDimensions": [
+        "productionStyle",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.drum-forward",
+      "displayName": "drum-forward",
+      "category": "sonic-character",
+      "definition": "Makes drums or percussion the most prominent part of the arrangement.",
+      "aliases": [
+        "drum heavy",
+        "drums upfront",
+        "percussion-led"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "productionStyle",
+        "instrumentalRichness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.guitar-driven",
+      "displayName": "guitar-driven",
+      "category": "sonic-character",
+      "definition": "Builds the track or album primarily around guitar parts.",
+      "aliases": [
+        "guitar heavy",
+        "guitar-led",
+        "riff-driven"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [
+        "rock",
+        "punk-hardcore-metal",
+        "country-folk-americana"
+      ],
+      "soundPrintDimensions": [
+        "instrumentalRichness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.piano-led",
+      "displayName": "piano-led",
+      "category": "sonic-character",
+      "definition": "Uses piano as a central melodic or harmonic voice.",
+      "aliases": [
+        "piano-driven",
+        "piano heavy",
+        "keys-led"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "instrumentalRichness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "sonic.synth-heavy",
+      "displayName": "synth-heavy",
+      "category": "sonic-character",
+      "definition": "Relies strongly on synthesizers for melody, harmony, or texture.",
+      "aliases": [
+        "synth-driven",
+        "lots of synths",
+        "synthy"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [
+        "electronic-dance",
+        "pop",
+        "ambient-experimental"
+      ],
+      "soundPrintDimensions": [
+        "productionStyle",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.string-led",
+      "displayName": "string-led",
+      "category": "sonic-character",
+      "definition": "Uses bowed or arranged strings as a defining part of the sound.",
+      "aliases": [
+        "string-heavy",
+        "strings upfront",
+        "orchestral strings"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [
+        "classical",
+        "soundtrack-stage",
+        "pop"
+      ],
+      "soundPrintDimensions": [
+        "instrumentalRichness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "sonic.horn-driven",
+      "displayName": "horn-driven",
+      "category": "sonic-character",
+      "definition": "Centers brass or woodwind parts in the arrangement.",
+      "aliases": [
+        "horn-heavy",
+        "brass-heavy",
+        "sax-forward"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [
+        "jazz-blues",
+        "rnb-soul-funk",
+        "latin",
+        "african"
+      ],
+      "soundPrintDimensions": [
+        "instrumentalRichness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "sonic.percussion-heavy",
+      "displayName": "percussion-heavy",
+      "category": "sonic-character",
+      "definition": "Uses layered or prominent percussion beyond a basic drum-kit role.",
+      "aliases": [
+        "rhythm-heavy",
+        "percussive",
+        "lots of percussion"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [
+        "latin",
+        "african",
+        "caribbean",
+        "electronic-dance"
+      ],
+      "soundPrintDimensions": [
+        "instrumentalRichness",
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "sonic.acoustic",
+      "displayName": "acoustic",
+      "category": "sonic-character",
+      "definition": "Leans on unamplified or naturally resonant instruments and a stripped-back sound.",
+      "aliases": [
+        "unplugged",
+        "acoustic sound",
+        "natural instruments"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [
+        "country-folk-americana",
+        "classical",
+        "jazz-blues"
+      ],
+      "soundPrintDimensions": [
+        "productionStyle",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.orchestral",
+      "displayName": "orchestral",
+      "category": "sonic-character",
+      "definition": "Uses large-scale arranged instrumentation with symphonic breadth.",
+      "aliases": [
+        "symphonic",
+        "full orchestra",
+        "orchestra"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [
+        "classical",
+        "soundtrack-stage",
+        "pop"
+      ],
+      "soundPrintDimensions": [
+        "instrumentalRichness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.atmospheric",
+      "displayName": "atmospheric",
+      "category": "sonic-character",
+      "definition": "Prioritizes environment, mood, and sonic space over direct impact.",
+      "aliases": [
+        "ambient feeling",
+        "moody atmosphere",
+        "atmosphere"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "texturePreference",
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.spacious",
+      "displayName": "spacious",
+      "category": "sonic-character",
+      "definition": "Leaves audible room between elements and creates a wide sense of space.",
+      "aliases": [
+        "wide open",
+        "lots of space",
+        "open mix"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "texturePreference",
+        "productionStyle"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.immersive",
+      "displayName": "immersive",
+      "category": "sonic-character",
+      "definition": "Surrounds the listener with a convincing, absorbing sonic environment.",
+      "aliases": [
+        "enveloping",
+        "pulls me in",
+        "surrounding"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "texturePreference",
+        "instrumentalRichness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.layered",
+      "displayName": "layered",
+      "category": "sonic-character",
+      "definition": "Rewards attention through multiple interacting sonic or musical layers.",
+      "aliases": [
+        "many layers",
+        "stacked",
+        "detailed layers"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "instrumentalRichness",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.dense",
+      "displayName": "dense",
+      "category": "sonic-character",
+      "definition": "Packs many sounds or musical ideas into a limited amount of space.",
+      "aliases": [
+        "packed",
+        "busy mix",
+        "thick"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "instrumentalRichness",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "sonic.minimal",
+      "displayName": "minimal",
+      "category": "sonic-character",
+      "definition": "Uses a deliberately limited palette, arrangement, or number of elements.",
+      "aliases": [
+        "stripped-back",
+        "sparse",
+        "bare"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "productionStyle",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.airy",
+      "displayName": "airy",
+      "category": "sonic-character",
+      "definition": "Feels light, breathable, and open in the upper frequencies or arrangement.",
+      "aliases": [
+        "lightweight",
+        "breathy",
+        "open-air"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.lush",
+      "displayName": "lush",
+      "category": "sonic-character",
+      "definition": "Feels rich, full, and sensuously arranged.",
+      "aliases": [
+        "rich sound",
+        "full-bodied",
+        "plush"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "instrumentalRichness",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.textured",
+      "displayName": "textured",
+      "category": "sonic-character",
+      "definition": "Uses distinctive surfaces, timbres, or sonic grain as a major appeal.",
+      "aliases": [
+        "tactile",
+        "sonic texture",
+        "grainy"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.wall-of-sound",
+      "displayName": "wall of sound",
+      "category": "sonic-character",
+      "definition": "Creates a large, blended mass of sound with few empty spaces.",
+      "aliases": [
+        "huge wall",
+        "massive sound",
+        "sonic wall"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "texturePreference",
+        "productionStyle"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "sonic.polished",
+      "displayName": "polished",
+      "category": "sonic-character",
+      "definition": "Feels carefully finished, controlled, and professionally refined.",
+      "aliases": [
+        "slick",
+        "well-produced"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "productionStyle"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.raw-production",
+      "displayName": "raw production",
+      "category": "sonic-character",
+      "definition": "Preserves rough edges, immediacy, or an intentionally unrefined recording character.",
+      "aliases": [
+        "rough production",
+        "unpolished",
+        "demo-like"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "productionStyle",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.gritty",
+      "displayName": "gritty",
+      "category": "sonic-character",
+      "definition": "Uses rough, dirty, or abrasive texture without becoming fully distorted.",
+      "aliases": [
+        "grimy",
+        "dirty sound",
+        "dusty"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "texturePreference",
+        "productionStyle"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.lo-fi",
+      "displayName": "lo-fi",
+      "category": "sonic-character",
+      "definition": "Embraces limited fidelity, noise, or home-recorded texture as part of the aesthetic.",
+      "aliases": [
+        "lo fi",
+        "low fidelity",
+        "bedroom-recorded"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [
+        "hip-hop-rap",
+        "rock",
+        "ambient-experimental"
+      ],
+      "soundPrintDimensions": [
+        "productionStyle",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.distorted",
+      "displayName": "distorted",
+      "category": "sonic-character",
+      "definition": "Uses clipping, saturation, fuzz, or deliberate sonic breakup.",
+      "aliases": [
+        "fuzzy",
+        "overdriven",
+        "blown out"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [
+        "rock",
+        "punk-hardcore-metal",
+        "electronic-dance",
+        "ambient-experimental"
+      ],
+      "soundPrintDimensions": [
+        "texturePreference",
+        "productionStyle"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.live-sounding",
+      "displayName": "live-sounding",
+      "category": "sonic-character",
+      "definition": "Feels captured as a performance in a room rather than assembled entirely in production.",
+      "aliases": [
+        "live feel",
+        "room sound",
+        "band in a room"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "productionStyle",
+        "instrumentalRichness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "sonic.sample-heavy",
+      "displayName": "sample-heavy",
+      "category": "sonic-character",
+      "definition": "Builds much of its identity from prominent or layered samples.",
+      "aliases": [
+        "sample-driven",
+        "lots of samples",
+        "chopped samples"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [
+        "hip-hop-rap",
+        "electronic-dance"
+      ],
+      "soundPrintDimensions": [
+        "productionStyle",
+        "experimentation"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.warm-production",
+      "displayName": "warm production",
+      "category": "sonic-character",
+      "definition": "Uses rounded, rich, or softly saturated tonal character.",
+      "aliases": [
+        "warm sounding",
+        "analog warmth",
+        "warm mix"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "productionStyle",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.cold-production",
+      "displayName": "cold production",
+      "category": "sonic-character",
+      "definition": "Uses stark, icy, metallic, or emotionally detached tonal character.",
+      "aliases": [
+        "icy production",
+        "frosty sound",
+        "glacial production"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "productionStyle",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.bright-production",
+      "displayName": "bright production",
+      "category": "sonic-character",
+      "definition": "Emphasizes clear, vivid, or sparkling upper-frequency energy.",
+      "aliases": [
+        "bright sound",
+        "shimmering",
+        "sparkly production"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "productionStyle",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "sonic.dark-production",
+      "displayName": "dark production",
+      "category": "sonic-character",
+      "definition": "Uses low-lit, shadowy, or ominous sonic choices independent of lyrical mood.",
+      "aliases": [
+        "dark beat",
+        "shadowy production",
+        "ominous production"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "productionStyle",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.retro",
+      "displayName": "retro",
+      "category": "sonic-character",
+      "definition": "Intentionally evokes the sound or production language of an earlier era.",
+      "aliases": [
+        "throwback sound",
+        "vintage",
+        "old-school sound"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "eraAffinity",
+        "productionStyle"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.futuristic",
+      "displayName": "futuristic",
+      "category": "sonic-character",
+      "definition": "Feels technologically forward, unfamiliar, or ahead of current conventions.",
+      "aliases": [
+        "future-facing",
+        "sci-fi",
+        "next-level sound"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "experimentation",
+        "productionStyle"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.organic",
+      "displayName": "organic",
+      "category": "sonic-character",
+      "definition": "Feels natural, human, and physically performed rather than heavily synthetic.",
+      "aliases": [
+        "natural sound",
+        "human feel",
+        "earthy"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "productionStyle",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "sonic.industrial",
+      "displayName": "industrial",
+      "category": "sonic-character",
+      "definition": "Uses mechanical, metallic, or factory-like texture and rhythm.",
+      "aliases": [
+        "mechanical",
+        "metallic",
+        "factory sound"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [
+        "electronic-dance",
+        "punk-hardcore-metal",
+        "ambient-experimental"
+      ],
+      "soundPrintDimensions": [
+        "texturePreference",
+        "productionStyle"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "sonic.psychedelic",
+      "displayName": "psychedelic",
+      "category": "sonic-character",
+      "definition": "Uses altered, swirling, disorienting, or perception-shifting sonic effects.",
+      "aliases": [
+        "trippy",
+        "mind-bending",
+        "acid-soaked"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [
+        "rock",
+        "rnb-soul-funk",
+        "electronic-dance",
+        "ambient-experimental"
+      ],
+      "soundPrintDimensions": [
+        "experimentation",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.cinematic",
+      "displayName": "cinematic",
+      "category": "sonic-character",
+      "definition": "Feels large-scale, scene-setting, or suited to visual storytelling.",
+      "aliases": [
+        "movie-like",
+        "soundtrack energy",
+        "epic"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "instrumentalRichness",
+        "mood"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "sonic.maximalist",
+      "displayName": "maximalist",
+      "category": "sonic-character",
+      "definition": "Pursues abundance, excess, or many simultaneous ideas and textures.",
+      "aliases": [
+        "over-the-top",
+        "huge arrangement",
+        "everything at once"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "instrumentalRichness",
+        "experimentation"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "sonic.genre-blending",
+      "displayName": "genre-blending",
+      "category": "sonic-character",
+      "definition": "Combines recognizable elements from multiple styles into one sound.",
+      "aliases": [
+        "genre-bending",
+        "fusion",
+        "cross-genre"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "genreOpenness",
+        "experimentation"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.bars",
+      "displayName": "bars",
+      "category": "craft-performance",
+      "definition": "The rap writing stands out for sharp lines, punchlines, or sustained lyrical skill.",
+      "aliases": [
+        "pen game",
+        "rap writing",
+        "spitting",
+        "lyrical"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [
+        "hip-hop-rap"
+      ],
+      "soundPrintDimensions": [
+        "lyricFocus"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.lyricism",
+      "displayName": "lyricism",
+      "category": "craft-performance",
+      "definition": "The words reward close attention through meaning, imagery, or craft.",
+      "aliases": [
+        "lyrics",
+        "strong writing",
+        "lyrical depth"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "lyricFocus"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.storytelling",
+      "displayName": "storytelling",
+      "category": "craft-performance",
+      "definition": "The writing builds scenes, characters, events, or a clear narrative.",
+      "aliases": [
+        "narrative",
+        "story-driven",
+        "paints a picture"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "lyricFocus"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.confessional-writing",
+      "displayName": "confessional writing",
+      "category": "craft-performance",
+      "definition": "The writing presents private experience with unusual honesty or specificity.",
+      "aliases": [
+        "diary-like",
+        "personal writing",
+        "confessional"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "lyricFocus",
+        "emotionalDirectness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.poetic-writing",
+      "displayName": "poetic writing",
+      "category": "craft-performance",
+      "definition": "The language uses imagery, metaphor, rhythm, or ambiguity in a literary way.",
+      "aliases": [
+        "poetic",
+        "beautiful writing",
+        "literary"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "lyricFocus"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.witty",
+      "displayName": "witty",
+      "category": "craft-performance",
+      "definition": "The writing or performance uses clever humor, timing, or verbal play.",
+      "aliases": [
+        "funny",
+        "clever",
+        "sharp humor"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "lyricFocus"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.quotable",
+      "displayName": "quotable",
+      "category": "craft-performance",
+      "definition": "Contains lines or phrases the listener wants to remember, repeat, or share.",
+      "aliases": [
+        "caption-worthy",
+        "memorable lines",
+        "one-liners"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "lyricFocus",
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.wordplay",
+      "displayName": "wordplay",
+      "category": "craft-performance",
+      "definition": "Uses puns, double meanings, internal connections, or verbal technique.",
+      "aliases": [
+        "double entendres",
+        "puns",
+        "clever bars"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "lyricFocus"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.socially-conscious",
+      "displayName": "socially conscious",
+      "category": "craft-performance",
+      "definition": "Engages directly with social, political, cultural, or community concerns.",
+      "aliases": [
+        "political",
+        "conscious",
+        "message-driven"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "lyricFocus"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.conceptual-writing",
+      "displayName": "conceptual writing",
+      "category": "craft-performance",
+      "definition": "Organizes the writing around a sustained idea, perspective, or thematic device.",
+      "aliases": [
+        "strong concept",
+        "thematic writing",
+        "concept-driven"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "lyricFocus",
+        "experimentation"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.hooks",
+      "displayName": "hooks",
+      "category": "craft-performance",
+      "definition": "The repeated melodic or lyrical phrases are a major strength.",
+      "aliases": [
+        "great hooks",
+        "hooky",
+        "chorus game"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.catchy",
+      "displayName": "catchy",
+      "category": "craft-performance",
+      "definition": "Melodies, rhythms, or phrases stick quickly and return easily to mind.",
+      "aliases": [
+        "ear-catching",
+        "sticks in my head",
+        "infectious"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.strong-melodies",
+      "displayName": "strong melodies",
+      "category": "craft-performance",
+      "definition": "The melodic writing carries the songs and remains memorable.",
+      "aliases": [
+        "melodic",
+        "great melodies",
+        "melody-first"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.memorable-chorus",
+      "displayName": "memorable chorus",
+      "category": "craft-performance",
+      "definition": "One or more choruses stand out as especially lasting or effective.",
+      "aliases": [
+        "big chorus",
+        "great chorus",
+        "chorus sticks"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.anthemic",
+      "displayName": "anthemic",
+      "category": "craft-performance",
+      "definition": "Feels built for collective singing, large emotion, or crowd-scale release.",
+      "aliases": [
+        "stadium-ready",
+        "singalong",
+        "big anthem"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "energy",
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.strong-vocals",
+      "displayName": "strong vocals",
+      "category": "craft-performance",
+      "definition": "The vocal performance is a clear strength in control, expression, or presence.",
+      "aliases": [
+        "vocals",
+        "great singing",
+        "vocal performance"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "vocalFocus"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.powerhouse-vocals",
+      "displayName": "powerhouse vocals",
+      "category": "craft-performance",
+      "definition": "The singer delivers exceptional force, range, projection, or technical command.",
+      "aliases": [
+        "big vocals",
+        "belting",
+        "vocal powerhouse"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "vocalFocus"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.smooth-vocals",
+      "displayName": "smooth vocals",
+      "category": "craft-performance",
+      "definition": "The voice moves with ease, polish, and little audible strain.",
+      "aliases": [
+        "silky vocals",
+        "effortless vocals",
+        "smooth singing"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "vocalFocus"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.soulful-vocals",
+      "displayName": "soulful vocals",
+      "category": "craft-performance",
+      "definition": "The vocal performance communicates depth, feeling, and lived-in expression.",
+      "aliases": [
+        "emotional vocals",
+        "heartfelt singing"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "vocalFocus",
+        "emotionalDirectness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.raw-vocals",
+      "displayName": "raw vocals",
+      "category": "craft-performance",
+      "definition": "The voice preserves strain, imperfection, or emotional immediacy.",
+      "aliases": [
+        "unpolished vocals",
+        "rough vocals",
+        "emotionally raw singing"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "vocalFocus",
+        "emotionalDirectness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.harmonies",
+      "displayName": "harmonies",
+      "category": "craft-performance",
+      "definition": "Layered or interacting vocal parts are a defining strength.",
+      "aliases": [
+        "vocal harmonies",
+        "stacked vocals",
+        "beautiful harmonies"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "vocalFocus",
+        "instrumentalRichness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.flows",
+      "displayName": "flows",
+      "category": "craft-performance",
+      "definition": "The rapper’s rhythmic patterns and movement across beats stand out.",
+      "aliases": [
+        "flow",
+        "switches flows",
+        "rap flow"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [
+        "hip-hop-rap"
+      ],
+      "soundPrintDimensions": [
+        "lyricFocus",
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.delivery",
+      "displayName": "delivery",
+      "category": "craft-performance",
+      "definition": "The performer’s emphasis, tone, timing, and presence elevate the material.",
+      "aliases": [
+        "vocal delivery",
+        "rap delivery",
+        "performance"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "vocalFocus",
+        "lyricFocus"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.cadence",
+      "displayName": "cadence",
+      "category": "craft-performance",
+      "definition": "The rhythmic shape and phrasing of the vocal performance are especially effective.",
+      "aliases": [
+        "rhythmic phrasing",
+        "cadences",
+        "pocket"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [
+        "hip-hop-rap",
+        "rnb-soul-funk"
+      ],
+      "soundPrintDimensions": [
+        "vocalFocus",
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.charisma",
+      "displayName": "charisma",
+      "category": "craft-performance",
+      "definition": "The performer’s personality and presence make the material more compelling.",
+      "aliases": [
+        "star power",
+        "presence",
+        "personality"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "vocalFocus"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.technical-rapping",
+      "displayName": "technical rapping",
+      "category": "craft-performance",
+      "definition": "The rap performance emphasizes precision, complexity, breath control, or difficult patterns.",
+      "aliases": [
+        "technical bars",
+        "complex flows",
+        "rap technique"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [
+        "hip-hop-rap"
+      ],
+      "soundPrintDimensions": [
+        "lyricFocus"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.melodic-delivery",
+      "displayName": "melodic delivery",
+      "category": "craft-performance",
+      "definition": "The vocal performance moves fluidly between singing, rapping, or tuneful phrasing.",
+      "aliases": [
+        "sing-rap",
+        "melodic rap",
+        "sung delivery"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [
+        "hip-hop-rap",
+        "rnb-soul-funk",
+        "pop"
+      ],
+      "soundPrintDimensions": [
+        "vocalFocus",
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.musicianship",
+      "displayName": "musicianship",
+      "category": "craft-performance",
+      "definition": "The instrumental skill, interaction, or performance technique stands out.",
+      "aliases": [
+        "playing",
+        "instrumental skill",
+        "musical chops"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "instrumentalRichness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.guitar-work",
+      "displayName": "guitar work",
+      "category": "craft-performance",
+      "definition": "The guitar playing, riffs, tone, or arrangement is a major strength.",
+      "aliases": [
+        "great guitar",
+        "riffs",
+        "guitar playing"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [
+        "rock",
+        "punk-hardcore-metal",
+        "country-folk-americana",
+        "jazz-blues"
+      ],
+      "soundPrintDimensions": [
+        "instrumentalRichness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.drumming",
+      "displayName": "drumming",
+      "category": "craft-performance",
+      "definition": "The drum performance, programming, or rhythmic detail stands out.",
+      "aliases": [
+        "great drums",
+        "drum work",
+        "percussion"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "instrumentalRichness",
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.bassline",
+      "displayName": "bassline",
+      "category": "craft-performance",
+      "definition": "The bass part is especially memorable, musical, or groove-defining.",
+      "aliases": [
+        "bass line",
+        "great bass",
+        "bass groove"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "instrumentalRichness",
+        "energy"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.piano-work",
+      "displayName": "piano work",
+      "category": "craft-performance",
+      "definition": "The piano or keyboard playing is a major musical strength.",
+      "aliases": [
+        "great piano",
+        "keys",
+        "keyboard work"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "instrumentalRichness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.solos",
+      "displayName": "solos",
+      "category": "craft-performance",
+      "definition": "Instrumental solo sections provide a major highlight.",
+      "aliases": [
+        "great solos",
+        "soloing",
+        "instrumental breaks"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "instrumentalRichness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.great-features",
+      "displayName": "great features",
+      "category": "craft-performance",
+      "definition": "Guest appearances consistently add value to the songs.",
+      "aliases": [
+        "features",
+        "guest verses",
+        "cameos"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "vocalFocus"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.artist-chemistry",
+      "displayName": "artist chemistry",
+      "category": "craft-performance",
+      "definition": "Multiple performers interact naturally and make each other better.",
+      "aliases": [
+        "duo chemistry",
+        "great chemistry",
+        "collaboration works"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "vocalFocus"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.producer-chemistry",
+      "displayName": "producer chemistry",
+      "category": "craft-performance",
+      "definition": "The artist and production choices feel especially well matched.",
+      "aliases": [
+        "artist-producer chemistry",
+        "beats fit",
+        "production partnership"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "productionStyle"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.cohesive",
+      "displayName": "cohesive",
+      "category": "craft-performance",
+      "definition": "The album’s sound, themes, and sequencing feel intentionally connected.",
+      "aliases": [
+        "cohesion",
+        "unified",
+        "all fits together"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "tracklistConsistency"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.consistent",
+      "displayName": "consistent",
+      "category": "craft-performance",
+      "definition": "Maintains a reliable quality level across most or all of the tracklist.",
+      "aliases": [
+        "steady quality",
+        "consistent tracklist",
+        "no major dips"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "tracklistConsistency"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.well-sequenced",
+      "displayName": "well-sequenced",
+      "category": "craft-performance",
+      "definition": "The track order creates satisfying pacing, contrast, and progression.",
+      "aliases": [
+        "great sequencing",
+        "flows well",
+        "track order"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "tracklistConsistency"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.concept-album",
+      "displayName": "concept album",
+      "category": "craft-performance",
+      "definition": "Uses a sustained narrative, theme, world, or formal idea across the project.",
+      "aliases": [
+        "conceptual album",
+        "album concept",
+        "themed album"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "experimentation",
+        "tracklistConsistency"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.strong-opener",
+      "displayName": "strong opener",
+      "category": "craft-performance",
+      "definition": "The opening track establishes the album effectively and creates immediate interest.",
+      "aliases": [
+        "great intro",
+        "opening track",
+        "starts strong"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "tracklistConsistency"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.strong-closer",
+      "displayName": "strong closer",
+      "category": "craft-performance",
+      "definition": "The final track resolves or completes the album effectively.",
+      "aliases": [
+        "great outro",
+        "ending track",
+        "finishes strong"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "tracklistConsistency"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.deep-cuts",
+      "displayName": "deep cuts",
+      "category": "craft-performance",
+      "definition": "Non-single album tracks contain some of the strongest or most rewarding material.",
+      "aliases": [
+        "album cuts",
+        "hidden gems",
+        "non-singles"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "tracklistConsistency",
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.standout-singles",
+      "displayName": "standout singles",
+      "category": "craft-performance",
+      "definition": "The major singles or obvious centerpiece tracks deliver strongly.",
+      "aliases": [
+        "great singles",
+        "big tracks",
+        "hits"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.cinematic-arc",
+      "displayName": "cinematic arc",
+      "category": "craft-performance",
+      "definition": "The album develops with a large-scale sense of progression and payoff.",
+      "aliases": [
+        "album arc",
+        "narrative arc",
+        "journey"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "tracklistConsistency",
+        "instrumentalRichness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.ambitious",
+      "displayName": "ambitious",
+      "category": "craft-performance",
+      "definition": "Attempts a large, difficult, or unusually expansive creative goal.",
+      "aliases": [
+        "big swing",
+        "aims high",
+        "bold vision"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "experimentation"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.focused",
+      "displayName": "focused",
+      "category": "craft-performance",
+      "definition": "Maintains a clear purpose and avoids unnecessary detours.",
+      "aliases": [
+        "disciplined",
+        "tight vision",
+        "clear direction"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "tracklistConsistency"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.concise",
+      "displayName": "concise",
+      "category": "craft-performance",
+      "definition": "Says what it needs to without overstaying or overexplaining.",
+      "aliases": [
+        "tight",
+        "lean",
+        "no wasted time"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "tracklistConsistency"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.expansive",
+      "displayName": "expansive",
+      "category": "craft-performance",
+      "definition": "Develops a broad musical world, scale, or range of ideas.",
+      "aliases": [
+        "wide-ranging",
+        "big world",
+        "large scope"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "instrumentalRichness",
+        "experimentation"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "craft.dynamic",
+      "displayName": "dynamic",
+      "category": "craft-performance",
+      "definition": "Uses meaningful shifts in volume, intensity, arrangement, or emotion.",
+      "aliases": [
+        "great dynamics",
+        "contrast",
+        "rises and falls"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "energy",
+        "instrumentalRichness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "craft.adventurous",
+      "displayName": "adventurous",
+      "category": "craft-performance",
+      "definition": "Takes creative risks and avoids predictable choices.",
+      "aliases": [
+        "bold choices",
+        "risk-taking",
+        "daring"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "experimentation",
+        "genreOpenness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.gym",
+      "displayName": "gym",
+      "category": "listening-context",
+      "definition": "Fits strength training, workouts, or high-effort exercise.",
+      "aliases": [
+        "workout",
+        "lifting",
+        "training"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.running",
+      "displayName": "running",
+      "category": "listening-context",
+      "definition": "Fits a run through pace, momentum, or sustained energy.",
+      "aliases": [
+        "jogging",
+        "run playlist",
+        "5k"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.walking",
+      "displayName": "walking",
+      "category": "listening-context",
+      "definition": "Fits a walk where the listener wants rhythm without overwhelming intensity.",
+      "aliases": [
+        "walk",
+        "strolling",
+        "hot girl walk"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "context.cycling",
+      "displayName": "cycling",
+      "category": "listening-context",
+      "definition": "Fits indoor or outdoor cycling through steady movement or pace.",
+      "aliases": [
+        "bike ride",
+        "biking",
+        "spin class"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "context.driving",
+      "displayName": "driving",
+      "category": "listening-context",
+      "definition": "Fits general time in the car, whether active or relaxed.",
+      "aliases": [
+        "car music",
+        "in the car",
+        "windows down"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.night-drive",
+      "displayName": "night drive",
+      "category": "listening-context",
+      "definition": "Fits driving after dark through atmosphere, focus, or mood.",
+      "aliases": [
+        "late-night drive",
+        "midnight drive",
+        "driving at night"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.commute",
+      "displayName": "commute",
+      "category": "listening-context",
+      "definition": "Fits routine travel to work, school, or another daily destination.",
+      "aliases": [
+        "commuting",
+        "train ride",
+        "morning commute"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "context.road-trip",
+      "displayName": "road trip",
+      "category": "listening-context",
+      "definition": "Fits long-distance travel and extended shared listening.",
+      "aliases": [
+        "roadtrip",
+        "long drive",
+        "travel music"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.flying",
+      "displayName": "flying",
+      "category": "listening-context",
+      "definition": "Fits airports, flights, or reflective travel time.",
+      "aliases": [
+        "plane music",
+        "airport",
+        "in-flight"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "context.party",
+      "displayName": "party",
+      "category": "listening-context",
+      "definition": "Fits an energetic social gathering where music drives the room.",
+      "aliases": [
+        "house party",
+        "party music",
+        "function"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.pregame",
+      "displayName": "pregame",
+      "category": "listening-context",
+      "definition": "Fits getting ready and building energy before going out.",
+      "aliases": [
+        "pre-game",
+        "before the party",
+        "getting hype"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.club",
+      "displayName": "club",
+      "category": "listening-context",
+      "definition": "Fits a nightclub, dance floor, or high-volume late-night setting.",
+      "aliases": [
+        "dance club",
+        "rave",
+        "nightclub"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.cookout",
+      "displayName": "cookout",
+      "category": "listening-context",
+      "definition": "Fits an outdoor gathering, barbecue, or relaxed group hang.",
+      "aliases": [
+        "bbq",
+        "barbecue",
+        "backyard"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "context.hanging-out",
+      "displayName": "hanging out",
+      "category": "listening-context",
+      "definition": "Fits casual, low-pressure time with friends or family.",
+      "aliases": [
+        "chilling with friends",
+        "kickback",
+        "casual hang"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.hosting",
+      "displayName": "hosting",
+      "category": "listening-context",
+      "definition": "Works while entertaining guests without demanding constant attention.",
+      "aliases": [
+        "having people over",
+        "dinner party",
+        "host music"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "context.date-night",
+      "displayName": "date night",
+      "category": "listening-context",
+      "definition": "Fits romantic or intimate time with another person.",
+      "aliases": [
+        "romantic evening",
+        "dinner date",
+        "with someone"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.studying",
+      "displayName": "studying",
+      "category": "listening-context",
+      "definition": "Supports sustained study without repeatedly breaking concentration.",
+      "aliases": [
+        "study music",
+        "homework",
+        "schoolwork"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.focus",
+      "displayName": "focus",
+      "category": "listening-context",
+      "definition": "Supports concentration, deep work, or attention-heavy tasks.",
+      "aliases": [
+        "concentration",
+        "deep work",
+        "lock in"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.work",
+      "displayName": "work",
+      "category": "listening-context",
+      "definition": "Fits general work time without becoming too distracting.",
+      "aliases": [
+        "working",
+        "office",
+        "workday"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "context.reading",
+      "displayName": "reading",
+      "category": "listening-context",
+      "definition": "Complements reading through steadiness, atmosphere, or restraint.",
+      "aliases": [
+        "book music",
+        "reading soundtrack",
+        "with a book"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "context.writing",
+      "displayName": "writing",
+      "category": "listening-context",
+      "definition": "Supports journaling, drafting, or other language-focused creative work.",
+      "aliases": [
+        "journaling",
+        "creative writing",
+        "drafting"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "context.creative-work",
+      "displayName": "creative work",
+      "category": "listening-context",
+      "definition": "Supports visual, musical, design, or open-ended creative activity.",
+      "aliases": [
+        "making art",
+        "designing",
+        "creating"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "context.cooking",
+      "displayName": "cooking",
+      "category": "listening-context",
+      "definition": "Fits meal preparation through rhythm, warmth, or background presence.",
+      "aliases": [
+        "kitchen music",
+        "making dinner",
+        "chef mode"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.cleaning",
+      "displayName": "cleaning",
+      "category": "listening-context",
+      "definition": "Fits chores through movement, energy, or easy replay.",
+      "aliases": [
+        "chores",
+        "housework",
+        "Sunday cleaning"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.getting-ready",
+      "displayName": "getting ready",
+      "category": "listening-context",
+      "definition": "Fits dressing, grooming, or preparing to leave the house.",
+      "aliases": [
+        "GRWM",
+        "before going out",
+        "getting dressed"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.background-listening",
+      "displayName": "background listening",
+      "category": "listening-context",
+      "definition": "Works without demanding full attention throughout.",
+      "aliases": [
+        "background music",
+        "passive listening",
+        "in the background"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.morning",
+      "displayName": "morning",
+      "category": "listening-context",
+      "definition": "Fits starting the day through energy, calm, or routine.",
+      "aliases": [
+        "wake-up music",
+        "early morning",
+        "start the day"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.late-night",
+      "displayName": "late night",
+      "category": "listening-context",
+      "definition": "Fits quiet, reflective, or atmospheric listening after dark.",
+      "aliases": [
+        "midnight",
+        "nighttime",
+        "after hours"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.sleep",
+      "displayName": "sleep",
+      "category": "listening-context",
+      "definition": "Supports winding down, resting, or falling asleep.",
+      "aliases": [
+        "bedtime",
+        "sleep music",
+        "wind down"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "context.headphones",
+      "displayName": "headphones",
+      "category": "listening-context",
+      "definition": "Rewards close, private, or detail-focused headphone listening.",
+      "aliases": [
+        "headphone album",
+        "with headphones",
+        "close listening"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.speakers",
+      "displayName": "speakers",
+      "category": "listening-context",
+      "definition": "Feels especially effective played openly through a room or sound system.",
+      "aliases": [
+        "big speakers",
+        "room-filling",
+        "play it loud"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "context.solo-listening",
+      "displayName": "solo listening",
+      "category": "listening-context",
+      "definition": "Feels best experienced privately or without conversation.",
+      "aliases": [
+        "by myself",
+        "private listen"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "context.group-listening",
+      "displayName": "group listening",
+      "category": "listening-context",
+      "definition": "Works well as a shared listen with friends or other people.",
+      "aliases": [
+        "with friends",
+        "shared listen",
+        "play for people"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "context.summer",
+      "displayName": "summer",
+      "category": "listening-context",
+      "definition": "Fits warm-weather listening, seasonal memories, or summer routines.",
+      "aliases": [
+        "summer music",
+        "hot weather",
+        "summer vibes"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.winter",
+      "displayName": "winter",
+      "category": "listening-context",
+      "definition": "Fits cold-weather listening, indoor reflection, or winter atmosphere.",
+      "aliases": [
+        "winter music",
+        "cold weather",
+        "snow day"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "context.rainy-day",
+      "displayName": "rainy day",
+      "category": "listening-context",
+      "definition": "Fits rain, overcast weather, or inward-looking time indoors.",
+      "aliases": [
+        "rain music",
+        "stormy day",
+        "overcast"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "context.sunset",
+      "displayName": "sunset",
+      "category": "listening-context",
+      "definition": "Fits the transition into evening through warmth, reflection, or atmosphere.",
+      "aliases": [
+        "golden hour",
+        "dusk",
+        "sunset drive"
+      ],
+      "polarity": "neutral",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "reaction.replayable",
+      "displayName": "replayable",
+      "category": "personal-reaction",
+      "definition": "Feels likely to reward repeated listening.",
+      "aliases": [
+        "replay value",
+        "will replay",
+        "run it back"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "reaction.on-repeat",
+      "displayName": "on repeat",
+      "category": "personal-reaction",
+      "definition": "The listener is actively returning to the album or key songs repeatedly.",
+      "aliases": [
+        "repeat",
+        "in rotation",
+        "can't stop playing"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "reaction.no-skips",
+      "displayName": "no skips",
+      "category": "personal-reaction",
+      "definition": "The listener currently wants to hear the entire tracklist without skipping.",
+      "aliases": [
+        "zero skips",
+        "front to back",
+        "not a single skip"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "tracklistConsistency",
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "reaction.comfort-album",
+      "displayName": "comfort album",
+      "category": "personal-reaction",
+      "definition": "Feels emotionally familiar, safe, or dependable enough to return to for comfort.",
+      "aliases": [
+        "comfort listen",
+        "safe album",
+        "always there"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "reaction.instant-favorite",
+      "displayName": "instant favorite",
+      "category": "personal-reaction",
+      "definition": "Connected strongly enough on first or early listens to feel immediately special.",
+      "aliases": [
+        "immediate favorite",
+        "love at first listen",
+        "new favorite"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "reaction.personal-favorite",
+      "displayName": "personal favorite",
+      "category": "personal-reaction",
+      "definition": "Holds special value to this listener beyond a general quality judgment.",
+      "aliases": [
+        "one of my favorites",
+        "special to me",
+        "personal classic"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "reaction.grower",
+      "displayName": "grower",
+      "category": "personal-reaction",
+      "definition": "Improved meaningfully as the listener spent more time with it.",
+      "aliases": [
+        "grew on me",
+        "slow grower",
+        "took time"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "reaction.clicked-immediately",
+      "displayName": "clicked immediately",
+      "category": "personal-reaction",
+      "definition": "The album made sense and connected on the first listen.",
+      "aliases": [
+        "instant click",
+        "got it right away",
+        "immediate"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "reaction.needs-more-listens",
+      "displayName": "needs more listens",
+      "category": "personal-reaction",
+      "definition": "The listener is not ready to make a settled judgment yet.",
+      "aliases": [
+        "need more time",
+        "not sure yet",
+        "another listen"
+      ],
+      "polarity": "mixed",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "reaction.better-with-time",
+      "displayName": "better with time",
+      "category": "personal-reaction",
+      "definition": "Has continued improving after the initial listening period.",
+      "aliases": [
+        "aging well",
+        "keeps getting better",
+        "better later"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "reaction.lost-its-shine",
+      "displayName": "lost its shine",
+      "category": "personal-reaction",
+      "definition": "Initially impressed but became less compelling after repeated listening.",
+      "aliases": [
+        "wore off",
+        "didn't age well",
+        "faded"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "lowReplayValue"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "reaction.emotionally-resonant",
+      "displayName": "emotionally resonant",
+      "category": "personal-reaction",
+      "definition": "Connected strongly to the listener’s emotions or lived experience.",
+      "aliases": [
+        "hit home",
+        "resonated",
+        "felt personal"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "emotionalDirectness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "reaction.moving",
+      "displayName": "moving",
+      "category": "personal-reaction",
+      "definition": "Provoked a strong emotional response without requiring a specific mood.",
+      "aliases": [
+        "touching",
+        "made me feel"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "emotionalDirectness"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "reaction.thought-provoking",
+      "displayName": "thought-provoking",
+      "category": "personal-reaction",
+      "definition": "Continued generating questions, ideas, or reflection after listening.",
+      "aliases": [
+        "made me think",
+        "stuck with me",
+        "provocative"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "lyricFocus",
+        "experimentation"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "reaction.mood-booster",
+      "displayName": "mood booster",
+      "category": "personal-reaction",
+      "definition": "Reliably improves the listener’s mood.",
+      "aliases": [
+        "pick-me-up",
+        "cheers me up",
+        "instant mood lift"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "mood",
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "reaction.timeless",
+      "displayName": "timeless",
+      "category": "personal-reaction",
+      "definition": "Feels durable beyond a specific trend, moment, or release cycle.",
+      "aliases": [
+        "won't age",
+        "evergreen",
+        "built to last"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "eraAffinity",
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "reaction.memorable",
+      "displayName": "memorable",
+      "category": "personal-reaction",
+      "definition": "Leaves a clear lasting impression after the listen ends.",
+      "aliases": [
+        "stays with me",
+        "hard to forget",
+        "lasting"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "reaction.distinctive",
+      "displayName": "distinctive",
+      "category": "personal-reaction",
+      "definition": "Has an identity that is easy to recognize and difficult to confuse with other work.",
+      "aliases": [
+        "unique",
+        "recognizable",
+        "stands out"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "experimentation",
+        "texturePreference"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "reaction.unexpected",
+      "displayName": "unexpected",
+      "category": "personal-reaction",
+      "definition": "Surprised the listener in style, quality, direction, or emotional effect.",
+      "aliases": [
+        "surprising",
+        "didn't expect this",
+        "caught me off guard"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "experimentation"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "reaction.hidden-gem",
+      "displayName": "hidden gem",
+      "category": "personal-reaction",
+      "definition": "Feels underappreciated relative to the listener’s enjoyment of it.",
+      "aliases": [
+        "underrated",
+        "slept on",
+        "overlooked"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "reaction.artist-breakthrough",
+      "displayName": "artist breakthrough",
+      "category": "personal-reaction",
+      "definition": "Feels like a meaningful creative step forward for the artist.",
+      "aliases": [
+        "leveled up",
+        "career high",
+        "breakout"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "experimentation"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "reaction.album-of-the-year",
+      "displayName": "album of the year",
+      "category": "personal-reaction",
+      "definition": "Feels like a top-tier release within the listener’s current year of listening.",
+      "aliases": [
+        "AOTY",
+        "best album this year",
+        "year-end favorite"
+      ],
+      "polarity": "positive",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [
+        "replayability"
+      ],
+      "avoidanceSignals": [],
+      "recommendationRole": "tasteSignalOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "critique.weak-writing",
+      "displayName": "weak writing",
+      "category": "friction-critique",
+      "definition": "The lyrical ideas or execution feel thin, lazy, or insufficiently developed.",
+      "aliases": [
+        "bad writing",
+        "lazy writing",
+        "thin lyrics"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "weakWriting"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.weak-hooks",
+      "displayName": "weak hooks",
+      "category": "friction-critique",
+      "definition": "The repeated melodic or lyrical sections fail to land or stay memorable.",
+      "aliases": [
+        "bad hooks",
+        "hooks don't hit",
+        "weak choruses"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "weakWriting"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.forgettable-lyrics",
+      "displayName": "forgettable lyrics",
+      "category": "friction-critique",
+      "definition": "The words leave little lasting impression after the music ends.",
+      "aliases": [
+        "unmemorable lyrics",
+        "lyrics don't stick",
+        "bland lyrics"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "weakWriting"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.weak-vocals",
+      "displayName": "weak vocals",
+      "category": "friction-critique",
+      "definition": "The vocal performance feels limited, unconvincing, or poorly suited to the material.",
+      "aliases": [
+        "bad vocals",
+        "singing is weak",
+        "vocal issues"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "critique.flat-delivery",
+      "displayName": "flat delivery",
+      "category": "friction-critique",
+      "definition": "The vocal or rap performance lacks emphasis, character, or emotional variation.",
+      "aliases": [
+        "monotone",
+        "lifeless delivery",
+        "no presence"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.awkward-features",
+      "displayName": "awkward features",
+      "category": "friction-critique",
+      "definition": "Guest appearances interrupt the songs or feel poorly matched.",
+      "aliases": [
+        "bad features",
+        "features don't fit",
+        "weak guest verses"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.too-many-features",
+      "displayName": "too many features",
+      "category": "friction-critique",
+      "definition": "Guest appearances crowd out the main artist or weaken the project’s identity.",
+      "aliases": [
+        "feature overload",
+        "too many guests",
+        "crowded features"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "critique.poor-chemistry",
+      "displayName": "poor chemistry",
+      "category": "friction-critique",
+      "definition": "Performers or collaborators do not sound naturally connected.",
+      "aliases": [
+        "no chemistry",
+        "collab doesn't work",
+        "mismatched artists"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "critique.overproduced",
+      "displayName": "overproduced",
+      "category": "friction-critique",
+      "definition": "The production feels excessively polished, layered, or controlled.",
+      "aliases": [
+        "too produced",
+        "overly polished",
+        "too much production"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "sterileProduction"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.too-polished",
+      "displayName": "too polished",
+      "category": "friction-critique",
+      "definition": "The clean finish removes character, tension, or human texture.",
+      "aliases": [
+        "sterile",
+        "clinical",
+        "too clean"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "sterileProduction"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.underproduced",
+      "displayName": "underproduced",
+      "category": "friction-critique",
+      "definition": "The ideas feel insufficiently developed, arranged, recorded, or finished.",
+      "aliases": [
+        "not produced enough",
+        "unfinished production",
+        "thin production"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "critique.muddy-mix",
+      "displayName": "muddy mix",
+      "category": "friction-critique",
+      "definition": "Elements blur together and lack useful clarity or separation.",
+      "aliases": [
+        "muddy",
+        "unclear mix",
+        "everything blends"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.harsh-mix",
+      "displayName": "harsh mix",
+      "category": "friction-critique",
+      "definition": "The sound is fatiguing or abrasive in an unintended way.",
+      "aliases": [
+        "piercing mix",
+        "too sharp",
+        "ear fatigue"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "critique.flat-production",
+      "displayName": "flat production",
+      "category": "friction-critique",
+      "definition": "The production lacks depth, movement, contrast, or impact.",
+      "aliases": [
+        "lifeless production",
+        "boring production",
+        "production has no depth"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "energyWithoutPayoff"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.dated-production",
+      "displayName": "dated production",
+      "category": "friction-critique",
+      "definition": "The production feels tied to an era in a way that weakens the current listen.",
+      "aliases": [
+        "aged badly",
+        "sounds outdated",
+        "old in a bad way"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "critique.repetitive",
+      "displayName": "repetitive",
+      "category": "friction-critique",
+      "definition": "Ideas, structures, or sounds repeat without enough development or variation.",
+      "aliases": [
+        "samey",
+        "too repetitive",
+        "keeps repeating"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "fillerSensitivity"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.bloated",
+      "displayName": "bloated",
+      "category": "friction-critique",
+      "definition": "The project contains more material than its strongest ideas can support.",
+      "aliases": [
+        "overstuffed",
+        "too much filler",
+        "trim the tracklist"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "fillerSensitivity"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.overlong",
+      "displayName": "overlong",
+      "category": "friction-critique",
+      "definition": "The runtime feels longer than the material justifies.",
+      "aliases": [
+        "too long",
+        "drags on",
+        "longer than needed"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "fillerSensitivity"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.too-short",
+      "displayName": "too short",
+      "category": "friction-critique",
+      "definition": "The project ends before its ideas feel fully developed or satisfying.",
+      "aliases": [
+        "ends too soon",
+        "not enough",
+        "too brief"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "critique.filler",
+      "displayName": "filler",
+      "category": "friction-critique",
+      "definition": "Some tracks feel included without adding enough value to the project.",
+      "aliases": [
+        "filler tracks",
+        "dead weight",
+        "padding"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "fillerSensitivity"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.uneven",
+      "displayName": "uneven",
+      "category": "friction-critique",
+      "definition": "The project has meaningful highs but noticeable dips in quality or execution.",
+      "aliases": [
+        "up and down",
+        "mixed quality",
+        "inconsistent quality"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "skipHeavyAlbums"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.inconsistent",
+      "displayName": "inconsistent",
+      "category": "friction-critique",
+      "definition": "The album does not maintain a reliable standard, sound, or level of focus.",
+      "aliases": [
+        "all over the place",
+        "inconsistent tracklist",
+        "quality varies"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "skipHeavyAlbums"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.poor-sequencing",
+      "displayName": "poor sequencing",
+      "category": "friction-critique",
+      "definition": "The track order weakens pacing, transitions, or the album’s overall arc.",
+      "aliases": [
+        "bad sequencing",
+        "track order is off",
+        "doesn't flow"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "skipHeavyAlbums"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.front-loaded",
+      "displayName": "front-loaded",
+      "category": "friction-critique",
+      "definition": "The strongest material appears early and the project declines afterward.",
+      "aliases": [
+        "best songs first",
+        "falls off",
+        "strong first half"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "skipHeavyAlbums"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "critique.back-loaded",
+      "displayName": "back-loaded",
+      "category": "friction-critique",
+      "definition": "The project takes too long to reach its strongest material.",
+      "aliases": [
+        "slow first half",
+        "gets good late",
+        "best songs last"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "skipHeavyAlbums"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "critique.generic",
+      "displayName": "generic",
+      "category": "friction-critique",
+      "definition": "The project lacks enough distinctive identity or perspective.",
+      "aliases": [
+        "basic",
+        "cookie-cutter",
+        "nothing unique"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.derivative",
+      "displayName": "derivative",
+      "category": "friction-critique",
+      "definition": "The project relies too heavily on recognizable ideas from other artists or styles.",
+      "aliases": [
+        "copycat",
+        "too similar",
+        "unoriginal"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "critique.predictable",
+      "displayName": "predictable",
+      "category": "friction-critique",
+      "definition": "The songs or album repeatedly follow expected paths without useful surprise.",
+      "aliases": [
+        "saw it coming",
+        "formulaic",
+        "obvious"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.underdeveloped",
+      "displayName": "underdeveloped",
+      "category": "friction-critique",
+      "definition": "Strong ideas appear but are not explored or completed enough.",
+      "aliases": [
+        "half-baked",
+        "not fully realized",
+        "needed more"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "energyWithoutPayoff"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.one-note",
+      "displayName": "one-note",
+      "category": "friction-critique",
+      "definition": "The project stays in one mode without enough contrast or progression.",
+      "aliases": [
+        "same mood throughout",
+        "no variety",
+        "one dimensional"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "fillerSensitivity"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.too-safe",
+      "displayName": "too safe",
+      "category": "friction-critique",
+      "definition": "The project avoids risk in a way that limits its personality or impact.",
+      "aliases": [
+        "plays it safe",
+        "risk-free",
+        "conservative"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.unfinished",
+      "displayName": "unfinished",
+      "category": "friction-critique",
+      "definition": "The album or songs feel incomplete in writing, structure, performance, or production.",
+      "aliases": [
+        "incomplete",
+        "demo quality",
+        "not finished"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "energyWithoutPayoff"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "critique.missed-potential",
+      "displayName": "missed potential",
+      "category": "friction-critique",
+      "definition": "The ingredients suggest a stronger result than the finished project delivers.",
+      "aliases": [
+        "wasted potential",
+        "could have been better",
+        "almost there"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "energyWithoutPayoff"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.boring",
+      "displayName": "boring",
+      "category": "friction-critique",
+      "definition": "The listen fails to sustain attention or curiosity.",
+      "aliases": [
+        "dull",
+        "tedious",
+        "uninteresting"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "lowReplayValue"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.forgettable",
+      "displayName": "forgettable",
+      "category": "friction-critique",
+      "definition": "The project leaves little reason or desire to return after it ends.",
+      "aliases": [
+        "unmemorable",
+        "didn't stick",
+        "fades away"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "lowReplayValue"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.lacks-energy",
+      "displayName": "lacks energy",
+      "category": "friction-critique",
+      "definition": "The project feels less active, forceful, or animated than the listener wants.",
+      "aliases": [
+        "low energy",
+        "no energy",
+        "flat energy"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "energyWithoutPayoff"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.emotionally-distant",
+      "displayName": "emotionally distant",
+      "category": "friction-critique",
+      "definition": "The material feels difficult to emotionally enter or connect with.",
+      "aliases": [
+        "cold emotionally",
+        "detached",
+        "no emotional connection"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "moodMismatch"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.exhausting",
+      "displayName": "exhausting",
+      "category": "friction-critique",
+      "definition": "The project’s intensity, density, length, or repetition becomes tiring.",
+      "aliases": [
+        "fatiguing",
+        "too much",
+        "draining"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "fillerSensitivity"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "critique.inaccessible",
+      "displayName": "inaccessible",
+      "category": "friction-critique",
+      "definition": "The album’s choices make entry unusually difficult for this listener.",
+      "aliases": [
+        "hard to get into",
+        "impenetrable",
+        "difficult listen"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [],
+      "recommendationRole": "displayOnly",
+      "isPrimarySuggestion": false
+    },
+    {
+      "id": "critique.hard-to-connect",
+      "displayName": "hard to connect",
+      "category": "friction-critique",
+      "definition": "The listener understands the intent but cannot form a personal connection.",
+      "aliases": [
+        "can't connect",
+        "doesn't resonate",
+        "not for me"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "moodMismatch"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.didnt-click",
+      "displayName": "didn't click",
+      "category": "friction-critique",
+      "definition": "The album has not made sense or connected for the listener at this point.",
+      "aliases": [
+        "did not click",
+        "not clicking",
+        "never connected"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "moodMismatch"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    },
+    {
+      "id": "critique.skip-heavy",
+      "displayName": "skip-heavy",
+      "category": "friction-critique",
+      "definition": "The listener wants to skip a substantial portion of the tracklist.",
+      "aliases": [
+        "too many skips",
+        "lots of skips",
+        "skip city"
+      ],
+      "polarity": "negative",
+      "genreAffinityFamilies": [],
+      "soundPrintDimensions": [],
+      "avoidanceSignals": [
+        "skipHeavyAlbums"
+      ],
+      "recommendationRole": "avoidanceSignal",
+      "isPrimarySuggestion": true
+    }
+  ]
+}

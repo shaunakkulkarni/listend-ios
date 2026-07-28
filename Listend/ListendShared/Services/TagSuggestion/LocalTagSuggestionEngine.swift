@@ -61,17 +61,10 @@ struct LocalTagSuggestionEngine {
     }
 
     nonisolated static func normalized(_ value: String) -> String {
-        value
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
-            .lowercased()
-            .replacingOccurrences(of: "–", with: "-")
-            .replacingOccurrences(of: "—", with: "-")
-            .components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
+        TagTextNormalizer.comparisonKey(value)
     }
 
-    private static let reviewRules = [
+    private nonisolated static let reviewRules = [
         Rule(tag: "late night", keywords: ["late night", "night", "midnight"]),
         Rule(tag: "vocals", keywords: ["vocal", "vocals", "voice", "singer"]),
         Rule(tag: "lyrics", keywords: ["lyric", "lyrics", "writing", "storytelling"]),
@@ -86,7 +79,7 @@ struct LocalTagSuggestionEngine {
         Rule(tag: "catchy", keywords: ["catchy", "hook", "hooks"])
     ]
 
-    private static let albumRules = [
+    private nonisolated static let albumRules = [
         Rule(tag: "r&b", keywords: ["r&b", "rnb", "soul"]),
         Rule(tag: "hip-hop", keywords: ["hip-hop", "hip hop", "rap"]),
         Rule(tag: "indie", keywords: ["indie", "alternative"]),

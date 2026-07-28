@@ -609,7 +609,7 @@ struct ListendTests {
             skipTracks: ["Élite", "elite", "Too Late"]
         )
 
-        #expect(log.tags == ["late night", "vocals"])
+        #expect(log.tags == ["late night", "VOCALS"])
         #expect(log.favoriteTracks == ["Snooze", "Good Days"])
         #expect(log.skipTracks == ["Élite", "Too Late"])
     }
@@ -2362,7 +2362,7 @@ struct ListendTests {
             input: input
         )
 
-        #expect(tags == ["vocals"])
+        #expect(tags == ["Vocals"])
     }
 
     @Test func foundationModelsTagValidationRejectsInvalidPayload() throws {
@@ -2396,7 +2396,7 @@ struct ListendTests {
             input: input
         )
 
-        #expect(tags == ["late night", "warm"])
+        #expect(tags == ["Late Night", "Warm"])
     }
 
     @Test func mockTagSuggestionProviderReturnsDeterministicTags() async throws {
@@ -2482,7 +2482,7 @@ struct ListendTests {
             input: input
         )
 
-        #expect(tags == ["vocals"])
+        #expect(tags == ["Vocals"])
     }
 
     @Test func mockJournalAssistTagSuggestionsAreManualServiceOutput() async throws {
@@ -2497,7 +2497,7 @@ struct ListendTests {
 
         let tags = try await MockJournalAssistService().suggestedTags(for: input)
 
-        #expect(tags == ["late night", "r&b", "repeat"])
+        #expect(tags == ["late night", "R&B", "repeat"])
     }
 
     @Test func reflectionPromptInsertsIntoEmptyReview() {

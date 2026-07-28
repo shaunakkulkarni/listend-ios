@@ -112,6 +112,18 @@ nonisolated struct ReactionSelectionState: Equatable, Sendable {
         selections.map(\.displayName)
     }
 
+    var selectedCanonicalDisplayValues: [String] {
+        selections.compactMap { selection in
+            selection.canonicalID == nil ? nil : selection.displayName
+        }
+    }
+
+    var customDisplayValues: [String] {
+        selections.compactMap { selection in
+            selection.isCustom ? selection.displayName : nil
+        }
+    }
+
     var selectedCanonicalIDs: Set<String> {
         Set(selections.compactMap(\.canonicalID))
     }

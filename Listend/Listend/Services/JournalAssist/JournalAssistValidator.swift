@@ -19,7 +19,7 @@ enum JournalAssistValidator {
             throw JournalAssistServiceError.validationFailed
         }
 
-        guard !containsGenericHype(trimmed) else {
+        guard !containsUnsupportedGenericHype(trimmed, input: input) else {
             throw JournalAssistServiceError.validationFailed
         }
 
@@ -38,7 +38,7 @@ enum JournalAssistValidator {
             releaseYear: input.releaseYear,
             reviewText: [input.existingReviewText, input.notes, input.promptAnswers.map(\.answer).joined(separator: " ")]
                 .joined(separator: " "),
-            existingTags: input.existingTags
+            existingTags: input.existingTags + input.selectedReactionDisplayNames
         )
 
         return TagSuggestionValidator.validatedTags(tags, input: tagInput)
@@ -67,9 +67,20 @@ enum JournalAssistValidator {
         return max(count, text.isEmpty ? 0 : 1)
     }
 
-    private nonisolated static func containsGenericHype(_ text: String) -> Bool {
+    private nonisolated static func containsUnsupportedGenericHype(
+        _ text: String,
+        input: JournalAssistInput
+    ) -> Bool {
         let normalized = TagSuggestionValidator.normalizedTag(text)
-        return genericHypePhrases.contains { normalized.contains($0) }
+        let selectedReactionKeys = Set(
+            input.selectedReactionDisplayNames.map {
+                TagSuggestionValidator.normalizedTag($0)
+            }
+        )
+
+        return genericHypePhrases.contains { phrase in
+            normalized.contains(phrase) && !selectedReactionKeys.contains(phrase)
+        }
     }
 
     private nonisolated static func containsUnsupportedOpinion(in draft: String, input: JournalAssistInput) -> Bool {
@@ -89,6 +100,7 @@ enum JournalAssistValidator {
             promptAnswerText,
             input.existingReviewText,
             input.existingTags.joined(separator: " "),
+            input.selectedReactionDisplayNames.joined(separator: " "),
             input.genreName ?? "",
             input.releaseYear.map(String.init) ?? ""
         ]

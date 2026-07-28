@@ -32,12 +32,22 @@ struct MockJournalAssistService: JournalAssistServiceProtocol {
             "I rated \(input.albumTitle) by \(input.artistName) \($0.formatted(.number.precision(.fractionLength(1))))/5."
         } ?? "I spent time with \(input.albumTitle) by \(input.artistName)."
         let cues = strongestCues(for: input)
+        let selectedReactions = selectedReactionDisplayNames(for: input)
 
-        guard !cues.isEmpty else {
+        guard !cues.isEmpty || !selectedReactions.isEmpty else {
             return ratingText
         }
 
-        return "\(ratingText) My notes point to \(cues.joined(separator: ", "))."
+        guard !selectedReactions.isEmpty else {
+            return "\(ratingText) My notes point to \(cues.joined(separator: ", "))."
+        }
+
+        let reactionText = selectedReactions.joined(separator: ", ")
+        guard !cues.isEmpty else {
+            return "\(ratingText) The reactions I chose were \(reactionText)."
+        }
+
+        return "\(ratingText) My notes point to \(cues.joined(separator: ", ")); the reactions I chose were \(reactionText)."
     }
 
     nonisolated static func suggestedTags(for input: JournalAssistInput) -> [String] {
@@ -71,6 +81,11 @@ struct MockJournalAssistService: JournalAssistServiceProtocol {
     }
 
     private nonisolated static func strongestCues(for input: JournalAssistInput) -> [String] {
+        let selectedReactionKeys = Set(
+            selectedReactionDisplayNames(for: input).map {
+                TagSuggestionValidator.normalizedTag($0)
+            }
+        )
         let rawCues = [
             input.notes,
             input.promptAnswers.map(\.answer).joined(separator: " "),
@@ -82,9 +97,26 @@ struct MockJournalAssistService: JournalAssistServiceProtocol {
                 .split(whereSeparator: { $0 == "." || $0 == "," || $0 == "\n" })
                 .map { String($0).trimmedForJournalAssist }
         }
-        .filter { !$0.isEmpty }
+        .filter { cue in
+            !cue.isEmpty
+                && !selectedReactionKeys.contains(TagSuggestionValidator.normalizedTag(cue))
+        }
 
         return Array(rawCues.prefix(2))
+    }
+
+    private nonisolated static func selectedReactionDisplayNames(for input: JournalAssistInput) -> [String] {
+        var seen = Set<String>()
+
+        return input.selectedReactionDisplayNames.compactMap { value in
+            let displayValue = value.trimmedForJournalAssist
+            let key = TagSuggestionValidator.normalizedTag(displayValue)
+            guard !displayValue.isEmpty, seen.insert(key).inserted else {
+                return nil
+            }
+
+            return displayValue
+        }
     }
 
     private static let tagRules: [JournalAssistTagRule] = [

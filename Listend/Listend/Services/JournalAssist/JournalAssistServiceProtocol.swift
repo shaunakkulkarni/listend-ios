@@ -37,6 +37,7 @@ struct JournalAssistInput: Equatable {
     let promptAnswers: [JournalAssistPromptAnswer]
     let existingReviewText: String
     let existingTags: [String]
+    let selectedReactionDisplayNames: [String]
 
     init(
         albumTitle: String,
@@ -47,7 +48,8 @@ struct JournalAssistInput: Equatable {
         notes: String = "",
         promptAnswers: [JournalAssistPromptAnswer] = [],
         existingReviewText: String = "",
-        existingTags: [String] = []
+        existingTags: [String] = [],
+        selectedReactionDisplayNames: [String] = []
     ) {
         self.albumTitle = albumTitle
         self.artistName = artistName
@@ -58,6 +60,7 @@ struct JournalAssistInput: Equatable {
         self.promptAnswers = promptAnswers
         self.existingReviewText = existingReviewText
         self.existingTags = existingTags
+        self.selectedReactionDisplayNames = selectedReactionDisplayNames
     }
 
     init(
@@ -66,7 +69,8 @@ struct JournalAssistInput: Equatable {
         notes: String = "",
         promptAnswers: [JournalAssistPromptAnswer] = [],
         existingReviewText: String = "",
-        existingTags: [String] = []
+        existingTags: [String] = [],
+        selectedReactionDisplayNames: [String] = []
     ) {
         self.init(
             albumTitle: album.title,
@@ -77,7 +81,8 @@ struct JournalAssistInput: Equatable {
             notes: notes,
             promptAnswers: promptAnswers,
             existingReviewText: existingReviewText,
-            existingTags: existingTags
+            existingTags: existingTags,
+            selectedReactionDisplayNames: selectedReactionDisplayNames
         )
     }
 
@@ -86,6 +91,7 @@ struct JournalAssistInput: Equatable {
             || !notes.trimmedForJournalAssist.isEmpty
             || !existingReviewText.trimmedForJournalAssist.isEmpty
             || !existingTags.isEmpty
+            || !selectedReactionDisplayNames.isEmpty
             || promptAnswers.contains { !$0.answer.trimmedForJournalAssist.isEmpty }
     }
 }

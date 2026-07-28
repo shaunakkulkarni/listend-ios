@@ -286,7 +286,8 @@ struct LogEntryEditorView: View {
                         album: album,
                         rating: rating,
                         existingReviewText: reviewText,
-                        existingTags: reactionSelection.persistedDisplayValues,
+                        existingTags: reactionSelection.customDisplayValues,
+                        selectedReactionDisplayNames: reactionSelection.selectedCanonicalDisplayValues,
                         service: journalAssistService,
                         onAcceptDraft: acceptJournalAssistDraft
                     )

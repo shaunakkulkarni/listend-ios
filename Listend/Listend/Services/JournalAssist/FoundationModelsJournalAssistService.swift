@@ -34,30 +34,8 @@ struct FoundationModelsJournalAssistService: JournalAssistServiceProtocol {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, macOS 26.0, *) {
             let generated = try await Self.textResponse(
-                instructions: """
-                You are a thoughtful music diarist helping a Listend user capture their honest
-                listening experience. Write with emotional specificity and personal warmth.
-                Synthesize the user's rating, notes, and prompt answers into a cohesive first-person
-                reflection — not a list of facts. Anchor your response in concrete details the user
-                shared: specific moments, sounds, lyrics, or feelings. Use the user's own language
-                and phrasing where possible.
-                """,
-                prompt: """
-                Write a first-person album journal draft.
-                Rules: 2-4 sentences; conversational voice; synthesize the user's prompt answers
-                and notes into one cohesive thought. Be specific — name what stood out and why it
-                mattered. Use the user's own words and concrete details rather than vague praise.
-                The entry should feel personal, like a real diary entry.
-                Album: \(input.albumTitle)
-                Artist: \(input.artistName)
-                Genre: \(input.genreName ?? "")
-                Release year: \(input.releaseYear.map(String.init) ?? "")
-                Rating: \(input.rating.map { String($0) } ?? "")
-                Existing review: \(input.existingReviewText)
-                Existing tags: \(input.existingTags.joined(separator: ", "))
-                Notes: \(input.notes)
-                Prompt answers: \(Self.promptAnswerText(from: input.promptAnswers))
-                """
+                instructions: JournalAssistPromptBuilder.draftInstructions,
+                prompt: JournalAssistPromptBuilder.draftPrompt(for: input)
             )
             let draft = try JournalAssistValidator.validatedDraft(generated, input: input)
             return .draft(draft)
@@ -90,7 +68,7 @@ struct FoundationModelsJournalAssistService: JournalAssistServiceProtocol {
                 Existing review: \(input.existingReviewText)
                 Existing tags: \(input.existingTags.joined(separator: ", "))
                 Notes: \(input.notes)
-                Prompt answers: \(Self.promptAnswerText(from: input.promptAnswers))
+                Prompt answers: \(JournalAssistPromptBuilder.promptAnswerText(from: input.promptAnswers))
                 """
             )
             let tags = JournalAssistValidator.validatedTags(Self.tags(from: generated), input: input)
@@ -207,7 +185,35 @@ private extension FoundationModelsJournalAssistService {
 }
 #endif
 
-private extension FoundationModelsJournalAssistService {
+enum JournalAssistPromptBuilder {
+    static let draftInstructions = """
+    You are a thoughtful music diarist helping a Listend user capture their honest listening
+    experience. Use only evidence the user explicitly supplied. Treat selected reaction display
+    names as user-authored evidence, and preserve the user's own language where possible.
+    """
+
+    static func draftPrompt(for input: JournalAssistInput) -> String {
+        """
+        Write a first-person album journal draft.
+        Rules:
+        - Write 1-2 concise, conversational sentences that feel like a personal journal entry.
+        - Synthesize only the evidence supplied below.
+        - Treat selected reactions as user-authored evidence.
+        - Do not invent lyrics, sounds, production details, track moments, emotions, listening contexts, or reasons that the user did not supply.
+        - If a detail was not supplied, omit it rather than inferring it.
+        Album: \(input.albumTitle)
+        Artist: \(input.artistName)
+        Genre: \(input.genreName ?? "")
+        Release year: \(input.releaseYear.map(String.init) ?? "")
+        Rating: \(input.rating.map { String($0) } ?? "")
+        Existing review: \(input.existingReviewText)
+        Existing custom or legacy tags: \(input.existingTags.joined(separator: ", "))
+        Selected reactions (user-authored evidence): \(input.selectedReactionDisplayNames.joined(separator: ", "))
+        Notes: \(input.notes)
+        Prompt answers: \(promptAnswerText(from: input.promptAnswers))
+        """
+    }
+
     static func promptAnswerText(from answers: [JournalAssistPromptAnswer]) -> String {
         answers
             .filter { !$0.answer.trimmedForJournalAssist.isEmpty }

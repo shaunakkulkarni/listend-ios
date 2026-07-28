@@ -31,6 +31,7 @@ struct JournalAssistSheet: View {
     let rating: Double?
     let existingReviewText: String
     let existingTags: [String]
+    let selectedReactionDisplayNames: [String]
     let service: JournalAssistServiceProtocol
     let onAcceptDraft: (String) -> Void
 
@@ -47,6 +48,7 @@ struct JournalAssistSheet: View {
         rating: Double?,
         existingReviewText: String,
         existingTags: [String],
+        selectedReactionDisplayNames: [String] = [],
         service: JournalAssistServiceProtocol,
         onAcceptDraft: @escaping (String) -> Void
     ) {
@@ -55,6 +57,7 @@ struct JournalAssistSheet: View {
         self.rating = rating
         self.existingReviewText = existingReviewText
         self.existingTags = existingTags
+        self.selectedReactionDisplayNames = selectedReactionDisplayNames
         self.service = service
         self.onAcceptDraft = onAcceptDraft
         _promptAnswers = State(initialValue: service.reflectionPrompts.map {
@@ -191,7 +194,8 @@ struct JournalAssistSheet: View {
             notes: notes,
             promptAnswers: promptAnswers,
             existingReviewText: existingReviewText,
-            existingTags: existingTags
+            existingTags: existingTags,
+            selectedReactionDisplayNames: selectedReactionDisplayNames
         )
     }
 

@@ -57,29 +57,112 @@ struct MockSoundPrintProvider: SoundPrintProvider {
 
     static func extractTasteSignals(input: TasteExtractionInput) -> TasteExtractionResult {
         let sentimentScore = input.sentimentScore ?? baseScore(for: input.rating)
-        let avoidanceSignals = extractAvoidanceSignals(input: input)
+        let tagEvidence = partitionReactionTags(input.tags)
+        let avoidanceSignals = extractAvoidanceSignals(
+            input: input,
+            canonicalTags: tagEvidence.canonical,
+            customTags: tagEvidence.custom
+        )
 
         guard sentimentScore >= 0.0 else {
-            return TasteExtractionResult(signals: [], avoidanceSignals: avoidanceSignals)
+            let scopedCraftTags = tagEvidence.canonical.filter {
+                $0.category == .craftPerformance && $0.polarity == .positive
+            }
+            let scopedSignals = canonicalTasteSignals(
+                from: scopedCraftTags,
+                rating: input.rating,
+                sentimentScore: sentimentScore
+            )
+            .map {
+                TasteSignal(
+                    dimensionName: $0.dimensionName,
+                    label: $0.label,
+                    summary: $0.summary,
+                    weight: min($0.weight, scopedCanonicalTasteWeightCap),
+                    confidence: min($0.confidence, scopedCanonicalTasteConfidenceCap),
+                    evidenceSnippet: $0.evidenceSnippet,
+                    isPositiveEvidence: true
+                )
+            }
+
+            return TasteExtractionResult(
+                signals: orderedTasteSignals(scopedSignals),
+                avoidanceSignals: avoidanceSignals
+            )
         }
 
-        let searchableText = ([input.reviewText, input.standoutMoment ?? ""] + input.tags).joined(separator: " ")
+        var signals = canonicalTasteSignals(
+            from: tagEvidence.canonical,
+            rating: input.rating,
+            sentimentScore: sentimentScore
+        )
+        let legacyExtraction = legacyTasteSignals(
+            input: input,
+            customTags: tagEvidence.custom,
+            sentimentScore: sentimentScore
+        )
+        mergeTasteSignals(
+            legacyExtraction.signals,
+            into: &signals,
+            preferIncomingEvidence: !input.reviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        )
+
+        applyFavoriteTrackEvidence(
+            to: &signals,
+            input: input,
+            normalizedText: legacyExtraction.normalizedText,
+            sentimentScore: sentimentScore
+        )
+        applyStandoutMomentEvidence(to: &signals, input: input)
+        dampenThinPositiveEvidence(in: &signals, input: input)
+
+        return TasteExtractionResult(
+            signals: orderedTasteSignals(signals),
+            avoidanceSignals: avoidanceSignals
+        )
+    }
+
+    private static func legacyTasteSignals(
+        input: TasteExtractionInput,
+        customTags: [String],
+        sentimentScore: Double
+    ) -> (signals: [TasteSignal], normalizedText: String) {
+        let searchableText = ([input.reviewText, input.standoutMoment ?? ""] + customTags).joined(separator: " ")
         let normalizedText = searchableText.normalizedSoundPrintText
         let reviewSnippet = input.reviewText.trimmedForSoundPrint
-        let fallbackSnippet = input.tags.isEmpty ? input.albumTitle : "Tags: \(input.tags.joined(separator: ", "))"
+        let fallbackSnippet = customTags.isEmpty ? input.albumTitle : "Tags: \(customTags.joined(separator: ", "))"
         let evidenceSnippet = reviewSnippet.isEmpty ? fallbackSnippet : reviewSnippet
         let hasReviewText = !input.reviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let normalizedReviewText = input.reviewText.normalizedSoundPrintText
+        let normalizedStandoutMoment = (input.standoutMoment ?? "").normalizedSoundPrintText
+        let hasDetailedReview = isDetailedSoundPrintReview(input.reviewText)
 
-        var signals = tasteRules.compactMap { rule -> TasteSignal? in
+        let signals = tasteRules.compactMap { rule -> TasteSignal? in
             let matchCount = rule.keywords.filter { normalizedText.containsNormalizedSoundPrintPhrase($0) }.count
 
             guard matchCount > 0 else {
                 return nil
             }
 
-            let weight = (0.55 + (sentimentScore * 0.35) + (Double(matchCount - 1) * 0.05)).clamped(to: 0.0...1.0)
+            var weight = (0.55 + (sentimentScore * 0.35) + (Double(matchCount - 1) * 0.05)).clamped(to: 0.0...1.0)
             let confidenceBase = hasReviewText ? 0.75 : 0.6
-            let confidence = (confidenceBase + (Double(matchCount - 1) * 0.05)).clamped(to: 0.0...1.0)
+            var confidence = (confidenceBase + (Double(matchCount - 1) * 0.05)).clamped(to: 0.0...1.0)
+            let hasDetailedMatchingEvidence =
+                (
+                    hasDetailedReview
+                        && rule.keywords.contains {
+                            normalizedReviewText.containsNormalizedSoundPrintPhrase($0)
+                        }
+                )
+                || rule.keywords.contains {
+                    normalizedStandoutMoment.containsNormalizedSoundPrintPhrase($0)
+                }
+
+            if input.rating < lowRatedCanonicalRatingThreshold,
+               !hasDetailedMatchingEvidence {
+                weight = min(weight, lowRatedLooseLegacyTasteWeightCap)
+                confidence = min(confidence, lowRatedLooseLegacyTasteConfidenceCap)
+            }
 
             return TasteSignal(
                 dimensionName: rule.dimensionName,
@@ -92,11 +175,102 @@ struct MockSoundPrintProvider: SoundPrintProvider {
             )
         }
 
-        applyFavoriteTrackEvidence(to: &signals, input: input, normalizedText: normalizedText, sentimentScore: sentimentScore)
-        applyStandoutMomentEvidence(to: &signals, input: input)
-        dampenThinPositiveEvidence(in: &signals, input: input)
+        return (signals, normalizedText)
+    }
 
-        return TasteExtractionResult(signals: signals, avoidanceSignals: avoidanceSignals)
+    private static func canonicalTasteSignals(
+        from tags: [ReactionTagDefinition],
+        rating: Double,
+        sentimentScore: Double
+    ) -> [TasteSignal] {
+        tasteRules.compactMap { rule in
+            let matchingTags = tags.filter {
+                $0.soundPrintDimensions.contains(rule.dimensionName)
+            }
+
+            guard !matchingTags.isEmpty else {
+                return nil
+            }
+
+            var weight = canonicalTasteWeight(sentimentScore: sentimentScore)
+            var confidence = (
+                canonicalBaseConfidence
+                    + (Double(matchingTags.count - 1) * canonicalMultiplicityConfidenceBonus)
+            )
+            .clamped(to: 0.0...canonicalMultiplicityConfidenceCap)
+
+            if rating < lowRatedCanonicalRatingThreshold {
+                weight = min(weight, scopedCanonicalTasteWeightCap)
+                confidence = min(confidence, scopedCanonicalTasteConfidenceCap)
+            }
+
+            return TasteSignal(
+                dimensionName: rule.dimensionName,
+                label: rule.label,
+                summary: "Leans into \(rule.label.lowercased()).",
+                weight: weight,
+                confidence: confidence,
+                evidenceSnippet: canonicalEvidenceSnippet(from: matchingTags),
+                isPositiveEvidence: true
+            )
+        }
+    }
+
+    private static func canonicalTasteWeight(sentimentScore: Double) -> Double {
+        (
+            canonicalTasteBaseWeight
+                + (max(sentimentScore, 0.0) * canonicalTasteSentimentMultiplier)
+        )
+        .clamped(to: 0.0...1.0)
+    }
+
+    private static func mergeTasteSignals(
+        _ incomingSignals: [TasteSignal],
+        into signals: inout [TasteSignal],
+        preferIncomingEvidence: Bool
+    ) {
+        for incoming in incomingSignals {
+            guard let index = signals.firstIndex(where: {
+                $0.dimensionName == incoming.dimensionName
+            }) else {
+                signals.append(incoming)
+                continue
+            }
+
+            let existing = signals[index]
+            signals[index] = TasteSignal(
+                dimensionName: existing.dimensionName,
+                label: existing.label,
+                summary: existing.summary,
+                weight: max(existing.weight, incoming.weight),
+                confidence: (
+                    max(existing.confidence, incoming.confidence)
+                        + canonicalAgreementConfidenceBonus
+                )
+                .clamped(to: 0.0...canonicalAgreementConfidenceCap),
+                evidenceSnippet: preferIncomingEvidence
+                    ? incoming.evidenceSnippet
+                    : existing.evidenceSnippet,
+                isPositiveEvidence: true
+            )
+        }
+    }
+
+    private static func orderedTasteSignals(_ signals: [TasteSignal]) -> [TasteSignal] {
+        signals.sorted { left, right in
+            let leftIndex = tasteRules.firstIndex {
+                $0.dimensionName == left.dimensionName
+            } ?? .max
+            let rightIndex = tasteRules.firstIndex {
+                $0.dimensionName == right.dimensionName
+            } ?? .max
+
+            if leftIndex == rightIndex {
+                return left.dimensionName < right.dimensionName
+            }
+
+            return leftIndex < rightIndex
+        }
     }
 
     /// `favoriteTracks` is treated as positive evidence, primarily for replayability: naming
@@ -203,13 +377,49 @@ struct MockSoundPrintProvider: SoundPrintProvider {
     /// `skipTracks` is avoidance/tracklist-consistency evidence, not a blanket negative on the
     /// album — it coexists with whatever positive dimensions the log otherwise produced.
     static func extractAvoidanceSignals(input: TasteExtractionInput) -> [AvoidanceSignal] {
-        let searchableText = ([input.reviewText] + input.tags).joined(separator: " ")
+        let tagEvidence = partitionReactionTags(input.tags)
+        return extractAvoidanceSignals(
+            input: input,
+            canonicalTags: tagEvidence.canonical,
+            customTags: tagEvidence.custom
+        )
+    }
+
+    private static func extractAvoidanceSignals(
+        input: TasteExtractionInput,
+        canonicalTags: [ReactionTagDefinition],
+        customTags: [String]
+    ) -> [AvoidanceSignal] {
+        var signals = canonicalAvoidanceSignals(
+            from: canonicalTags,
+            rating: input.rating
+        )
+        let legacySignals = legacyAvoidanceSignals(
+            input: input,
+            customTags: customTags
+        )
+        mergeAvoidanceSignals(
+            legacySignals,
+            into: &signals,
+            preferIncomingEvidence: !input.reviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || !input.skipTracks.isEmpty
+        )
+        return orderedAvoidanceSignals(signals)
+    }
+
+    private static func legacyAvoidanceSignals(
+        input: TasteExtractionInput,
+        customTags: [String]
+    ) -> [AvoidanceSignal] {
+        let searchableText = ([input.reviewText] + customTags).joined(separator: " ")
         let normalizedText = searchableText.normalizedSoundPrintText
         let hasReviewText = !input.reviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let confidenceBase = hasReviewText ? 0.6 : 0.45
         let reviewSnippet = input.reviewText.trimmedForSoundPrint
-        let fallbackSnippet = input.tags.isEmpty ? input.albumTitle : "Tags: \(input.tags.joined(separator: ", "))"
+        let fallbackSnippet = customTags.isEmpty ? input.albumTitle : "Tags: \(customTags.joined(separator: ", "))"
         let evidenceSnippet = reviewSnippet.isEmpty ? fallbackSnippet : reviewSnippet
+        let normalizedReviewText = input.reviewText.normalizedSoundPrintText
+        let hasDetailedReview = isDetailedSoundPrintReview(input.reviewText)
 
         var signals: [AvoidanceSignal] = avoidanceRules.compactMap { rule -> AvoidanceSignal? in
             let matchCount = rule.keywords.filter { normalizedText.containsNormalizedSoundPrintPhrase($0) }.count
@@ -218,8 +428,19 @@ struct MockSoundPrintProvider: SoundPrintProvider {
                 return nil
             }
 
-            let strength = (0.5 + (Double(matchCount - 1) * 0.1)).clamped(to: 0.0...1.0)
-            let confidence = (confidenceBase + (Double(matchCount - 1) * 0.05)).clamped(to: 0.0...1.0)
+            var strength = (0.5 + (Double(matchCount - 1) * 0.1)).clamped(to: 0.0...1.0)
+            var confidence = (confidenceBase + (Double(matchCount - 1) * 0.05)).clamped(to: 0.0...1.0)
+            let hasDetailedMatchingReview =
+                hasDetailedReview
+                    && rule.keywords.contains {
+                        normalizedReviewText.containsNormalizedSoundPrintPhrase($0)
+                    }
+
+            if input.rating >= highRatedCanonicalCritiqueRatingThreshold,
+               !hasDetailedMatchingReview {
+                strength = min(strength, highRatedLooseLegacyAvoidanceStrengthCap)
+                confidence = min(confidence, highRatedLooseLegacyAvoidanceConfidenceCap)
+            }
 
             return AvoidanceSignal(
                 signalName: rule.signalName,
@@ -269,6 +490,145 @@ struct MockSoundPrintProvider: SoundPrintProvider {
         )
 
         return signals
+    }
+
+    private static func canonicalAvoidanceSignals(
+        from tags: [ReactionTagDefinition],
+        rating: Double
+    ) -> [AvoidanceSignal] {
+        allAvoidanceRules.compactMap { rule in
+            let matchingTags = tags.filter {
+                $0.avoidanceSignals.contains(rule.signalName)
+            }
+
+            guard !matchingTags.isEmpty else {
+                return nil
+            }
+
+            let isHighRated = rating >= highRatedCanonicalCritiqueRatingThreshold
+            let confidenceBase = isHighRated
+                ? highRatedCanonicalAvoidanceBaseConfidence
+                : canonicalBaseConfidence
+            let confidenceCap = isHighRated
+                ? highRatedCanonicalAvoidanceConfidenceCap
+                : canonicalMultiplicityConfidenceCap
+            let confidence = (
+                confidenceBase
+                    + (Double(matchingTags.count - 1) * canonicalMultiplicityConfidenceBonus)
+            )
+            .clamped(to: 0.0...confidenceCap)
+            let strength = isHighRated
+                ? min(canonicalAvoidanceStrength, highRatedCanonicalAvoidanceStrengthCap)
+                : canonicalAvoidanceStrength
+
+            return AvoidanceSignal(
+                signalName: rule.signalName,
+                label: rule.label,
+                summary: avoidanceSummary(
+                    signalName: rule.signalName,
+                    label: rule.label
+                ),
+                strength: strength,
+                confidence: confidence,
+                evidenceSnippet: canonicalEvidenceSnippet(from: matchingTags)
+            )
+        }
+    }
+
+    private static func mergeAvoidanceSignals(
+        _ incomingSignals: [AvoidanceSignal],
+        into signals: inout [AvoidanceSignal],
+        preferIncomingEvidence: Bool
+    ) {
+        for incoming in incomingSignals {
+            guard let index = signals.firstIndex(where: {
+                $0.signalName == incoming.signalName
+            }) else {
+                signals.append(incoming)
+                continue
+            }
+
+            let existing = signals[index]
+            signals[index] = AvoidanceSignal(
+                signalName: existing.signalName,
+                label: existing.label,
+                summary: existing.summary,
+                strength: max(existing.strength, incoming.strength),
+                confidence: (
+                    max(existing.confidence, incoming.confidence)
+                        + canonicalAgreementConfidenceBonus
+                )
+                .clamped(to: 0.0...canonicalAgreementConfidenceCap),
+                evidenceSnippet: preferIncomingEvidence
+                    ? incoming.evidenceSnippet
+                    : existing.evidenceSnippet
+            )
+        }
+    }
+
+    private static func orderedAvoidanceSignals(
+        _ signals: [AvoidanceSignal]
+    ) -> [AvoidanceSignal] {
+        signals.sorted { left, right in
+            let leftIndex = allAvoidanceRules.firstIndex {
+                $0.signalName == left.signalName
+            } ?? .max
+            let rightIndex = allAvoidanceRules.firstIndex {
+                $0.signalName == right.signalName
+            } ?? .max
+
+            if leftIndex == rightIndex {
+                return left.signalName < right.signalName
+            }
+
+            return leftIndex < rightIndex
+        }
+    }
+
+    private static func avoidanceSummary(
+        signalName: String,
+        label: String
+    ) -> String {
+        if signalName == "skipHeavyAlbums" {
+            return "Tends to skip through parts of albums like this."
+        }
+
+        return "Loses patience with \(label.lowercased())."
+    }
+
+    private static func partitionReactionTags(
+        _ tags: [String]
+    ) -> (canonical: [ReactionTagDefinition], custom: [String]) {
+        var canonical: [ReactionTagDefinition] = []
+        var custom: [String] = []
+        var seenCanonicalIDs: Set<String> = []
+
+        for tag in tags {
+            guard let definition = reactionTagResolver.canonicalTag(
+                forPersistedDisplayValue: tag
+            ) else {
+                custom.append(tag)
+                continue
+            }
+
+            if seenCanonicalIDs.insert(definition.id).inserted {
+                canonical.append(definition)
+            }
+        }
+
+        return (canonical, custom)
+    }
+
+    private static func canonicalEvidenceSnippet(
+        from tags: [ReactionTagDefinition]
+    ) -> String {
+        "Reactions: \(tags.map(\.displayName).joined(separator: ", "))"
+    }
+
+    private static func isDetailedSoundPrintReview(_ reviewText: String) -> Bool {
+        reviewText
+            .split(whereSeparator: \.isWhitespace)
+            .count >= minimumDetailedSoundPrintReviewWordCount
     }
 
     static func generateCompactSummary(input: CompactSummaryInput) -> CompactSummaryResult {
@@ -667,6 +1027,30 @@ struct MockSoundPrintProvider: SoundPrintProvider {
         "disappointing"
     ]
 
+    private static let reactionTagResolver = LocalReactionTagResolver(
+        catalog: TaxonomyCatalogLoader.shared
+    )
+    private static let canonicalTasteBaseWeight = 0.66
+    private static let canonicalTasteSentimentMultiplier = 0.25
+    private static let canonicalAvoidanceStrength = 0.6
+    private static let canonicalBaseConfidence = 0.78
+    private static let canonicalMultiplicityConfidenceBonus = 0.04
+    private static let canonicalMultiplicityConfidenceCap = 0.86
+    private static let canonicalAgreementConfidenceBonus = 0.04
+    private static let canonicalAgreementConfidenceCap = 0.9
+    private static let lowRatedCanonicalRatingThreshold = 3.0
+    private static let scopedCanonicalTasteWeightCap = 0.3
+    private static let scopedCanonicalTasteConfidenceCap = 0.35
+    private static let lowRatedLooseLegacyTasteWeightCap = 0.25
+    private static let lowRatedLooseLegacyTasteConfidenceCap = 0.3
+    private static let highRatedCanonicalCritiqueRatingThreshold = 4.0
+    private static let highRatedCanonicalAvoidanceStrengthCap = 0.4
+    private static let highRatedCanonicalAvoidanceBaseConfidence = 0.6
+    private static let highRatedCanonicalAvoidanceConfidenceCap = 0.68
+    private static let highRatedLooseLegacyAvoidanceStrengthCap = 0.35
+    private static let highRatedLooseLegacyAvoidanceConfidenceCap = 0.5
+    private static let minimumDetailedSoundPrintReviewWordCount = 4
+
     private static let tasteRules: [TasteRule] = [
         TasteRule(dimensionName: "mood", label: "Emotional Temperature", keywords: ["dark", "sad", "moody", "melancholic"]),
         TasteRule(dimensionName: "energy", label: "Energy Bias", keywords: ["energetic", "intense", "aggressive"]),
@@ -691,6 +1075,16 @@ struct MockSoundPrintProvider: SoundPrintProvider {
         AvoidanceRule(signalName: "energyWithoutPayoff", label: "Energy Without Payoff", keywords: ["all buildup", "no payoff", "goes nowhere", "never arrives"]),
         AvoidanceRule(signalName: "moodMismatch", label: "Mood Mismatch", keywords: ["wrong mood", "tonally off", "mismatched"])
     ]
+
+    private static let allAvoidanceRules: [AvoidanceRule] = {
+        avoidanceRules + [
+            AvoidanceRule(
+                signalName: "skipHeavyAlbums",
+                label: "Skip-Heavy Albums",
+                keywords: skipHeavyKeywords
+            )
+        ]
+    }()
 
     private static let skipHeavyKeywords: [String] = [
         "filler", "pacing", "bloated", "too long", "weak middle", "inconsistent", "uneven", "front-loaded", "skip"

@@ -120,6 +120,72 @@ struct ShareExtensionLoggingTests {
         #expect(savedLog.reviewText == "huge and patient")
     }
 
+    @Test func shareExtensionDeterministicReactionParityPersistsCompatibleValues() throws {
+        let catalog = TaxonomyCatalogLoader.shared
+        let searchEngine = ReactionBrowserSearchEngine(catalog: catalog)
+        var selection = ReactionSelectionState()
+
+        guard case .canonical(let hype) = searchEngine.presentation(for: "hype").exactMatch else {
+            Issue.record("Expected the canonical reaction.")
+            return
+        }
+        selection.toggleCanonical(hype)
+        #expect(selection.persistedDisplayValues == ["hype"])
+        selection.toggleCanonical(hype)
+        #expect(selection.persistedDisplayValues.isEmpty)
+
+        guard case .alias(let alias, let aliasTag) = searchEngine.presentation(for: "turnt").exactMatch else {
+            Issue.record("Expected the exact local alias.")
+            return
+        }
+        #expect(alias == "turnt")
+        #expect(aliasTag.id == hype.id)
+        selection.addCanonical(aliasTag)
+
+        guard case .ambiguous(let ambiguousAlias, let candidates) =
+            searchEngine.presentation(for: "floaty").exactMatch else {
+            Issue.record("Expected the declared ambiguous alias.")
+            return
+        }
+        #expect(ambiguousAlias.term == "floaty")
+        #expect(candidates.map(\.id) == ["mood.dreamy", "mood.ethereal", "sonic.airy"])
+        selection.addCanonical(try #require(candidates.first))
+
+        let customPresentation = searchEngine.presentation(for: "  graduation   summer ")
+        #expect(customPresentation.exactMatch == nil)
+        #expect(customPresentation.customDisplayValue == "graduation summer")
+        #expect(selection.addCustom("  graduation   summer ") == .valid(displayValue: "graduation summer"))
+        #expect(selection.persistedDisplayValues == ["hype", "dreamy", "graduation summer"])
+
+        let restoredAliasShapedCustom = ReactionSelectionState(
+            persistedDisplayValues: ["floaty"],
+            catalog: catalog
+        )
+        #expect(restoredAliasShapedCustom.persistedDisplayValues == ["floaty"])
+        #expect(restoredAliasShapedCustom.selections.first?.isCustom == true)
+
+        let container = try makeInMemoryContainer()
+        let savedLog = try ShareExtensionLogSaver.save(
+            ShareExtensionLogDraft(
+                album: .manual(
+                    title: "Dummy",
+                    artistName: "Test Artist",
+                    releaseYear: nil,
+                    genreName: nil
+                ),
+                rating: 4.0,
+                reviewText: "",
+                tagsText: selection.persistedDisplayValues.joined(separator: ", "),
+                favoriteTracksText: "",
+                skipTracksText: "",
+                standoutMomentText: ""
+            ),
+            in: container.mainContext
+        )
+
+        #expect(savedLog.tags == ["hype", "dreamy", "graduation summer"])
+    }
+
     private func makeInMemoryContainer() throws -> ModelContainer {
         let schema = ListendModelSchema.schema
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)

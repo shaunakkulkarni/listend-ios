@@ -13,7 +13,7 @@ import UniformTypeIdentifiers
 import MusicKit
 #endif
 
-private enum SharePalette {
+enum SharePalette {
     static let paper = adaptive(light: 0xF4F1EA, dark: 0x0F141A)
     static let surface = adaptive(light: 0xFFFDF7, dark: 0x181F27)
     static let ink = adaptive(light: 0x171A1F, dark: 0xF3F0EA)
@@ -88,6 +88,8 @@ final class ShareViewController: UIViewController {
 private struct ShareLogRootView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel: ShareLogViewModel
+    @State private var isReactionBrowserPresented = false
+    @State private var isReviewExpanded = false
     @FocusState private var focusedField: ShareFocusField?
 
     init(providers: [NSItemProvider], finish: @escaping @MainActor () -> Void) {
@@ -159,6 +161,9 @@ private struct ShareLogRootView: View {
             .task {
                 await viewModel.resolveSharedAlbum()
             }
+            .sheet(isPresented: $isReactionBrowserPresented) {
+                ShareReactionBrowserSheet(selection: $viewModel.reactionSelection)
+            }
         }
     }
 
@@ -219,10 +224,17 @@ private struct ShareLogRootView: View {
                 ShareStarRatingControl(rating: $viewModel.rating)
             }
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Review")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            if let prompt = viewModel.reactionPrompt {
+                ShareReactionPickerSection(
+                    prompt: prompt,
+                    suggestions: viewModel.reactionSuggestions,
+                    selection: $viewModel.reactionSelection
+                ) {
+                    isReactionBrowserPresented = true
+                }
+            }
+
+            DisclosureGroup(isExpanded: $isReviewExpanded) {
                 ZStack(alignment: .topLeading) {
                     if viewModel.reviewText.isEmpty {
                         Text("What did this album leave with you?")
@@ -237,36 +249,22 @@ private struct ShareLogRootView: View {
                         .padding(.horizontal, 8)
                         .padding(.vertical, 6)
                         .focused($focusedField, equals: .review)
-                        .onChange(of: viewModel.reviewText) { _, _ in
-                            viewModel.refreshTagSuggestions()
-                        }
                 }
                 .frame(height: 96)
-                .background(SharePalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(
+                    SharePalette.surface,
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                )
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .stroke(SharePalette.hairline, lineWidth: 1)
                 }
+            } label: {
+                Text("Add a thought")
+                    .font(.subheadline.weight(.semibold))
             }
-
-            TextField("Tags", text: $viewModel.tagsText)
-                .textInputAutocapitalization(.never)
-                .focused($focusedField, equals: .tags)
-
-            if !viewModel.suggestedTags.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(viewModel.suggestedTags, id: \.self) { tag in
-                            Button(tag) {
-                                viewModel.addSuggestedTag(tag)
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
-                    }
-                }
-            }
+            .accessibilityIdentifier("shareAddThoughtDisclosure")
 
             VStack(alignment: .leading, spacing: 10) {
                 Text("Track highlights")
@@ -355,12 +353,13 @@ private enum ShareFocusField: Hashable {
     case albumYear
     case albumGenre
     case review
-    case tags
     case manualTracks
 }
 
 @MainActor
 private final class ShareLogViewModel: ObservableObject {
+    private static let taxonomyCatalog = TaxonomyCatalogLoader.shared
+
     @Published var resolvedAlbum: AlbumSearchResult?
     @Published var manualTitle: String = ""
     @Published var manualArtist: String = ""
@@ -368,11 +367,10 @@ private final class ShareLogViewModel: ObservableObject {
     @Published var manualGenre: String = ""
     @Published var rating: Double = 0
     @Published var reviewText: String = ""
-    @Published var tagsText: String = ""
+    @Published var reactionSelection = ReactionSelectionState()
     @Published var favoriteTracksText: String = ""
     @Published var skipTracksText: String = ""
     @Published var standoutMomentText: String = ""
-    @Published var suggestedTags: [String] = []
     @Published var tracks: [ShareTrackCandidate] = []
     @Published var favoriteTrackIDs = Set<String>()
     @Published var skipTrackIDs = Set<String>()
@@ -418,6 +416,21 @@ private final class ShareLogViewModel: ObservableObject {
             && !manualArtist.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    var reactionPrompt: ReactionPrompt? {
+        ReactionPrompt(rating: rating > 0 ? rating : nil)
+    }
+
+    var reactionSuggestions: [ReactionTagDefinition] {
+        ReactionTagRanker(catalog: Self.taxonomyCatalog)
+            .rank(ReactionTagRankingInput(
+                rating: rating > 0 ? rating : nil,
+                genreFamilyIDs: reactionGenreFamilyIDs,
+                reviewText: reviewText,
+                limit: 6
+            ))
+            .map(\.tag)
+    }
+
     func resolveSharedAlbum() async {
         guard !hasResolved else {
             return
@@ -452,15 +465,6 @@ private final class ShareLogViewModel: ObservableObject {
         }
 
         manualTitle = link.titleHint ?? ""
-    }
-
-    func addSuggestedTag(_ tag: String) {
-        let tags = ListTextNormalizer.parsedTags(from: tagsText)
-        guard !tags.contains(where: { LocalTagSuggestionEngine.normalized($0) == LocalTagSuggestionEngine.normalized(tag) }) else {
-            return
-        }
-        tagsText = (tags + [tag]).joined(separator: ", ")
-        refreshTagSuggestions()
     }
 
     func toggle(_ track: ShareTrackCandidate) {
@@ -508,7 +512,7 @@ private final class ShareLogViewModel: ObservableObject {
                 album: albumDraft,
                 rating: StarRatingCalculator.clamped(rating),
                 reviewText: reviewText,
-                tagsText: tagsText,
+                tagsText: reactionSelection.persistedDisplayValues.joined(separator: ", "),
                 favoriteTracksText: selectedTrackText(ids: favoriteTrackIDs, manualText: favoriteTracksText),
                 skipTracksText: selectedTrackText(ids: skipTrackIDs, manualText: skipTracksText),
                 standoutMomentText: standoutMomentText
@@ -538,18 +542,6 @@ private final class ShareLogViewModel: ObservableObject {
         )
     }
 
-    func refreshTagSuggestions() {
-        guard let album = resolvedAlbum else { return }
-        suggestedTags = LocalTagSuggestionEngine.suggestions(
-            albumTitle: album.title,
-            artistName: album.artistName,
-            genreName: album.genreName,
-            releaseYear: album.releaseYear,
-            reviewText: reviewText,
-            existingTags: ListTextNormalizer.parsedTags(from: tagsText)
-        )
-    }
-
     private func selectedTrackText(ids: Set<String>, manualText: String) -> String {
         let selected = tracks.filter { ids.contains($0.id) }.map(\.title)
         let manual = ListTextNormalizer.parsedTrackNames(from: manualText)
@@ -559,7 +551,20 @@ private final class ShareLogViewModel: ObservableObject {
     private func apply(_ result: ShareResolvedAlbum) {
         resolvedAlbum = result.album
         tracks = result.tracks
-        refreshTagSuggestions()
+    }
+
+    private var reactionGenreFamilyIDs: Set<String> {
+        let genreName = resolvedAlbum?.genreName ?? manualGenre
+        guard !genreName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return []
+        }
+
+        switch LocalGenreStyleResolver(catalog: Self.taxonomyCatalog).resolveExact(genreName) {
+        case .canonical(let style), .exactAlias(_, let style):
+            return [style.family]
+        case .unresolved:
+            return []
+        }
     }
 }
 

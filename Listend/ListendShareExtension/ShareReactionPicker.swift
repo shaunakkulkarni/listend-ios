@@ -1,32 +1,32 @@
 //
-//  ReactionPickerView.swift
-//  Listend
+//  ShareReactionPicker.swift
+//  ListendShareExtension
 //
 
 import SwiftUI
 
-struct ReactionPickerSection: View {
+struct ShareReactionPickerSection: View {
     let prompt: ReactionPrompt
     let suggestions: [ReactionTagDefinition]
     @Binding var selection: ReactionSelectionState
     let showMore: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: ListendSpacing.md) {
+        VStack(alignment: .leading, spacing: 12) {
             Text(prompt.title)
                 .font(.headline)
                 .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("reactionPromptText")
+                .accessibilityIdentifier("shareReactionPrompt")
 
             if !additionalSelections.isEmpty {
-                VStack(alignment: .leading, spacing: ListendSpacing.sm) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Selected")
                         .font(.subheadline.weight(.semibold))
                         .accessibilityAddTraits(.isHeader)
 
-                    ReactionFlowLayout(spacing: ListendSpacing.sm) {
+                    ShareReactionFlowLayout(spacing: 8) {
                         ForEach(additionalSelections) { item in
-                            ReactionSelectionChip(selection: item) {
+                            ShareReactionSelectionChip(selection: item) {
                                 selection.remove(item)
                             }
                         }
@@ -34,9 +34,9 @@ struct ReactionPickerSection: View {
                 }
             }
 
-            ReactionFlowLayout(spacing: ListendSpacing.sm) {
+            ShareReactionFlowLayout(spacing: 8) {
                 ForEach(suggestions) { tag in
-                    ReactionTagChip(
+                    ShareReactionTagChip(
                         tag: tag,
                         isSelected: selection.isSelected(tag)
                     ) {
@@ -47,29 +47,25 @@ struct ReactionPickerSection: View {
                 Button(action: showMore) {
                     Label("More", systemImage: "ellipsis.circle")
                         .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, ListendSpacing.md)
+                        .padding(.horizontal, 12)
                         .frame(minHeight: 44)
-                        .background(Color.listendSurface, in: RoundedRectangle(cornerRadius: ListendRadius.chip))
+                        .background(
+                            SharePalette.surface,
+                            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        )
                         .overlay {
-                            RoundedRectangle(cornerRadius: ListendRadius.chip)
-                                .stroke(Color.listendHairline, lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(SharePalette.hairline, lineWidth: 1)
                         }
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(Color.listendAccent)
+                .foregroundStyle(SharePalette.accent)
                 .accessibilityLabel("More reactions")
                 .accessibilityHint("Opens all reaction categories and search")
-                .accessibilityIdentifier("reactionMoreButton")
-            }
-
-            if suggestions.isEmpty {
-                Text("Browse More to add a reaction in your own words.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("shareReactionMoreButton")
             }
         }
-        .padding(.vertical, ListendSpacing.xs)
+        .padding(.vertical, 4)
     }
 
     private var additionalSelections: [ReactionSelection] {
@@ -84,34 +80,21 @@ struct ReactionPickerSection: View {
     }
 }
 
-struct ReactionBrowserSheet: View {
+struct ShareReactionBrowserSheet: View {
     @Environment(\.dismiss) private var dismiss
-
     @Binding private var selection: ReactionSelectionState
     @State private var searchText = ""
-    @State private var isSearchPresented = false
-    @State private var resolutionState: ReactionTagResolutionState = .idle
-    @State private var resolutionTask: Task<Void, Never>?
 
     private let catalog: TaxonomyCatalog
     private let searchEngine: ReactionBrowserSearchEngine
-    private let rating: Double?
-    private let reviewExcerpt: String
-    private let semanticResolver: any ReactionTagResolving
 
     init(
         selection: Binding<ReactionSelectionState>,
-        catalog: TaxonomyCatalog = TaxonomyCatalogLoader.shared,
-        rating: Double? = nil,
-        reviewExcerpt: String = "",
-        semanticResolver: any ReactionTagResolving = LocalReactionTagResolutionProvider()
+        catalog: TaxonomyCatalog = TaxonomyCatalogLoader.shared
     ) {
         _selection = selection
         self.catalog = catalog
         searchEngine = ReactionBrowserSearchEngine(catalog: catalog)
-        self.rating = rating
-        self.reviewExcerpt = reviewExcerpt
-        self.semanticResolver = semanticResolver
     }
 
     var body: some View {
@@ -125,34 +108,30 @@ struct ReactionBrowserSheet: View {
                     searchSections
                 }
             }
-            .accessibilityIdentifier("reactionBrowser")
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.interactively)
+            .background(SharePalette.paper)
+            .foregroundStyle(SharePalette.ink)
+            .tint(SharePalette.accent)
             .navigationTitle("More Reactions")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(
                 text: $searchText,
-                isPresented: $isSearchPresented,
                 placement: .navigationBarDrawer(displayMode: .always),
                 prompt: Text("Search reactions")
             )
-            .scrollContentBackground(.hidden)
-            .scrollDismissesKeyboard(.interactively)
-            .background(Color.listendPaper)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         dismiss()
                     }
-                    .accessibilityIdentifier("reactionBrowserDoneButton")
+                    .accessibilityIdentifier("shareReactionBrowserDoneButton")
                 }
             }
-            .onChange(of: searchText) {
-                resetResolution()
-            }
+            .accessibilityIdentifier("shareReactionBrowser")
         }
         .presentationDetents([.large])
-        .onDisappear {
-            resolutionTask?.cancel()
-        }
     }
 
     private var searchPresentation: ReactionBrowserSearchPresentation {
@@ -167,23 +146,23 @@ struct ReactionBrowserSheet: View {
                     Button {
                         selection.remove(item)
                     } label: {
-                        HStack(alignment: .firstTextBaseline, spacing: ListendSpacing.sm) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(item.displayName)
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(SharePalette.ink)
                                     .fixedSize(horizontal: false, vertical: true)
 
                                 if item.isCustom {
                                     Text("Custom reaction")
                                         .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(SharePalette.mutedInk)
                                 }
                             }
 
-                            Spacer(minLength: ListendSpacing.sm)
+                            Spacer(minLength: 8)
 
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(Color.listendAccent)
+                                .foregroundStyle(SharePalette.accent)
                         }
                         .contentShape(Rectangle())
                     }
@@ -193,13 +172,14 @@ struct ReactionBrowserSheet: View {
                     .accessibilityHint("Double tap to deselect")
                     .accessibilityAddTraits(.isSelected)
                     .accessibilityIdentifier(
-                        "selectedReaction-\(ReactionAccessibility.identifierComponent(for: item.id))"
+                        "shareSelectedReaction-\(shareReactionIdentifier(item.id))"
                     )
                 }
             } header: {
                 Text("Selected")
                     .accessibilityAddTraits(.isHeader)
             }
+            .listRowBackground(SharePalette.paper)
         }
     }
 
@@ -213,6 +193,7 @@ struct ReactionBrowserSheet: View {
                     description: Text("Search to keep a reaction in your own words.")
                 )
             }
+            .listRowBackground(SharePalette.paper)
         } else {
             ForEach(catalog.reactions.categories) { category in
                 categorySection(category)
@@ -225,11 +206,11 @@ struct ReactionBrowserSheet: View {
 
         return Section {
             ForEach(tags) { tag in
-                ReactionBrowserTagRow(
+                ShareReactionBrowserRow(
                     tag: tag,
                     annotation: nil,
                     isSelected: selection.isSelected(tag),
-                    accessibilityIdentifier: "reactionBrowserOption-\(tag.id)"
+                    accessibilityIdentifier: "shareReactionOption-\(tag.id)"
                 ) {
                     selection.toggleCanonical(tag)
                 }
@@ -238,6 +219,7 @@ struct ReactionBrowserSheet: View {
             Text(category.displayName)
                 .accessibilityAddTraits(.isHeader)
         }
+        .listRowBackground(SharePalette.paper)
     }
 
     @ViewBuilder
@@ -245,41 +227,29 @@ struct ReactionBrowserSheet: View {
         switch searchPresentation.exactMatch {
         case .canonical(let tag):
             Section("Exact match") {
-                ReactionBrowserTagRow(
-                    tag: tag,
-                    annotation: "Canonical reaction",
-                    isSelected: selection.isSelected(tag),
-                    accessibilityIdentifier: "reactionResult-\(tag.id)"
-                ) {
-                    selection.toggleCanonical(tag)
-                }
+                reactionRow(tag, annotation: "Canonical reaction")
             }
+            .listRowBackground(SharePalette.paper)
 
         case .alias(let alias, let tag):
             Section("Alias match") {
-                ReactionBrowserTagRow(
-                    tag: tag,
-                    annotation: "“\(alias)” maps to this canonical reaction",
-                    isSelected: selection.isSelected(tag),
-                    accessibilityIdentifier: "reactionResult-\(tag.id)"
-                ) {
-                    selection.toggleCanonical(tag)
-                }
+                reactionRow(tag, annotation: "“\(alias)” maps to this canonical reaction")
             }
+            .listRowBackground(SharePalette.paper)
 
         case .ambiguous(let alias, let candidates):
             Section {
                 Text(alias.prompt)
                     .font(.subheadline)
                     .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("reactionAmbiguityPrompt")
+                    .accessibilityIdentifier("shareReactionAmbiguityPrompt")
 
                 ForEach(candidates) { tag in
-                    ReactionBrowserTagRow(
+                    ShareReactionBrowserRow(
                         tag: tag,
                         annotation: "Choice for “\(alias.term)”",
                         isSelected: selection.isSelected(tag),
-                        accessibilityIdentifier: "reactionAmbiguityOption-\(tag.id)"
+                        accessibilityIdentifier: "shareReactionAmbiguityOption-\(tag.id)"
                     ) {
                         selection.toggleCanonical(tag)
                     }
@@ -287,93 +257,44 @@ struct ReactionBrowserSheet: View {
             } header: {
                 Text("Choose what you mean")
                     .accessibilityAddTraits(.isHeader)
-                    .accessibilityIdentifier("reactionAmbiguityChoices")
             }
+            .listRowBackground(SharePalette.paper)
 
         case nil:
             if searchPresentation.results.isEmpty {
                 Section {
-                    ContentUnavailableView.search(text: TagTextNormalizer.displayValue(searchText))
+                    ContentUnavailableView.search(
+                        text: TagTextNormalizer.displayValue(searchText)
+                    )
                 }
+                .listRowBackground(SharePalette.paper)
             } else {
                 Section("Results") {
                     ForEach(searchPresentation.results) { result in
-                        ReactionBrowserTagRow(
-                            tag: result.tag,
-                            annotation: annotation(for: result),
-                            isSelected: selection.isSelected(result.tag),
-                            accessibilityIdentifier: "reactionResult-\(result.tag.id)"
-                        ) {
-                            selection.toggleCanonical(result.tag)
-                        }
+                        reactionRow(
+                            result.tag,
+                            annotation: annotation(for: result)
+                        )
                     }
                 }
+                .listRowBackground(SharePalette.paper)
             }
         }
 
-        semanticResolutionSection
         customSection
     }
 
-    @ViewBuilder
-    private var semanticResolutionSection: some View {
-        if let customDisplayValue = searchPresentation.customDisplayValue,
-           ReactionSelectionState.validateCustom(customDisplayValue).displayValue != nil {
-            switch resolutionState {
-            case .idle:
-                if searchPresentation.allowsSemanticLookup {
-                    Section {
-                        Button {
-                            findClosestReaction(for: customDisplayValue)
-                        } label: {
-                            Label("Find the closest reaction", systemImage: "sparkle.magnifyingglass")
-                        }
-                        .accessibilityHint("Uses on-device intelligence after you confirm")
-                        .accessibilityIdentifier("findClosestReactionButton")
-                    } header: {
-                        Text("Need help matching it?")
-                            .accessibilityAddTraits(.isHeader)
-                    }
-                }
-
-            case .resolving(let phrase):
-                Section {
-                    HStack(spacing: ListendSpacing.sm) {
-                        ProgressView()
-                        Text("Finding the closest reaction to “\(phrase)”…")
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("reactionResolutionProgress")
-                }
-
-            case .confirmation(let phrase, let options):
-                Section {
-                    if options.isEmpty {
-                        Text("No close match found. You can keep “\(phrase)” in your own words.")
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .accessibilityIdentifier("reactionResolutionNoMatch")
-                    } else {
-                        ForEach(options) { tag in
-                            ReactionBrowserTagRow(
-                                tag: tag,
-                                annotation: "Closest option for “\(phrase)”",
-                                isSelected: selection.isSelected(tag),
-                                accessibilityIdentifier: "reactionResolutionOption-\(tag.id)"
-                            ) {
-                                selection.addCanonical(tag)
-                                searchText = ""
-                                isSearchPresented = false
-                            }
-                        }
-                    }
-                } header: {
-                    Text(options.count > 1 ? "Choose the closest reaction" : "Closest reaction")
-                        .accessibilityAddTraits(.isHeader)
-                        .accessibilityIdentifier("reactionResolutionConfirmation")
-                }
-            }
+    private func reactionRow(
+        _ tag: ReactionTagDefinition,
+        annotation: String
+    ) -> some View {
+        ShareReactionBrowserRow(
+            tag: tag,
+            annotation: annotation,
+            isSelected: selection.isSelected(tag),
+            accessibilityIdentifier: "shareReactionResult-\(tag.id)"
+        ) {
+            selection.toggleCanonical(tag)
         }
     }
 
@@ -387,25 +308,28 @@ struct ReactionBrowserSheet: View {
                     Button {
                         selection.addCustom(displayValue)
                         searchText = ""
-                        isSearchPresented = false
                     } label: {
-                        Label("Keep “\(displayValue)” as custom", systemImage: "text.badge.plus")
-                            .fixedSize(horizontal: false, vertical: true)
+                        Label(
+                            "Keep “\(displayValue)” as custom",
+                            systemImage: "text.badge.plus"
+                        )
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                     .accessibilityLabel("Keep \(displayValue) as a custom reaction")
                     .accessibilityHint("Adds your exact words to the selected reactions")
-                    .accessibilityIdentifier("keepCustomReactionButton")
+                    .accessibilityIdentifier("shareKeepCustomReactionButton")
                 } else if let message = validation.message {
                     Text(message)
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(SharePalette.mutedInk)
                         .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("customReactionValidationMessage")
+                        .accessibilityIdentifier("shareCustomReactionValidationMessage")
                 }
             } header: {
                 Text("Your words")
                     .accessibilityAddTraits(.isHeader)
             }
+            .listRowBackground(SharePalette.paper)
         }
     }
 
@@ -425,44 +349,9 @@ struct ReactionBrowserSheet: View {
             return "Closest local match to “\(result.matchedText)”"
         }
     }
-
-    private func findClosestReaction(for phrase: String) {
-        resolutionTask?.cancel()
-        resolutionState = .resolving(phrase: phrase)
-
-        let comparisonKey = TagTextNormalizer.comparisonKey(phrase)
-        let selectedCanonicalIDs = selection.selectedCanonicalIDs
-        resolutionTask = Task { @MainActor in
-            let resolution = await ReactionTagResolutionState.resolve(
-                phrase: phrase,
-                rating: rating,
-                selectedCanonicalIDs: selectedCanonicalIDs,
-                reviewExcerpt: reviewExcerpt,
-                catalog: catalog,
-                semanticResolver: semanticResolver
-            )
-
-            guard !Task.isCancelled,
-                  TagTextNormalizer.comparisonKey(searchText) == comparisonKey else {
-                return
-            }
-
-            resolutionState = .confirmation(
-                for: resolution,
-                originalPhrase: phrase
-            )
-            resolutionTask = nil
-        }
-    }
-
-    private func resetResolution() {
-        resolutionTask?.cancel()
-        resolutionTask = nil
-        resolutionState = .idle
-    }
 }
 
-private struct ReactionTagChip: View {
+private struct ShareReactionTagChip: View {
     let tag: ReactionTagDefinition
     let isSelected: Bool
     let action: () -> Void
@@ -479,30 +368,30 @@ private struct ReactionTagChip: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .font(.subheadline.weight(.semibold))
-            .padding(.horizontal, ListendSpacing.md)
+            .padding(.horizontal, 12)
             .padding(.vertical, 7)
             .frame(minHeight: 44)
-            .foregroundStyle(isSelected ? Color.listendAccent : Color.primary)
+            .foregroundStyle(isSelected ? SharePalette.accent : SharePalette.ink)
             .background(
-                isSelected ? Color.listendAccentSoft : Color.listendSurface,
-                in: RoundedRectangle(cornerRadius: ListendRadius.chip)
+                isSelected ? SharePalette.accent.opacity(0.14) : SharePalette.surface,
+                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
             )
             .overlay {
-                RoundedRectangle(cornerRadius: ListendRadius.chip)
-                    .stroke(isSelected ? Color.clear : Color.listendHairline, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(isSelected ? Color.clear : SharePalette.hairline, lineWidth: 1)
             }
-            .contentShape(RoundedRectangle(cornerRadius: ListendRadius.chip))
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(tag.displayName)
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
         .accessibilityHint(isSelected ? "Double tap to deselect" : "Double tap to select")
-        .accessibilityIdentifier("reactionChip-\(tag.id)")
-        .modifier(ReactionSelectedAccessibilityModifier(isSelected: isSelected))
+        .accessibilityIdentifier("shareReactionChip-\(tag.id)")
+        .modifier(ShareReactionSelectedAccessibilityModifier(isSelected: isSelected))
     }
 }
 
-private struct ReactionSelectionChip: View {
+private struct ShareReactionSelectionChip: View {
     let selection: ReactionSelection
     let action: () -> Void
 
@@ -516,15 +405,15 @@ private struct ReactionSelectionChip: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .font(.subheadline.weight(.semibold))
-            .padding(.horizontal, ListendSpacing.md)
+            .padding(.horizontal, 12)
             .padding(.vertical, 7)
             .frame(minHeight: 44)
-            .foregroundStyle(Color.listendAccent)
+            .foregroundStyle(SharePalette.accent)
             .background(
-                Color.listendAccentSoft,
-                in: RoundedRectangle(cornerRadius: ListendRadius.chip)
+                SharePalette.accent.opacity(0.14),
+                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
             )
-            .contentShape(RoundedRectangle(cornerRadius: ListendRadius.chip))
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(selection.displayName)
@@ -532,12 +421,12 @@ private struct ReactionSelectionChip: View {
         .accessibilityHint("Double tap to deselect")
         .accessibilityAddTraits(.isSelected)
         .accessibilityIdentifier(
-            "selectedReaction-\(ReactionAccessibility.identifierComponent(for: selection.id))"
+            "shareSelectedReaction-\(shareReactionIdentifier(selection.id))"
         )
     }
 }
 
-private struct ReactionBrowserTagRow: View {
+private struct ShareReactionBrowserRow: View {
     let tag: ReactionTagDefinition
     let annotation: String?
     let isSelected: Bool
@@ -546,31 +435,24 @@ private struct ReactionBrowserTagRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(alignment: .top, spacing: ListendSpacing.md) {
+            HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(tag.displayName)
                         .font(.body.weight(.medium))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(SharePalette.ink)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    if let annotation {
-                        Text(annotation)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    } else {
-                        Text(tag.definition)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(3)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                    Text(annotation ?? tag.definition)
+                        .font(.caption)
+                        .foregroundStyle(SharePalette.mutedInk)
+                        .lineLimit(annotation == nil ? 3 : nil)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Spacer(minLength: ListendSpacing.sm)
+                Spacer(minLength: 8)
 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? Color.listendAccent : .secondary)
+                    .foregroundStyle(isSelected ? SharePalette.accent : SharePalette.mutedInk)
                     .frame(minWidth: 44, minHeight: 44)
             }
             .contentShape(Rectangle())
@@ -580,7 +462,7 @@ private struct ReactionBrowserTagRow: View {
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
         .accessibilityHint(isSelected ? "Double tap to deselect" : "Double tap to select")
         .accessibilityIdentifier(accessibilityIdentifier)
-        .modifier(ReactionSelectedAccessibilityModifier(isSelected: isSelected))
+        .modifier(ShareReactionSelectedAccessibilityModifier(isSelected: isSelected))
     }
 
     private var accessibilityLabel: String {
@@ -592,7 +474,7 @@ private struct ReactionBrowserTagRow: View {
     }
 }
 
-private struct ReactionSelectedAccessibilityModifier: ViewModifier {
+private struct ShareReactionSelectedAccessibilityModifier: ViewModifier {
     let isSelected: Bool
 
     @ViewBuilder
@@ -605,22 +487,20 @@ private struct ReactionSelectedAccessibilityModifier: ViewModifier {
     }
 }
 
-private enum ReactionAccessibility {
-    nonisolated static func identifierComponent(for value: String) -> String {
-        TagTextNormalizer.comparisonKey(value)
-            .map { character in
-                character.isLetter || character.isNumber ? character : "-"
+private func shareReactionIdentifier(_ value: String) -> String {
+    TagTextNormalizer.comparisonKey(value)
+        .map { character in
+            character.isLetter || character.isNumber ? character : "-"
+        }
+        .reduce(into: "") { result, character in
+            if character != "-" || result.last != "-" {
+                result.append(character)
             }
-            .reduce(into: "") { result, character in
-                if character != "-" || result.last != "-" {
-                    result.append(character)
-                }
-            }
-            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
-    }
+        }
+        .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
 }
 
-private struct ReactionFlowLayout: Layout {
+private struct ShareReactionFlowLayout: Layout {
     let spacing: CGFloat
 
     func sizeThatFits(
@@ -636,7 +516,10 @@ private struct ReactionFlowLayout: Layout {
 
         for subview in subviews {
             let size = subview.sizeThatFits(
-                ProposedViewSize(width: maximumWidth.isFinite ? maximumWidth : nil, height: nil)
+                ProposedViewSize(
+                    width: maximumWidth.isFinite ? maximumWidth : nil,
+                    height: nil
+                )
             )
 
             if rowWidth > 0, rowWidth + spacing + size.width > maximumWidth {
@@ -652,7 +535,7 @@ private struct ReactionFlowLayout: Layout {
 
         totalWidth = max(totalWidth, rowWidth)
         totalHeight += rowHeight
-        return CGSize(width: min(totalWidth, maximumWidth), height: totalHeight)
+        return CGSize(width: totalWidth, height: totalHeight)
     }
 
     func placeSubviews(
@@ -661,8 +544,7 @@ private struct ReactionFlowLayout: Layout {
         subviews: Subviews,
         cache: inout Void
     ) {
-        var x = bounds.minX
-        var y = bounds.minY
+        var origin = bounds.origin
         var rowHeight: CGFloat = 0
 
         for subview in subviews {
@@ -670,18 +552,18 @@ private struct ReactionFlowLayout: Layout {
                 ProposedViewSize(width: bounds.width, height: nil)
             )
 
-            if x > bounds.minX, x + size.width > bounds.maxX {
-                x = bounds.minX
-                y += rowHeight + spacing
+            if origin.x > bounds.minX,
+               origin.x + size.width > bounds.maxX {
+                origin.x = bounds.minX
+                origin.y += rowHeight + spacing
                 rowHeight = 0
             }
 
             subview.place(
-                at: CGPoint(x: x, y: y),
-                anchor: .topLeading,
-                proposal: ProposedViewSize(width: min(size.width, bounds.width), height: size.height)
+                at: origin,
+                proposal: ProposedViewSize(width: size.width, height: size.height)
             )
-            x += size.width + spacing
+            origin.x += size.width + spacing
             rowHeight = max(rowHeight, size.height)
         }
     }

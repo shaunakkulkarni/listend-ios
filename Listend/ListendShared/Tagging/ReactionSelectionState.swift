@@ -1,6 +1,6 @@
 //
 //  ReactionSelectionState.swift
-//  Listend
+//  ListendShared
 //
 
 import Foundation

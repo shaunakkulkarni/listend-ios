@@ -124,18 +124,11 @@ enum ListTextNormalizer {
     }
 
     private nonisolated static func normalizedTag(_ tag: String) -> String {
-        tag
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
-            .lowercased()
-            .replacingOccurrences(of: "–", with: "-")
-            .replacingOccurrences(of: "—", with: "-")
-            .components(separatedBy: CharacterSet.whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
+        TagTextNormalizer.comparisonKey(tag)
     }
 
     private nonisolated static func displayTag(from tag: String) -> String {
-        normalizedTag(tag)
+        TagTextNormalizer.displayValue(tag)
     }
 
     private nonisolated static func normalizedTrackNameKey(_ value: String) -> String {

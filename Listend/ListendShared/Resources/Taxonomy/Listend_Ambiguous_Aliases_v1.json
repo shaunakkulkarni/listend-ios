@@ -1,0 +1,183 @@
+{
+  "taxonomyVersion": "1.0.0-draft",
+  "generatedDate": "2026-07-27",
+  "purpose": "Terms that must not resolve silently to a single reaction tag.",
+  "aliases": [
+    {
+      "term": "icy",
+      "candidateIDs": [
+        "sonic.cold-production",
+        "mood.confident",
+        "mood.menacing"
+      ],
+      "prompt": "Does “icy” describe the sound, the attitude, or the mood?"
+    },
+    {
+      "term": "raw",
+      "candidateIDs": [
+        "sonic.raw-production",
+        "craft.raw-vocals",
+        "mood.vulnerable"
+      ],
+      "prompt": "Does “raw” describe the production, the vocals, or the emotional openness?"
+    },
+    {
+      "term": "warm",
+      "candidateIDs": [
+        "mood.comforting",
+        "sonic.warm-production"
+      ],
+      "prompt": "Does “warm” describe how it feels or how it sounds?"
+    },
+    {
+      "term": "floaty",
+      "candidateIDs": [
+        "mood.dreamy",
+        "mood.ethereal",
+        "sonic.airy"
+      ],
+      "prompt": "Is “floaty” more dreamy, otherworldly, or airy in sound?"
+    },
+    {
+      "term": "chill",
+      "candidateIDs": [
+        "energy.laid-back",
+        "energy.mellow",
+        "mood.calm"
+      ],
+      "prompt": "Does “chill” mean relaxed pacing, soft intensity, or emotional calm?"
+    },
+    {
+      "term": "easygoing",
+      "candidateIDs": [
+        "mood.carefree",
+        "energy.laid-back"
+      ],
+      "prompt": "Does “easygoing” describe the mood or the pacing?"
+    },
+    {
+      "term": "alone",
+      "candidateIDs": [
+        "mood.lonely",
+        "context.solo-listening"
+      ],
+      "prompt": "Does “alone” describe the emotion or how you want to listen?"
+    },
+    {
+      "term": "full of soul",
+      "candidateIDs": [
+        "mood.soulful",
+        "craft.soulful-vocals"
+      ],
+      "prompt": "Does this describe the overall feeling or specifically the vocals?"
+    },
+    {
+      "term": "smooth",
+      "candidateIDs": [
+        "craft.smooth-vocals",
+        "energy.laid-back",
+        "sonic.polished"
+      ],
+      "prompt": "Does “smooth” describe the vocals, the pacing, or the finish?"
+    },
+    {
+      "term": "heavy",
+      "candidateIDs": [
+        "energy.hard-hitting",
+        "sonic.bass-heavy",
+        "sonic.dense"
+      ],
+      "prompt": "Does “heavy” mean impact, bass weight, or a dense arrangement?"
+    },
+    {
+      "term": "spacey",
+      "candidateIDs": [
+        "mood.dreamy",
+        "sonic.atmospheric",
+        "sonic.spacious"
+      ],
+      "prompt": "Does “spacey” describe the mood, the atmosphere, or the open mix?"
+    },
+    {
+      "term": "moody",
+      "candidateIDs": [
+        "mood.dark",
+        "mood.melancholic",
+        "mood.anxious"
+      ],
+      "prompt": "Is the mood dark, sad, or tense?"
+    },
+    {
+      "term": "aggressive",
+      "candidateIDs": [
+        "energy.hard-hitting",
+        "mood.menacing",
+        "energy.relentless"
+      ],
+      "prompt": "Does “aggressive” describe impact, threat, or nonstop intensity?"
+    },
+    {
+      "term": "emotional",
+      "candidateIDs": [
+        "reaction.moving",
+        "reaction.emotionally-resonant",
+        "mood.vulnerable"
+      ],
+      "prompt": "Was it moving, personally resonant, or emotionally exposed?"
+    },
+    {
+      "term": "deep",
+      "candidateIDs": [
+        "craft.lyricism",
+        "reaction.thought-provoking",
+        "mood.introspective"
+      ],
+      "prompt": "Does “deep” refer to the writing, the ideas, or the inward mood?"
+    },
+    {
+      "term": "pretty",
+      "candidateIDs": [
+        "mood.tender",
+        "mood.ethereal",
+        "sonic.lush"
+      ],
+      "prompt": "Does “pretty” describe tenderness, an otherworldly mood, or a rich sound?"
+    },
+    {
+      "term": "big",
+      "candidateIDs": [
+        "sonic.cinematic",
+        "sonic.wall-of-sound",
+        "craft.anthemic"
+      ],
+      "prompt": "Does “big” mean cinematic scale, a massive sound, or an anthemic hook?"
+    },
+    {
+      "term": "clean",
+      "candidateIDs": [
+        "sonic.polished",
+        "sonic.spacious",
+        "critique.too-polished"
+      ],
+      "prompt": "Is “clean” a polished strength, an open mix, or overly sterile?"
+    },
+    {
+      "term": "weird",
+      "candidateIDs": [
+        "craft.adventurous",
+        "sonic.psychedelic",
+        "sonic.genre-blending"
+      ],
+      "prompt": "Is “weird” creative risk, a psychedelic sound, or genre mixing?"
+    },
+    {
+      "term": "hard",
+      "candidateIDs": [
+        "energy.hard-hitting",
+        "mood.menacing",
+        "craft.bars"
+      ],
+      "prompt": "Does “hard” describe the impact, the attitude, or the writing?"
+    }
+  ]
+}

@@ -25,15 +25,15 @@ final class ListendUITests: XCTestCase {
     func testCreateEditDeleteLogAndProfileStatsUpdate() throws {
         launchResetApp()
 
-        createSOSLog(rating: "4.5", review: "UI flow review.", tags: "ui flow")
+        createSOSLog(rating: "4.5", review: "UI flow review.", reaction: "ui flow")
 
         XCTAssertTrue(app.staticTexts["SOS"].waitForExistence(timeout: 5))
         openLog(title: "SOS")
 
         app.buttons["Edit"].tap()
         selectRating("5.0")
+        addCustomReaction("edited")
         appendText(in: reviewTextInput(), text: " Edited review.")
-        appendText(in: app.textFields["tagsTextField"], text: ", edited")
         app.buttons["saveLogButton"].tap()
 
         let ratingValue = app.descendants(matching: .any)["ratingValueText"]
@@ -71,7 +71,7 @@ final class ListendUITests: XCTestCase {
     @MainActor
     func testLogPersistsAfterRelaunch() throws {
         launchResetApp()
-        createSOSLog(rating: "4.0", review: "Persistence review.", tags: "persistent")
+        createSOSLog(rating: "4.0", review: "Persistence review.", reaction: "persistent")
         XCTAssertTrue(app.staticTexts["SOS"].waitForExistence(timeout: 5))
 
         app.terminate()
@@ -101,7 +101,7 @@ final class ListendUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["No Logs Yet"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["Blonde"].exists)
 
-        createSOSLog(rating: "4.0", review: "Logs tab review.", tags: "history")
+        createSOSLog(rating: "4.0", review: "Logs tab review.", reaction: "history")
 
         openTab("Logs")
         XCTAssertTrue(app.staticTexts["SOS"].waitForExistence(timeout: 5))
@@ -111,7 +111,7 @@ final class ListendUITests: XCTestCase {
     @MainActor
     func testHomeShowsLatestLogPreviewOnly() throws {
         launchResetApp()
-        createSOSLog(rating: "4.5", review: "Dashboard preview review.", tags: "dashboard")
+        createSOSLog(rating: "4.5", review: "Dashboard preview review.", reaction: "dashboard")
 
         openTab("Home")
         XCTAssertTrue(app.descendants(matching: .any)["latestLogPreviewLink"].waitForExistence(timeout: 5))
@@ -200,28 +200,197 @@ final class ListendUITests: XCTestCase {
     }
 
     @MainActor
-    func testLogEditorSuggestedTagChipAppendsTag() throws {
+    func testReactionPromptAdaptsToRatingAndChipSelectsAndDeselects() throws {
+        launchResetApp()
+        openAlbumDetailFromSearch()
+
+        app.buttons["logThisAlbumButton"].tap()
+        XCTAssertFalse(app.descendants(matching: .any)["reactionPromptText"].exists)
+
+        selectRating("4.5")
+        assertReactionPrompt("What made it hit?")
+
+        let chip = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "reactionChip-")
+        ).firstMatch
+        XCTAssertTrue(chip.waitForExistence(timeout: 5))
+        XCTAssertEqual(chip.value as? String, "Not selected")
+        XCTAssertFalse(chip.isSelected)
+
+        chip.tap()
+        XCTAssertEqual(chip.value as? String, "Selected")
+        XCTAssertTrue(chip.isSelected)
+
+        chip.tap()
+        XCTAssertEqual(chip.value as? String, "Not selected")
+        XCTAssertFalse(chip.isSelected)
+
+        selectRating("3.5")
+        assertReactionPrompt("What worked—and what didn’t?")
+
+        selectRating("2.5")
+        assertReactionPrompt("What lost you?")
+    }
+
+    @MainActor
+    func testReactionBrowserOpensBrowsesCategoriesAndCloses() throws {
         launchResetApp()
         openAlbumDetailFromSearch()
 
         app.buttons["logThisAlbumButton"].tap()
         selectRating("4.5")
+        openReactionBrowser()
 
-        let reviewTextEditor = reviewTextInput()
-        XCTAssertTrue(reviewTextEditor.waitForExistence(timeout: 5))
-        reviewTextEditor.tap()
-        reviewTextEditor.typeText("Late night vocals.")
+        XCTAssertTrue(app.staticTexts["Mood & Vibe"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["reactionBrowserOption-mood.feel-good"].waitForExistence(timeout: 5))
 
-        let tagsTextField = app.textFields["tagsTextField"]
-        reveal(tagsTextField)
-        XCTAssertTrue(tagsTextField.waitForExistence(timeout: 5))
-        tagsTextField.tap()
+        let browser = app.descendants(matching: .any)["reactionBrowser"]
+        app.buttons["reactionBrowserDoneButton"].tap()
+        XCTAssertTrue(browser.waitForNonExistence(timeout: 5))
+        assertReactionPrompt("What made it hit?")
+    }
 
-        let lateNightTag = app.buttons["suggestedTag-late-night"]
-        XCTAssertTrue(lateNightTag.waitForExistence(timeout: 5))
-        lateNightTag.tap()
+    @MainActor
+    func testReactionBrowserSearchResolvesCanonicalAndAliasLocally() throws {
+        launchResetApp()
+        openAlbumDetailFromSearch()
 
-        XCTAssertTrue((tagsTextField.value as? String)?.contains("late night") == true)
+        app.buttons["logThisAlbumButton"].tap()
+        selectRating("4.5")
+        openReactionBrowser()
+
+        let searchField = reactionSearchField()
+        replaceText(in: searchField, with: "hype")
+
+        let canonicalResult = app.buttons["reactionResult-mood.hype"]
+        XCTAssertTrue(canonicalResult.waitForExistence(timeout: 5))
+        XCTAssertTrue(canonicalResult.label.contains("Canonical reaction"))
+        XCTAssertEqual(canonicalResult.value as? String, "Not selected")
+        canonicalResult.tap()
+        XCTAssertEqual(canonicalResult.value as? String, "Selected")
+
+        replaceText(in: searchField, with: "turnt")
+
+        let aliasResult = app.buttons["reactionResult-mood.hype"]
+        XCTAssertTrue(aliasResult.waitForExistence(timeout: 5))
+        XCTAssertTrue(aliasResult.label.contains("maps to this canonical reaction"))
+        XCTAssertEqual(aliasResult.value as? String, "Selected")
+    }
+
+    @MainActor
+    func testReactionBrowserShowsExplicitAmbiguityChoices() throws {
+        launchResetApp()
+        openAlbumDetailFromSearch()
+
+        app.buttons["logThisAlbumButton"].tap()
+        selectRating("4.5")
+        openReactionBrowser()
+        replaceText(in: reactionSearchField(), with: "icy")
+
+        let ambiguityPrompt = app.descendants(matching: .any)["reactionAmbiguityPrompt"]
+        XCTAssertTrue(ambiguityPrompt.waitForExistence(timeout: 5))
+        XCTAssertEqual(
+            ambiguityPrompt.label,
+            "Does “icy” describe the sound, the attitude, or the mood?"
+        )
+
+        let expectedChoiceIDs = [
+            "reactionAmbiguityOption-sonic.cold-production",
+            "reactionAmbiguityOption-mood.confident",
+            "reactionAmbiguityOption-mood.menacing"
+        ]
+        for identifier in expectedChoiceIDs {
+            let choice = app.buttons[identifier]
+            XCTAssertTrue(choice.waitForExistence(timeout: 5), "Missing ambiguity choice \(identifier)")
+            XCTAssertEqual(choice.value as? String, "Not selected")
+        }
+
+        let attitudeChoice = app.buttons["reactionAmbiguityOption-mood.confident"]
+        attitudeChoice.tap()
+        XCTAssertEqual(attitudeChoice.value as? String, "Selected")
+        XCTAssertTrue(app.buttons["keepCustomReactionButton"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testCustomReactionSavesAndRestoresAsCustom() throws {
+        launchResetApp()
+        openAlbumDetailFromSearch()
+
+        app.buttons["logThisAlbumButton"].tap()
+        selectRating("4.5")
+        addCustomReaction("graduation summer")
+
+        let customSelection = app.buttons["selectedReaction-custom-graduation-summer"]
+        XCTAssertTrue(customSelection.waitForExistence(timeout: 5))
+        XCTAssertEqual(customSelection.value as? String, "Selected")
+
+        app.buttons["saveLogButton"].tap()
+        openTab("Logs")
+        openLog(title: "SOS")
+
+        let tagsValue = app.descendants(matching: .any)["tagsValueText"]
+        XCTAssertTrue(tagsValue.waitForExistence(timeout: 5))
+        XCTAssertTrue(tagsValue.label.contains("graduation summer"))
+
+        app.buttons["Edit"].tap()
+        let restoredCustomSelection = app.buttons["selectedReaction-custom-graduation-summer"]
+        XCTAssertTrue(restoredCustomSelection.waitForExistence(timeout: 5))
+        XCTAssertEqual(restoredCustomSelection.value as? String, "Selected")
+    }
+
+    @MainActor
+    func testSeededExistingFloatyRemainsCustomAndReviewStartsExpanded() throws {
+        launchResetApp(additionalArguments: ["-seed-reaction-existing-custom"])
+        openTab("Logs")
+        openLog(title: "SOS")
+
+        app.buttons["Edit"].tap()
+
+        let reviewDisclosure = app.buttons["reviewDisclosure"]
+        XCTAssertTrue(reviewDisclosure.waitForExistence(timeout: 5))
+        XCTAssertEqual(reviewDisclosure.value as? String, "Expanded")
+
+        let customSelection = app.buttons["selectedReaction-custom-floaty"]
+        XCTAssertTrue(customSelection.waitForExistence(timeout: 5))
+        XCTAssertEqual(customSelection.value as? String, "Selected")
+
+        let existingReview = reviewTextInput()
+        reveal(existingReview, maxSwipes: 5)
+        XCTAssertTrue(existingReview.waitForExistence(timeout: 5))
+        XCTAssertTrue((existingReview.value as? String)?.contains("atmosphere kept pulling me back") == true)
+
+        openReactionBrowser()
+        let browser = app.descendants(matching: .any)["reactionBrowser"].firstMatch
+        let selectedCustom = browser.buttons["selectedReaction-custom-floaty"]
+        XCTAssertTrue(selectedCustom.waitForExistence(timeout: 5))
+        XCTAssertEqual(selectedCustom.value as? String, "Selected")
+        app.buttons["reactionBrowserDoneButton"].tap()
+
+        app.buttons["saveLogButton"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["tagsValueText"].label.contains("floaty"))
+
+        app.buttons["Edit"].tap()
+        XCTAssertTrue(app.buttons["selectedReaction-custom-floaty"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["selectedReaction-canonical-mood-dreamy"].exists)
+    }
+
+    @MainActor
+    func testNewLogReviewDisclosureStartsCollapsedAndExpandsOnTap() throws {
+        launchResetApp()
+        openAlbumDetailFromSearch()
+
+        app.buttons["logThisAlbumButton"].tap()
+
+        let disclosure = app.buttons["reviewDisclosure"]
+        XCTAssertTrue(disclosure.waitForExistence(timeout: 5))
+        XCTAssertEqual(disclosure.value as? String, "Collapsed")
+        XCTAssertFalse(reviewTextInput().exists)
+
+        disclosure.tap()
+        XCTAssertEqual(disclosure.value as? String, "Expanded")
+        let reviewInput = reviewTextInput()
+        reveal(reviewInput, maxSwipes: 5)
+        XCTAssertTrue(reviewInput.waitForExistence(timeout: 5))
     }
 
     @MainActor
@@ -232,6 +401,14 @@ final class ListendUITests: XCTestCase {
         app.buttons["logThisAlbumButton"].tap()
         selectRating("4.5")
 
+        let reactionChip = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "reactionChip-")
+        ).firstMatch
+        XCTAssertTrue(reactionChip.waitForExistence(timeout: 5))
+        let selectedReactionName = reactionChip.label
+        reactionChip.tap()
+
+        openReviewDisclosure()
         let reviewTextEditor = reviewTextInput()
         XCTAssertTrue(reviewTextEditor.waitForExistence(timeout: 5))
         reviewTextEditor.tap()
@@ -246,6 +423,11 @@ final class ListendUITests: XCTestCase {
         let draftEditor = app.descendants(matching: .any)["journalAssistDraftEditor"]
         reveal(draftEditor)
         XCTAssertTrue(draftEditor.waitForExistence(timeout: 10), "Journal Assist should show generated draft editor")
+        XCTAssertTrue(
+            (draftEditor.value as? String)?.localizedCaseInsensitiveContains(selectedReactionName) == true,
+            "Journal Assist should receive the selected reactions as context"
+        )
+        XCTAssertFalse(app.buttons["generateJournalTagsButton"].exists)
 
         XCTAssertTrue((reviewTextEditor.value as? String)?.contains("Original manual review.") == true)
         XCTAssertFalse((reviewTextEditor.value as? String)?.contains("I rated SOS") == true)
@@ -256,43 +438,6 @@ final class ListendUITests: XCTestCase {
         acceptDraftButton.tap()
 
         XCTAssertTrue((reviewTextEditor.value as? String)?.contains("I rated SOS") == true)
-    }
-
-    @MainActor
-    func testJournalAssistTagsRequireExplicitTap() throws {
-        launchResetApp()
-        openAlbumDetailFromSearch()
-
-        app.buttons["logThisAlbumButton"].tap()
-        selectRating("4.5")
-
-        let reviewTextEditor = reviewTextInput()
-        XCTAssertTrue(reviewTextEditor.waitForExistence(timeout: 5))
-        reviewTextEditor.tap()
-        reviewTextEditor.typeText("Late night vocals.")
-
-        let tagsTextField = app.textFields["tagsTextField"]
-        reveal(tagsTextField)
-        XCTAssertTrue(tagsTextField.waitForExistence(timeout: 5))
-        tagsTextField.tap()
-        tagsTextField.typeText("manual")
-        XCTAssertFalse((tagsTextField.value as? String)?.contains("late night") == true)
-
-        tapAssistButton(identifier: "journalSuggestTagsButton", fallbackLabel: "Suggest tags")
-        let generateTagsButton = app.buttons["generateJournalTagsButton"]
-        reveal(generateTagsButton)
-        XCTAssertTrue(generateTagsButton.waitForExistence(timeout: 5), "Suggest Tags sheet should expose generate tags action")
-        generateTagsButton.tap()
-
-        let journalAssistTag = app.descendants(matching: .any)["journalAssistTag-late-night"]
-        reveal(journalAssistTag)
-        XCTAssertTrue(journalAssistTag.waitForExistence(timeout: 10), "Journal Assist should suggest late night tag")
-        XCTAssertFalse((tagsTextField.value as? String)?.contains("late night") == true)
-
-        journalAssistTag.tap()
-        app.buttons["Done"].tap()
-
-        XCTAssertTrue((tagsTextField.value as? String)?.contains("late night") == true)
     }
 
     @MainActor
@@ -388,7 +533,7 @@ final class ListendUITests: XCTestCase {
     @MainActor
     func testEmptyTrackHighlightsDoNotShowDetailClutter() throws {
         launchResetApp()
-        createSOSLog(rating: "4.0", review: "No highlight review.", tags: "simple")
+        createSOSLog(rating: "4.0", review: "No highlight review.", reaction: "simple")
 
         openTab("Logs")
         openLog(title: "SOS")
@@ -407,6 +552,7 @@ final class ListendUITests: XCTestCase {
         app.buttons["logThisAlbumButton"].tap()
         selectRating("4.5")
 
+        openReviewDisclosure()
         let reviewTextEditor = reviewTextInput()
         XCTAssertTrue(reviewTextEditor.waitForExistence(timeout: 5))
         reviewTextEditor.tap()
@@ -581,21 +727,18 @@ final class ListendUITests: XCTestCase {
         tab.tap()
     }
 
-    private func createSOSLog(rating: String, review: String, tags: String) {
+    private func createSOSLog(rating: String, review: String, reaction: String) {
         openAlbumDetailFromSearch()
 
         app.buttons["logThisAlbumButton"].tap()
         selectRating(rating)
+        addCustomReaction(reaction)
 
+        openReviewDisclosure()
         let reviewTextEditor = reviewTextInput()
         XCTAssertTrue(reviewTextEditor.waitForExistence(timeout: 5))
         reviewTextEditor.tap()
         reviewTextEditor.typeText(review)
-
-        let tagsTextField = app.textFields["tagsTextField"]
-        reveal(tagsTextField)
-        tagsTextField.tap()
-        tagsTextField.typeText(tags)
 
         app.buttons["saveLogButton"].tap()
 
@@ -604,6 +747,91 @@ final class ListendUITests: XCTestCase {
 
     private func reviewTextInput() -> XCUIElement {
         app.descendants(matching: .any)["reviewTextEditor"]
+    }
+
+    private func openReviewDisclosure() {
+        let disclosure = app.buttons["reviewDisclosure"]
+        makeEditorElementHittable(disclosure)
+        XCTAssertTrue(disclosure.waitForExistence(timeout: 5))
+
+        if disclosure.value as? String != "Expanded" {
+            disclosure.tap()
+        }
+
+        XCTAssertEqual(disclosure.value as? String, "Expanded")
+        let reviewInput = reviewTextInput()
+        reveal(reviewInput, maxSwipes: 5)
+        XCTAssertTrue(reviewInput.waitForExistence(timeout: 5))
+    }
+
+    private func assertReactionPrompt(_ expectedPrompt: String) {
+        let prompt = app.descendants(matching: .any)["reactionPromptText"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        XCTAssertEqual(prompt.label, expectedPrompt)
+    }
+
+    private func openReactionBrowser() {
+        dismissKeyboardIfNeeded()
+
+        let moreButton = app.buttons["reactionMoreButton"]
+        makeEditorElementHittable(moreButton)
+        XCTAssertTrue(moreButton.waitForExistence(timeout: 5))
+        XCTAssertTrue(moreButton.isHittable)
+        moreButton.tap()
+
+        XCTAssertTrue(app.navigationBars["More Reactions"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["reactionBrowser"].waitForExistence(timeout: 5))
+    }
+
+    private func reactionSearchField() -> XCUIElement {
+        let searchField = app.searchFields["Search reactions"]
+        XCTAssertTrue(searchField.waitForExistence(timeout: 5))
+        return searchField
+    }
+
+    private func addCustomReaction(_ reaction: String) {
+        openReactionBrowser()
+        replaceText(in: reactionSearchField(), with: reaction)
+
+        let keepCustomButton = app.buttons["keepCustomReactionButton"]
+        reveal(keepCustomButton, maxSwipes: 5)
+        XCTAssertTrue(keepCustomButton.waitForExistence(timeout: 5))
+        XCTAssertTrue(keepCustomButton.isHittable)
+        keepCustomButton.tap()
+
+        let selectedIdentifier = reaction
+            .lowercased()
+            .map { $0.isLetter || $0.isNumber ? $0 : "-" }
+            .reduce(into: "") { result, character in
+                if character != "-" || result.last != "-" {
+                    result.append(character)
+                }
+            }
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        XCTAssertTrue(
+            app.buttons["selectedReaction-custom-\(selectedIdentifier)"].waitForExistence(timeout: 5)
+        )
+
+        dismissSearchKeyboardIfNeeded()
+        let doneButton = app.buttons["reactionBrowserDoneButton"]
+        XCTAssertTrue(doneButton.waitForExistence(timeout: 5))
+        doneButton.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["reactionBrowser"].waitForNonExistence(timeout: 5))
+    }
+
+    private func replaceText(in element: XCUIElement, with text: String) {
+        XCTAssertTrue(element.waitForExistence(timeout: 5))
+        element.tap()
+
+        if let currentValue = element.value as? String,
+           !currentValue.isEmpty,
+           currentValue != element.placeholderValue {
+            element.typeText(
+                String(repeating: XCUIKeyboardKey.delete.rawValue, count: currentValue.count)
+            )
+        }
+
+        element.typeText(text)
     }
 
     private func openAlbumDetailFromSearch(query: String = "SOS", resultID: String = "mock.sza.sos") {
@@ -663,12 +891,23 @@ final class ListendUITests: XCTestCase {
     }
 
     private func openTrackHighlightsSection() {
+        dismissKeyboardIfNeeded()
+
         let disclosure = app.buttons["trackHighlightsDisclosure"]
-        if !disclosure.waitForExistence(timeout: 2) {
+        makeEditorElementHittable(disclosure)
+        XCTAssertTrue(disclosure.waitForExistence(timeout: 5))
+        XCTAssertTrue(disclosure.isHittable)
+        disclosure.tap()
+    }
+
+    private func makeEditorElementHittable(_ element: XCUIElement, maxSwipes: Int = 6) {
+        for _ in 0..<maxSwipes where !element.isHittable {
+            app.swipeDown()
+        }
+
+        for _ in 0..<maxSwipes where !element.isHittable {
             app.swipeUp()
         }
-        XCTAssertTrue(disclosure.waitForExistence(timeout: 5))
-        disclosure.tap()
     }
 
     private func reveal(_ element: XCUIElement, maxSwipes: Int = 3) {
@@ -681,6 +920,19 @@ final class ListendUITests: XCTestCase {
         let doneButton = app.buttons["Done"]
         if doneButton.waitForExistence(timeout: 1) {
             doneButton.tap()
+        }
+    }
+
+    private func dismissSearchKeyboardIfNeeded() {
+        guard app.keyboards.element.exists else {
+            return
+        }
+
+        let closeButton = app.keyboards.buttons["Close"]
+        if closeButton.waitForExistence(timeout: 1) {
+            closeButton.tap()
+        } else {
+            app.swipeDown()
         }
     }
 
@@ -727,7 +979,9 @@ final class ListendUITests: XCTestCase {
     }
 
     private func appendText(in element: XCUIElement, text: String) {
+        reveal(element, maxSwipes: 5)
         XCTAssertTrue(element.waitForExistence(timeout: 5))
+        XCTAssertTrue(element.isHittable)
         element.tap()
         element.typeText(text)
     }

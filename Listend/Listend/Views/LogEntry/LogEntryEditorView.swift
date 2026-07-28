@@ -9,6 +9,8 @@ import SwiftUI
 import SwiftData
 
 struct LogEntryEditorView: View {
+    private static let taxonomyCatalog = TaxonomyCatalogLoader.shared
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.soundPrintProvider) private var environmentSoundPrintProvider
@@ -26,7 +28,8 @@ struct LogEntryEditorView: View {
     @State private var selectedAlbumID: UUID?
     @State private var rating: Double?
     @State private var reviewText: String
-    @State private var tagsText: String
+    @State private var reactionSelection: ReactionSelectionState
+    @State private var isReviewExpanded: Bool
     @State private var favoriteTracksText: String
     @State private var lessFavoriteTracksText: String
     @State private var standoutMomentText: String
@@ -36,10 +39,9 @@ struct LogEntryEditorView: View {
     @State private var isLoadingTracklist = false
     @State private var hasLoadedTracklist = false
     @State private var loadedTracklistAlbumID: UUID?
-    @State private var suggestedTags: [String] = []
     @State private var errorMessage: String?
     @State private var isSaving = false
-    @State private var activeAssistMode: JournalAssistMode?
+    @State private var activeSheet: EditorSheetDestination?
     @FocusState private var focusedField: EditorField?
 
     init(
@@ -47,7 +49,9 @@ struct LogEntryEditorView: View {
         preselectedAlbum: Album? = nil,
         soundPrintProvider: SoundPrintProvider? = nil,
         journalAssistService: JournalAssistServiceProtocol? = nil,
-        albumTrackService: AlbumTrackServiceProtocol? = nil
+        albumTrackService: AlbumTrackServiceProtocol? = nil,
+        initialRating: Double? = nil,
+        initialReactionDisplayValues: [String] = []
     ) {
         self.log = log
         self.preselectedAlbum = preselectedAlbum
@@ -55,9 +59,15 @@ struct LogEntryEditorView: View {
         injectedJournalAssistService = journalAssistService
         injectedAlbumTrackService = albumTrackService
         _selectedAlbumID = State(initialValue: log?.album?.id ?? preselectedAlbum?.id)
-        _rating = State(initialValue: log?.rating)
+        _rating = State(initialValue: log?.rating ?? initialRating)
         _reviewText = State(initialValue: log?.reviewText ?? "")
-        _tagsText = State(initialValue: log?.tags.joined(separator: ", ") ?? "")
+        _reactionSelection = State(initialValue: ReactionSelectionState(
+            persistedDisplayValues: log?.tags ?? initialReactionDisplayValues,
+            catalog: Self.taxonomyCatalog
+        ))
+        _isReviewExpanded = State(initialValue: !(log?.reviewText
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty ?? true))
         _favoriteTracksText = State(initialValue: log?.favoriteTracks.joined(separator: ", ") ?? "")
         _lessFavoriteTracksText = State(initialValue: log?.skipTracks.joined(separator: ", ") ?? "")
         _standoutMomentText = State(initialValue: log?.normalizedStandoutMoment ?? "")
@@ -89,81 +99,65 @@ struct LogEntryEditorView: View {
                     )
                 }
 
-                Section("Review") {
-                    TextField("What did this album leave with you?", text: $reviewText, axis: .vertical)
-                        .lineLimit(4...8)
-                        .textInputAutocapitalization(.sentences)
-                        .focused($focusedField, equals: .review)
-                        .accessibilityIdentifier("reviewTextEditor")
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Need a nudge?")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(LogReflectionPrompt.chips) { prompt in
-                                    Button {
-                                        insertReflectionPrompt(prompt)
-                                    } label: {
-                                        Text(prompt.chipTitle)
-                                    }
-                                    .accessibilityLabel(prompt.chipTitle)
-                                    .accessibilityHint("Inserts a reflection starter into your review")
-                                    .accessibilityIdentifier("reflectionPromptChip-\(prompt.id)")
-                                }
-
-                                Button {
-                                    activeAssistMode = .helpWrite
-                                } label: {
-                                    Label("Help me write", systemImage: "sparkles")
-                                }
-                                .accessibilityIdentifier("helpMeWriteButton")
-                                .disabled(selectedAlbum == nil)
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
+                if let reactionPrompt = ReactionPrompt(rating: rating) {
+                    Section("Reactions") {
+                        ReactionPickerSection(
+                            prompt: reactionPrompt,
+                            suggestions: rankedReactionSuggestions,
+                            selection: $reactionSelection
+                        ) {
+                            activeSheet = .reactionBrowser
                         }
-                        .accessibilityIdentifier("reviewAssistChipScroll")
-                        .scrollClipDisabled()
                     }
                 }
 
-                Section("Tags") {
-                    TextField("warm, late night, repeat", text: $tagsText)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .focused($focusedField, equals: .tags)
-                        .accessibilityIdentifier("tagsTextField")
+                Section {
+                    DisclosureGroup(isExpanded: $isReviewExpanded) {
+                        TextField("What did this album leave with you?", text: $reviewText, axis: .vertical)
+                            .lineLimit(4...8)
+                            .textInputAutocapitalization(.sentences)
+                            .focused($focusedField, equals: .review)
+                            .accessibilityIdentifier("reviewTextEditor")
 
-                    if !suggestedTags.isEmpty {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(suggestedTags, id: \.self) { tag in
-                                    Button {
-                                        appendSuggestedTag(tag)
-                                    } label: {
-                                        Text(tag)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Need a nudge?")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(LogReflectionPrompt.chips) { prompt in
+                                        Button {
+                                            insertReflectionPrompt(prompt)
+                                        } label: {
+                                            Text(prompt.chipTitle)
+                                        }
+                                        .accessibilityLabel(prompt.chipTitle)
+                                        .accessibilityHint("Inserts a reflection starter into your thought")
+                                        .accessibilityIdentifier("reflectionPromptChip-\(prompt.id)")
                                     }
-                                    .buttonStyle(.bordered)
-                                    .controlSize(.small)
-                                    .accessibilityIdentifier("suggestedTag-\(accessibilityID(for: tag))")
-                                }
-                            }
-                        }
-                        .scrollClipDisabled()
-                    }
 
-                    Button {
-                        activeAssistMode = .suggestTags
+                                    Button {
+                                        presentJournalAssist()
+                                    } label: {
+                                        Label("Help me write", systemImage: "sparkles")
+                                    }
+                                    .accessibilityIdentifier("helpMeWriteButton")
+                                    .disabled(selectedAlbum == nil)
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                            .accessibilityIdentifier("reviewAssistChipScroll")
+                            .scrollClipDisabled()
+                        }
                     } label: {
-                        Label("Suggest tags", systemImage: "tag")
+                        Label("Add a thought", systemImage: "square.and.pencil")
+                            .font(.body.weight(.medium))
+                            .accessibilityValue(isReviewExpanded ? "Expanded" : "Collapsed")
+                            .accessibilityHint(isReviewExpanded ? "Hides the optional thought editor" : "Shows the optional thought editor")
+                            .accessibilityIdentifier("reviewDisclosure")
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .accessibilityIdentifier("journalSuggestTagsButton")
-                    .disabled(selectedAlbum == nil)
                 }
 
                 Section {
@@ -276,23 +270,25 @@ struct LogEntryEditorView: View {
                     }
                 }
             }
-            .task(id: tagSuggestionInput) {
-                await refreshTagSuggestions()
-            }
             .task(id: trackListTaskID) {
                 await loadTracklistIfNeeded()
             }
-            .sheet(item: $activeAssistMode) { mode in
-                if let selectedAlbum {
+            .sheet(item: $activeSheet) { destination in
+                switch destination {
+                case .reactionBrowser:
+                    ReactionBrowserSheet(
+                        selection: $reactionSelection,
+                        catalog: Self.taxonomyCatalog
+                    )
+                case .journalAssist(let album):
                     JournalAssistSheet(
-                        mode: mode,
-                        album: selectedAlbum,
+                        mode: .helpWrite,
+                        album: album,
                         rating: rating,
                         existingReviewText: reviewText,
-                        existingTags: parsedTags,
+                        existingTags: reactionSelection.persistedDisplayValues,
                         service: journalAssistService,
-                        onAcceptDraft: acceptJournalAssistDraft,
-                        onAcceptTag: appendSuggestedTag
+                        onAcceptDraft: acceptJournalAssistDraft
                     )
                 }
             }
@@ -341,46 +337,49 @@ struct LogEntryEditorView: View {
         return availableAlbums.first { $0.id == selectedAlbumID }
     }
 
-    private var parsedTags: [String] {
-        ListTextNormalizer.parsedTags(from: tagsText)
+    private var rankedReactionSuggestions: [ReactionTagDefinition] {
+        ReactionTagRanker(catalog: Self.taxonomyCatalog)
+            .rank(ReactionTagRankingInput(
+                rating: rating,
+                genreFamilyIDs: selectedAlbumGenreFamilyIDs,
+                reviewText: reviewText,
+                limit: 6
+            ))
+            .map(\.tag)
+    }
+
+    private var selectedAlbumGenreFamilyIDs: Set<String> {
+        guard let genreName = selectedAlbum?.genreName else {
+            return []
+        }
+
+        switch LocalGenreStyleResolver(catalog: Self.taxonomyCatalog).resolveExact(genreName) {
+        case .canonical(let style), .exactAlias(_, let style):
+            return [style.family]
+        case .unresolved:
+            return []
+        }
     }
 
     private enum EditorField: Hashable {
         case review
-        case tags
         case favoriteTracks
         case lessFavoriteTracks
         case standoutMoment
     }
 
-    private var tagSuggestionInput: TagSuggestionInput? {
-        guard let selectedAlbum else {
-            return nil
+    private enum EditorSheetDestination: Identifiable {
+        case reactionBrowser
+        case journalAssist(album: Album)
+
+        var id: String {
+            switch self {
+            case .reactionBrowser:
+                return "reaction-browser"
+            case .journalAssist:
+                return "journal-assist"
+            }
         }
-
-        return TagSuggestionInput(
-            album: selectedAlbum,
-            reviewText: reviewText,
-            existingTags: parsedTags
-        )
-    }
-
-    private func albumLabel(for album: Album) -> String {
-        if let releaseYear = album.releaseYear {
-            return "\(album.title) - \(album.artistName) (\(releaseYear))"
-        }
-
-        return "\(album.title) - \(album.artistName)"
-    }
-
-    @MainActor
-    private func refreshTagSuggestions() async {
-        guard let input = tagSuggestionInput else {
-            suggestedTags = []
-            return
-        }
-
-        suggestedTags = LocalTagSuggestionProvider.suggestedTags(for: input)
     }
 
     @MainActor
@@ -425,41 +424,22 @@ struct LogEntryEditorView: View {
     }
 
     private func insertReflectionPrompt(_ prompt: LogReflectionPrompt) {
+        isReviewExpanded = true
         reviewText = LogReflectionPromptInserter.insert(prompt.insertionText, into: reviewText)
         focusedField = .review
     }
 
-    private func appendSuggestedTag(_ tag: String) {
-        let displayTag = TagSuggestionValidator.displayTag(from: tag)
-        guard !displayTag.isEmpty else {
+    private func presentJournalAssist() {
+        guard let selectedAlbum else {
             return
         }
 
-        let existingTags = parsedTags
-        let existingNormalizedTags = Set(existingTags.map(TagSuggestionValidator.normalizedTag))
-        guard !existingNormalizedTags.contains(TagSuggestionValidator.normalizedTag(displayTag)) else {
-            return
-        }
-
-        let updatedTags = existingTags + [displayTag]
-        tagsText = updatedTags.joined(separator: ", ")
+        activeSheet = .journalAssist(album: selectedAlbum)
     }
 
     private func acceptJournalAssistDraft(_ draft: String) {
+        isReviewExpanded = true
         reviewText = JournalAssistValidator.applyDraft(draft, to: reviewText)
-    }
-
-    private func accessibilityID(for tag: String) -> String {
-        TagSuggestionValidator.normalizedTag(tag)
-            .map { character in
-                character.isLetter || character.isNumber ? character : "-"
-            }
-            .reduce(into: "") { result, character in
-                if character != "-" || result.last != "-" {
-                    result.append(character)
-                }
-            }
-            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
     }
 
     @MainActor
@@ -480,7 +460,7 @@ struct LogEntryEditorView: View {
         }
 
         let trimmedReview = reviewText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let tagsToSave = parsedTags
+        let tagsToSave = reactionSelection.persistedDisplayValues
         let favoriteTracksToSave = trackCandidates.isEmpty
             ? ListTextNormalizer.parsedTrackNames(from: favoriteTracksText)
             : trackSelection.savedFavoriteTrackTitles(from: trackCandidates, manualText: favoriteTracksText)
@@ -535,10 +515,80 @@ struct LogEntryEditorView: View {
 
 }
 
-#Preview {
-    LogEntryEditorView()
-        .modelContainer(for: ListendModelSchema.modelTypes, inMemory: true)
-        .environment(SoundPrintProfileRefreshCoordinator())
+#Preview("Positive reaction") {
+    logEntryEditorPreview(
+        rating: 4.5,
+        reactionDisplayValues: ["hype", "bars"]
+    )
+}
+
+#Preview("Mixed reaction") {
+    logEntryEditorPreview(
+        rating: 3.5,
+        reactionDisplayValues: ["strong start"]
+    )
+}
+
+#Preview("Negative reaction") {
+    logEntryEditorPreview(
+        rating: 2,
+        reactionDisplayValues: ["bloated", "weak hooks"]
+    )
+}
+
+#Preview("Editing existing custom reaction") {
+    logEntryEditorPreview(
+        rating: 4,
+        reactionDisplayValues: ["floaty", "replayable"],
+        existingReviewText: "The atmosphere kept pulling me back."
+    )
+}
+
+@MainActor
+private func logEntryEditorPreview(
+    rating: Double,
+    reactionDisplayValues: [String],
+    existingReviewText: String? = nil
+) -> some View {
+    let schema = ListendModelSchema.schema
+    let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+    let container: ModelContainer
+
+    do {
+        container = try ModelContainer(for: schema, configurations: [configuration])
+    } catch {
+        fatalError("Could not create reaction picker preview container: \(error)")
+    }
+
+    let album = Album(
+        appleMusicID: "preview.madvillainy",
+        title: "Madvillainy",
+        artistName: "Madvillain",
+        releaseYear: 2004,
+        genreName: "Hip-Hop"
+    )
+    container.mainContext.insert(album)
+
+    let existingLog = existingReviewText.map { reviewText in
+        let log = LogEntry(
+            album: album,
+            rating: rating,
+            reviewText: reviewText,
+            tags: reactionDisplayValues
+        )
+        container.mainContext.insert(log)
+        return log
+    }
+    try? container.mainContext.save()
+
+    return LogEntryEditorView(
+        log: existingLog,
+        preselectedAlbum: existingLog == nil ? album : nil,
+        initialRating: existingLog == nil ? rating : nil,
+        initialReactionDisplayValues: existingLog == nil ? reactionDisplayValues : []
+    )
+    .modelContainer(container)
+    .environment(SoundPrintProfileRefreshCoordinator())
 }
 
 private struct AlbumContextRow: View {

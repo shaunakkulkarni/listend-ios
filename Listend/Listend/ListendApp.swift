@@ -60,6 +60,26 @@ struct ListendApp: App {
                 try container.mainContext.save()
             }
 
+            if isUITesting,
+               arguments.contains("-seed-reaction-existing-custom"),
+               try container.mainContext.fetchCount(FetchDescriptor<LogEntry>()) == 0 {
+                let album = Album(
+                    appleMusicID: "mock.sza.sos",
+                    title: "SOS",
+                    artistName: "SZA",
+                    releaseYear: 2022,
+                    genreName: "R&B"
+                )
+                container.mainContext.insert(album)
+                container.mainContext.insert(LogEntry(
+                    album: album,
+                    rating: 4,
+                    reviewText: "The atmosphere kept pulling me back.",
+                    tags: ["floaty"]
+                ))
+                try container.mainContext.save()
+            }
+
             if SandboxMode.isEnabled {
                 try SandboxDataSeeder.seedInitialDataIfNeeded(in: container.mainContext)
             }

@@ -35,17 +35,42 @@ final class TasteInsightsScreenshotTests: XCTestCase {
         popToProfileRoot()
 
         // 1–4 logs — early state.
-        logAlbum(query: "Blonde", resultID: "mock.frank-ocean.blonde", rating: "5.0", tags: "lush, warm")
-        logAlbum(query: "Madvillainy", resultID: "mock.madvillain.madvillainy", rating: "4.5", tags: "dense, raw")
-        logAlbum(query: "In Rainbows", resultID: "mock.radiohead.in-rainbows", rating: "4.0", tags: "moody, lush")
+        logAlbum(
+            query: "Blonde",
+            resultID: "mock.frank-ocean.blonde",
+            rating: "5.0",
+            reactions: ["lush", "warm"]
+        )
+        logAlbum(
+            query: "Madvillainy",
+            resultID: "mock.madvillain.madvillainy",
+            rating: "4.5",
+            reactions: ["dense", "raw"]
+        )
+        logAlbum(
+            query: "In Rainbows",
+            resultID: "mock.radiohead.in-rainbows",
+            rating: "4.0",
+            reactions: ["moody", "lush"]
+        )
         openTasteInsights()
         XCTAssertTrue(app.staticTexts["Top Rated Albums"].waitForExistence(timeout: 5))
         snapshot("taste-02-early")
         popToProfileRoot()
 
         // 5+ logs — full state.
-        logAlbum(query: "Titanic Rising", resultID: "mock.weyes-blood.titanic-rising", rating: "4.5", tags: "lush, nostalgic")
-        logAlbum(query: "good kid", resultID: "mock.kendrick-lamar.good-kid-maad-city", rating: "5.0", tags: "raw, replayable")
+        logAlbum(
+            query: "Titanic Rising",
+            resultID: "mock.weyes-blood.titanic-rising",
+            rating: "4.5",
+            reactions: ["lush", "nostalgic"]
+        )
+        logAlbum(
+            query: "good kid",
+            resultID: "mock.kendrick-lamar.good-kid-maad-city",
+            rating: "5.0",
+            reactions: ["raw", "replayable"]
+        )
         openTasteInsights()
         XCTAssertTrue(app.staticTexts["Taste Notes"].waitForExistence(timeout: 5))
         snapshot("taste-03-full")
@@ -81,18 +106,74 @@ final class TasteInsightsScreenshotTests: XCTestCase {
 
     // MARK: - Logging flow
 
-    private func logAlbum(query: String, resultID: String, rating: String, tags: String) {
+    private func logAlbum(
+        query: String,
+        resultID: String,
+        rating: String,
+        reactions: [String]
+    ) {
         openAlbumDetailFromSearch(query: query, resultID: resultID)
 
         app.buttons["logThisAlbumButton"].tap()
         selectRating(rating)
-
-        let tagsTextField = app.textFields["tagsTextField"]
-        reveal(tagsTextField)
-        tagsTextField.tap()
-        tagsTextField.typeText(tags)
+        selectReactions(reactions)
 
         app.buttons["saveLogButton"].tap()
+    }
+
+    private func selectReactions(_ reactions: [String]) {
+        let moreButton = app.buttons["reactionMoreButton"]
+        reveal(moreButton)
+        XCTAssertTrue(moreButton.waitForExistence(timeout: 5))
+        moreButton.tap()
+
+        let browser = app.descendants(matching: .any)["reactionBrowser"].firstMatch
+        XCTAssertTrue(browser.waitForExistence(timeout: 5))
+
+        let searchField = app.searchFields["Search reactions"]
+        XCTAssertTrue(searchField.waitForExistence(timeout: 5))
+
+        // Preserve the fixture's exact tag strings: select canonical names canonically,
+        // while ambiguous legacy terms such as "raw" stay in the user's own words.
+        let canonicalReactionIDs = [
+            "dense": "sonic.dense",
+            "lush": "sonic.lush",
+            "nostalgic": "mood.nostalgic",
+            "replayable": "reaction.replayable"
+        ]
+
+        for reaction in reactions {
+            let clearButton = searchField.buttons["Clear text"]
+            if clearButton.exists {
+                clearButton.tap()
+            }
+
+            searchField.tap()
+            searchField.typeText(reaction)
+
+            if let canonicalReactionID = canonicalReactionIDs[reaction] {
+                let canonicalResult = app.buttons["reactionResult-\(canonicalReactionID)"]
+                XCTAssertTrue(
+                    canonicalResult.waitForExistence(timeout: 5),
+                    "Expected a canonical reaction named \(reaction)"
+                )
+                reveal(canonicalResult)
+                canonicalResult.tap()
+            } else {
+                let keepCustomButton = app.buttons["keepCustomReactionButton"]
+                reveal(keepCustomButton)
+                XCTAssertTrue(
+                    keepCustomButton.waitForExistence(timeout: 5),
+                    "Expected \(reaction) to be available as a custom reaction"
+                )
+                keepCustomButton.tap()
+            }
+        }
+
+        let doneButton = app.buttons["reactionBrowserDoneButton"]
+        XCTAssertTrue(doneButton.waitForExistence(timeout: 5))
+        doneButton.tap()
+        XCTAssertFalse(browser.waitForExistence(timeout: 5))
     }
 
     private func openAlbumDetailFromSearch(query: String, resultID: String) {

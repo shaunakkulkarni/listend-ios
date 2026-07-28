@@ -16,6 +16,7 @@ struct LogEntryEditorView: View {
     @Environment(\.soundPrintProvider) private var environmentSoundPrintProvider
     @Environment(\.journalAssistService) private var environmentJournalAssistService
     @Environment(\.albumTrackService) private var environmentAlbumTrackService
+    @Environment(\.reactionTagResolver) private var environmentReactionTagResolver
     @Environment(SoundPrintProfileRefreshCoordinator.self) private var soundPrintRefreshCoordinator
     @Query(sort: \Album.title) private var albums: [Album]
 
@@ -24,6 +25,7 @@ struct LogEntryEditorView: View {
     private let injectedSoundPrintProvider: SoundPrintProvider?
     private let injectedJournalAssistService: JournalAssistServiceProtocol?
     private let injectedAlbumTrackService: AlbumTrackServiceProtocol?
+    private let injectedReactionTagResolver: (any ReactionTagResolving)?
 
     @State private var selectedAlbumID: UUID?
     @State private var rating: Double?
@@ -50,6 +52,7 @@ struct LogEntryEditorView: View {
         soundPrintProvider: SoundPrintProvider? = nil,
         journalAssistService: JournalAssistServiceProtocol? = nil,
         albumTrackService: AlbumTrackServiceProtocol? = nil,
+        reactionTagResolver: (any ReactionTagResolving)? = nil,
         initialRating: Double? = nil,
         initialReactionDisplayValues: [String] = []
     ) {
@@ -58,6 +61,7 @@ struct LogEntryEditorView: View {
         injectedSoundPrintProvider = soundPrintProvider
         injectedJournalAssistService = journalAssistService
         injectedAlbumTrackService = albumTrackService
+        injectedReactionTagResolver = reactionTagResolver
         _selectedAlbumID = State(initialValue: log?.album?.id ?? preselectedAlbum?.id)
         _rating = State(initialValue: log?.rating ?? initialRating)
         _reviewText = State(initialValue: log?.reviewText ?? "")
@@ -278,7 +282,10 @@ struct LogEntryEditorView: View {
                 case .reactionBrowser:
                     ReactionBrowserSheet(
                         selection: $reactionSelection,
-                        catalog: Self.taxonomyCatalog
+                        catalog: Self.taxonomyCatalog,
+                        rating: rating,
+                        reviewExcerpt: reviewText,
+                        semanticResolver: reactionTagResolver
                     )
                 case .journalAssist(let album):
                     JournalAssistSheet(
@@ -310,6 +317,10 @@ struct LogEntryEditorView: View {
 
     private var albumTrackService: AlbumTrackServiceProtocol {
         injectedAlbumTrackService ?? environmentAlbumTrackService
+    }
+
+    private var reactionTagResolver: any ReactionTagResolving {
+        injectedReactionTagResolver ?? environmentReactionTagResolver
     }
 
     private var trackListTaskID: String {

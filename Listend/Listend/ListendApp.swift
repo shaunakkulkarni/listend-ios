@@ -123,6 +123,12 @@ struct ListendApp: App {
                 .environment(\.journalAssistService, Self.makeJournalAssistService(
                     sandboxIntelligenceProvider: sandboxIntelligenceProvider
                 ))
+                .environment(\.reactionTagResolver, Self.makeReactionTagResolver(
+                    preferAppleIntelligence: SandboxMode.isEnabled && sandboxIntelligenceProvider == .onDevice
+                        ? true
+                        : preferAppleIntelligence,
+                    sandboxIntelligenceProvider: sandboxIntelligenceProvider
+                ))
                 .environment(\.albumTrackService, albumTrackService)
         }
         .modelContainer(sharedModelContainer)
@@ -225,6 +231,31 @@ struct ListendApp: App {
             primary: FoundationModelsJournalAssistService(),
             fallback: MockJournalAssistService()
         )
+    }
+
+    private static func makeReactionTagResolver(
+        preferAppleIntelligence: Bool,
+        sandboxIntelligenceProvider: SandboxIntelligenceProvider
+    ) -> any ReactionTagResolving {
+        let arguments = ProcessInfo.processInfo.arguments
+
+        guard preferAppleIntelligence else {
+            return LocalReactionTagResolutionProvider()
+        }
+
+        if arguments.contains("-ui-testing")
+            || (SandboxMode.isEnabled && sandboxIntelligenceProvider == .mock) {
+            return MockReactionTagResolver()
+        }
+
+        #if targetEnvironment(simulator)
+        return MockReactionTagResolver()
+        #else
+        return FallbackReactionTagResolver(
+            primary: FoundationModelsReactionTagResolver(),
+            fallback: LocalReactionTagResolutionProvider()
+        )
+        #endif
     }
 
     private static func makeAlbumTrackService() -> AlbumTrackServiceProtocol {

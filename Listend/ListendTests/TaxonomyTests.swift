@@ -116,6 +116,9 @@ nonisolated struct TaxonomyTests {
             return
         }
         #expect(custom == "graduation summer")
+        #expect(resolver.canonicalTag(forPersistedDisplayValue: "hype")?.id == "mood.hype")
+        #expect(resolver.canonicalTag(forPersistedDisplayValue: "HYPE") == nil)
+        #expect(resolver.canonicalTag(forPersistedDisplayValue: "turnt") == nil)
         #expect(resolver.canonicalTag(forPersistedDisplayValue: "floaty") == nil)
     }
 

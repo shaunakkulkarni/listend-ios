@@ -14,6 +14,7 @@ nonisolated enum LocalReactionTagResolution: Equatable, Sendable {
 
 nonisolated struct LocalReactionTagResolver: Sendable {
     private let canonicalByKey: [String: ReactionTagDefinition]
+    private let canonicalByDisplayName: [String: ReactionTagDefinition]
     private let ambiguousByKey: [String: AmbiguousTagAlias]
     private let exactAliasByKey: [String: (alias: String, tag: ReactionTagDefinition)]
     private let reactionsByID: [String: ReactionTagDefinition]
@@ -26,6 +27,11 @@ nonisolated struct LocalReactionTagResolver: Sendable {
         self.canonicalByKey = Dictionary(
             uniqueKeysWithValues: catalog.reactions.tags.map {
                 (TagTextNormalizer.comparisonKey($0.displayName), $0)
+            }
+        )
+        self.canonicalByDisplayName = Dictionary(
+            uniqueKeysWithValues: catalog.reactions.tags.map {
+                ($0.displayName, $0)
             }
         )
         self.ambiguousByKey = Dictionary(
@@ -66,7 +72,7 @@ nonisolated struct LocalReactionTagResolver: Sendable {
     }
 
     func canonicalTag(forPersistedDisplayValue value: String) -> ReactionTagDefinition? {
-        canonicalByKey[TagTextNormalizer.comparisonKey(value)]
+        canonicalByDisplayName[value]
     }
 }
 

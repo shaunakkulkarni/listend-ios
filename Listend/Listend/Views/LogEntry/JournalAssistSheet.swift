@@ -10,7 +10,6 @@ import SwiftUI
 enum JournalAssistMode: String, Identifiable {
     case helpWrite
     case draftReview
-    case suggestTags
 
     var id: String { rawValue }
 
@@ -20,8 +19,6 @@ enum JournalAssistMode: String, Identifiable {
             return "Help Me Write"
         case .draftReview:
             return "Draft Review"
-        case .suggestTags:
-            return "Suggest Tags"
         }
     }
 }
@@ -36,13 +33,11 @@ struct JournalAssistSheet: View {
     let existingTags: [String]
     let service: JournalAssistServiceProtocol
     let onAcceptDraft: (String) -> Void
-    let onAcceptTag: (String) -> Void
 
     @State private var notes: String = ""
     @State private var isShowingPrompts = false
     @State private var promptAnswers: [JournalAssistPromptAnswer]
     @State private var draftReview: String?
-    @State private var suggestedTags: [String] = []
     @State private var feedbackMessage: String?
     @State private var isWorking = false
 
@@ -53,8 +48,7 @@ struct JournalAssistSheet: View {
         existingReviewText: String,
         existingTags: [String],
         service: JournalAssistServiceProtocol,
-        onAcceptDraft: @escaping (String) -> Void,
-        onAcceptTag: @escaping (String) -> Void
+        onAcceptDraft: @escaping (String) -> Void
     ) {
         self.mode = mode
         self.album = album
@@ -63,7 +57,6 @@ struct JournalAssistSheet: View {
         self.existingTags = existingTags
         self.service = service
         self.onAcceptDraft = onAcceptDraft
-        self.onAcceptTag = onAcceptTag
         _promptAnswers = State(initialValue: service.reflectionPrompts.map {
             JournalAssistPromptAnswer(promptID: $0.id, question: $0.question, answer: "")
         })
@@ -131,16 +124,6 @@ struct JournalAssistSheet: View {
                 }
                 .disabled(isWorking)
                 .accessibilityIdentifier("helpWriteGenerateJournalDraftButton")
-
-                Button {
-                    Task {
-                        await generateTags()
-                    }
-                } label: {
-                    Label("Suggest Tags", systemImage: "tag")
-                }
-                .disabled(isWorking)
-                .accessibilityIdentifier("helpWriteGenerateJournalTagsButton")
             case .draftReview:
                 Button {
                     Task {
@@ -151,16 +134,6 @@ struct JournalAssistSheet: View {
                 }
                 .disabled(isWorking)
                 .accessibilityIdentifier("generateJournalDraftButton")
-            case .suggestTags:
-                Button {
-                    Task {
-                        await generateTags()
-                    }
-                } label: {
-                    Label("Suggest Tags", systemImage: "tag")
-                }
-                .disabled(isWorking)
-                .accessibilityIdentifier("generateJournalTagsButton")
             }
         }
     }
@@ -187,25 +160,6 @@ struct JournalAssistSheet: View {
             }
         }
 
-        if !suggestedTags.isEmpty {
-            Section("AI Tag Suggestions") {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(suggestedTags, id: \.self) { tag in
-                            Button {
-                                onAcceptTag(tag)
-                            } label: {
-                                Text(tag)
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .accessibilityIdentifier("journalAssistTag-\(accessibilityID(for: tag))")
-                        }
-                    }
-                }
-                .scrollClipDisabled()
-            }
-        }
     }
 
     @MainActor
@@ -223,28 +177,10 @@ struct JournalAssistSheet: View {
                 feedbackMessage = nil
             } else {
                 draftReview = nil
-                feedbackMessage = "Add a rating, notes, prompt answers, review text, or tags before generating a draft."
+                feedbackMessage = "Add a rating, notes, prompt answers, a thought, or reactions before generating a draft."
             }
         } catch {
             feedbackMessage = "Journal Assist could not draft this right now. You can keep writing manually."
-        }
-    }
-
-    @MainActor
-    private func generateTags() async {
-        isWorking = true
-        feedbackMessage = nil
-        defer {
-            isWorking = false
-        }
-
-        do {
-            suggestedTags = try await service.suggestedTags(for: input)
-            if suggestedTags.isEmpty {
-                feedbackMessage = "Add a little more detail before asking for AI tag suggestions."
-            }
-        } catch {
-            feedbackMessage = "Journal Assist could not suggest tags right now. Manual tags still work."
         }
     }
 
@@ -266,18 +202,5 @@ struct JournalAssistSheet: View {
 
         onAcceptDraft(draftReview)
         dismiss()
-    }
-
-    private func accessibilityID(for tag: String) -> String {
-        TagSuggestionValidator.normalizedTag(tag)
-            .map { character in
-                character.isLetter || character.isNumber ? character : "-"
-            }
-            .reduce(into: "") { result, character in
-                if character != "-" || result.last != "-" {
-                    result.append(character)
-                }
-            }
-            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
     }
 }

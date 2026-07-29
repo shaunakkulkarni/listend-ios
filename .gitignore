@@ -4,6 +4,7 @@
 
 .DS_Store
 .superpowers/
+.asc/
 
 ## User settings
 xcuserdata/

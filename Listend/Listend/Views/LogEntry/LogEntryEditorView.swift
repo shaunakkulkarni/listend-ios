@@ -80,31 +80,12 @@ struct LogEntryEditorView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Album") {
-                    if let selectedAlbum {
-                        AlbumContextRow(album: selectedAlbum)
-                    } else {
-                        ContentUnavailableView(
-                            "No Album Selected",
-                            systemImage: "music.note",
-                            description: Text("Choose an album before writing a log.")
-                        )
-                    }
-                }
+            ScrollView {
+                VStack(alignment: .leading, spacing: ListendSpacing.xl) {
+                    albumSection
+                    ratingSection
 
-                Section("Rating") {
-                    StarRatingControl(
-                        rating: Binding(
-                            get: { rating ?? 0.5 },
-                            set: { rating = $0 }
-                        ),
-                        showsEmptyState: rating == nil
-                    )
-                }
-
-                if let reactionPrompt = ReactionPrompt(rating: rating) {
-                    Section("Reactions") {
+                    if let reactionPrompt = ReactionPrompt(rating: rating) {
                         ReactionPickerSection(
                             prompt: reactionPrompt,
                             suggestions: rankedReactionSuggestions,
@@ -113,134 +94,20 @@ struct LogEntryEditorView: View {
                             activeSheet = .reactionBrowser
                         }
                     }
-                }
 
-                Section {
-                    DisclosureGroup(isExpanded: $isReviewExpanded) {
-                        TextField("What did this album leave with you?", text: $reviewText, axis: .vertical)
-                            .lineLimit(4...8)
-                            .textInputAutocapitalization(.sentences)
-                            .focused($focusedField, equals: .review)
-                            .accessibilityIdentifier("reviewTextEditor")
+                    optionalDetailsSection
 
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Need a nudge?")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(LogReflectionPrompt.chips) { prompt in
-                                        Button {
-                                            insertReflectionPrompt(prompt)
-                                        } label: {
-                                            Text(prompt.chipTitle)
-                                        }
-                                        .accessibilityLabel(prompt.chipTitle)
-                                        .accessibilityHint("Inserts a reflection starter into your thought")
-                                        .accessibilityIdentifier("reflectionPromptChip-\(prompt.id)")
-                                    }
-
-                                    Button {
-                                        presentJournalAssist()
-                                    } label: {
-                                        Label("Help me write", systemImage: "sparkles")
-                                    }
-                                    .accessibilityIdentifier("helpMeWriteButton")
-                                    .disabled(selectedAlbum == nil)
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            }
-                            .accessibilityIdentifier("reviewAssistChipScroll")
-                            .scrollClipDisabled()
-                        }
-                    } label: {
-                        Label("Add a thought", systemImage: "square.and.pencil")
-                            .font(.body.weight(.medium))
-                            .accessibilityValue(isReviewExpanded ? "Expanded" : "Collapsed")
-                            .accessibilityHint(isReviewExpanded ? "Hides the optional thought editor" : "Shows the optional thought editor")
-                            .accessibilityIdentifier("reviewDisclosure")
-                    }
-                }
-
-                Section {
-                    Button {
-                        withAnimation {
-                            isTrackHighlightsExpanded.toggle()
-                        }
-                        if isTrackHighlightsExpanded {
-                            Task {
-                                await loadTracklistIfNeeded()
-                            }
-                        }
-                    } label: {
-                        Label("Track Highlights", systemImage: "music.note.list")
-                    }
-                    .accessibilityIdentifier("trackHighlightsDisclosure")
-
-                    if isTrackHighlightsExpanded {
-                        if isLoadingTracklist {
-                            Label("Loading tracklist...", systemImage: "music.note")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .accessibilityIdentifier("tracklistLoadingText")
-                        }
-
-                        if !trackCandidates.isEmpty {
-                            AlbumTrackSelectionView(
-                                title: "Favorite tracks",
-                                systemImage: "star",
-                                tracks: trackCandidates,
-                                selection: $trackSelection,
-                                kind: .favorite
-                            )
-
-                            AlbumTrackSelectionView(
-                                title: "Skips / weaker tracks",
-                                systemImage: "minus.circle",
-                                tracks: trackCandidates,
-                                selection: $trackSelection,
-                                kind: .skip
-                            )
-                        }
-
-                        if shouldShowManualTrackFields {
-                            if hasLoadedTracklist && trackCandidates.isEmpty {
-                                Text("Tracklist unavailable. You can still add tracks manually.")
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                                    .accessibilityIdentifier("tracklistUnavailableText")
-                            }
-
-                            TextField("Snooze, Good Days", text: $favoriteTracksText)
-                                .textInputAutocapitalization(.words)
-                                .focused($focusedField, equals: .favoriteTracks)
-                                .accessibilityIdentifier("favoriteTracksTextField")
-
-                            TextField("Less favorite tracks", text: $lessFavoriteTracksText)
-                                .textInputAutocapitalization(.words)
-                                .focused($focusedField, equals: .lessFavoriteTracks)
-                                .accessibilityIdentifier("lessFavoriteTracksTextField")
-                        }
-
-                        TextField("One short note", text: $standoutMomentText, axis: .vertical)
-                            .lineLimit(1...3)
-                            .focused($focusedField, equals: .standoutMoment)
-                            .accessibilityIdentifier("standoutMomentTextField")
-                    }
-                } footer: {
-                    Text("Optional album-level notes. No song logging required.")
-                }
-
-                if let errorMessage {
-                    Section {
+                    if let errorMessage {
                         Text(errorMessage)
+                            .font(.subheadline)
                             .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
+                .padding(.horizontal, ListendSpacing.lg)
+                .padding(.top, ListendSpacing.md)
+                .padding(.bottom, 40)
             }
-            .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.interactively)
             .background(Color.listendPaper)
             .safeAreaInset(edge: .bottom) {
@@ -300,6 +167,285 @@ struct LogEntryEditorView: View {
                     )
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var albumSection: some View {
+        if let selectedAlbum {
+            AlbumContextRow(album: selectedAlbum)
+        } else {
+            ContentUnavailableView(
+                "No Album Selected",
+                systemImage: "music.note",
+                description: Text("Choose an album before writing a log.")
+            )
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private var ratingSection: some View {
+        VStack(alignment: .leading, spacing: ListendSpacing.sm) {
+            Text("How did it land?")
+                .font(.title3.weight(.semibold))
+
+            StarRatingControl(
+                rating: Binding(
+                    get: { rating ?? 0.5 },
+                    set: { rating = $0 }
+                ),
+                showsEmptyState: rating == nil
+            )
+
+            Text(ratingSummary)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("ratingSummaryText")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var optionalDetailsSection: some View {
+        VStack(alignment: .leading, spacing: ListendSpacing.sm) {
+            Text("Optional details")
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("optionalDetailsHeading")
+
+            VStack(spacing: 0) {
+                optionalDetailsRow(
+                    title: "Add a thought",
+                    systemImage: "square.and.pencil",
+                    subtitle: nil,
+                    isExpanded: isReviewExpanded
+                ) {
+                    withAnimation(.snappy) {
+                        isReviewExpanded.toggle()
+                    }
+                }
+                .accessibilityValue(isReviewExpanded ? "Expanded" : "Collapsed")
+                .accessibilityHint(isReviewExpanded ? "Hides the optional thought editor" : "Shows the optional thought editor")
+                .accessibilityIdentifier("reviewDisclosure")
+
+                if isReviewExpanded {
+                    Divider()
+                        .padding(.leading, 52)
+
+                    reviewEditor
+                        .padding(ListendSpacing.lg)
+                }
+
+                Divider()
+                    .padding(.leading, 52)
+
+                optionalDetailsRow(
+                    title: "Track highlights",
+                    systemImage: "music.note.list",
+                    subtitle: "Favorite tracks, skips, or a standout moment",
+                    isExpanded: isTrackHighlightsExpanded
+                ) {
+                    withAnimation(.snappy) {
+                        isTrackHighlightsExpanded.toggle()
+                    }
+                    if isTrackHighlightsExpanded {
+                        Task {
+                            await loadTracklistIfNeeded()
+                        }
+                    }
+                }
+                .accessibilityValue(isTrackHighlightsExpanded ? "Expanded" : "Collapsed")
+                .accessibilityHint(isTrackHighlightsExpanded ? "Hides optional track highlights" : "Shows optional track highlights")
+                .accessibilityIdentifier("trackHighlightsDisclosure")
+
+                if isTrackHighlightsExpanded {
+                    Divider()
+                        .padding(.leading, 52)
+
+                    trackHighlightsEditor
+                        .padding(ListendSpacing.lg)
+                }
+            }
+            .background(Color.listendSurface, in: RoundedRectangle(cornerRadius: ListendRadius.control))
+            .overlay {
+                RoundedRectangle(cornerRadius: ListendRadius.control)
+                    .stroke(Color.listendHairline, lineWidth: 1)
+            }
+        }
+    }
+
+    private var reviewEditor: some View {
+        VStack(alignment: .leading, spacing: ListendSpacing.md) {
+            TextField("What did this album leave with you?", text: $reviewText, axis: .vertical)
+                .lineLimit(4...8)
+                .textInputAutocapitalization(.sentences)
+                .focused($focusedField, equals: .review)
+                .modifier(EditorFieldSurface())
+                .accessibilityIdentifier("reviewTextEditor")
+
+            VStack(alignment: .leading, spacing: ListendSpacing.sm) {
+                Text("Need a nudge?")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: ListendSpacing.sm) {
+                        ForEach(LogReflectionPrompt.chips) { prompt in
+                            Button {
+                                insertReflectionPrompt(prompt)
+                            } label: {
+                                Text(prompt.chipTitle)
+                            }
+                            .accessibilityLabel(prompt.chipTitle)
+                            .accessibilityHint("Inserts a reflection starter into your thought")
+                            .accessibilityIdentifier("reflectionPromptChip-\(prompt.id)")
+                        }
+
+                        Button {
+                            presentJournalAssist()
+                        } label: {
+                            Label("Help me write", systemImage: "sparkles")
+                        }
+                        .accessibilityIdentifier("helpMeWriteButton")
+                        .disabled(selectedAlbum == nil)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                .accessibilityIdentifier("reviewAssistChipScroll")
+                .scrollClipDisabled()
+            }
+        }
+    }
+
+    private var trackHighlightsEditor: some View {
+        VStack(alignment: .leading, spacing: ListendSpacing.md) {
+            if isLoadingTracklist {
+                Label("Loading tracklist...", systemImage: "music.note")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("tracklistLoadingText")
+            }
+
+            if !trackCandidates.isEmpty {
+                AlbumTrackSelectionView(
+                    title: "Favorite tracks",
+                    systemImage: "star",
+                    tracks: trackCandidates,
+                    selection: $trackSelection,
+                    kind: .favorite
+                )
+
+                AlbumTrackSelectionView(
+                    title: "Skips / weaker tracks",
+                    systemImage: "minus.circle",
+                    tracks: trackCandidates,
+                    selection: $trackSelection,
+                    kind: .skip
+                )
+            }
+
+            if shouldShowManualTrackFields {
+                if hasLoadedTracklist && trackCandidates.isEmpty {
+                    Text("Tracklist unavailable. You can still add tracks manually.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("tracklistUnavailableText")
+                }
+
+                TextField("Snooze, Good Days", text: $favoriteTracksText)
+                    .textInputAutocapitalization(.words)
+                    .focused($focusedField, equals: .favoriteTracks)
+                    .modifier(EditorFieldSurface())
+                    .accessibilityIdentifier("favoriteTracksTextField")
+
+                TextField("Less favorite tracks", text: $lessFavoriteTracksText)
+                    .textInputAutocapitalization(.words)
+                    .focused($focusedField, equals: .lessFavoriteTracks)
+                    .modifier(EditorFieldSurface())
+                    .accessibilityIdentifier("lessFavoriteTracksTextField")
+            }
+
+            TextField("One short note", text: $standoutMomentText, axis: .vertical)
+                .lineLimit(1...3)
+                .focused($focusedField, equals: .standoutMoment)
+                .modifier(EditorFieldSurface())
+                .accessibilityIdentifier("standoutMomentTextField")
+
+            Text("Optional album-level notes. No song logging required.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func optionalDetailsRow(
+        title: String,
+        systemImage: String,
+        subtitle: String?,
+        isExpanded: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: ListendSpacing.md) {
+                Image(systemName: systemImage)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(Color.listendAccent)
+                    .frame(width: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.primary)
+
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("trackHighlightsSubtitle")
+                    }
+                }
+
+                Spacer(minLength: ListendSpacing.sm)
+
+                Image(systemName: "chevron.down")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .rotationEffect(.degrees(isExpanded ? 180 : 0))
+            }
+            .padding(.horizontal, ListendSpacing.lg)
+            .padding(.vertical, ListendSpacing.md)
+            .frame(minHeight: 56)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var ratingSummary: String {
+        guard let rating else {
+            return "Rating required to save"
+        }
+
+        return "\(rating.formatted(.number.precision(.fractionLength(1)))) · \(ratingDescriptor(for: rating))"
+    }
+
+    private func ratingDescriptor(for rating: Double) -> String {
+        switch rating {
+        case ..<1.5:
+            return "Not for me"
+        case ..<2.5:
+            return "Didn't land"
+        case ..<3:
+            return "Mixed"
+        case ..<3.5:
+            return "Solid"
+        case ..<4:
+            return "Pretty good"
+        case ..<4.5:
+            return "Great"
+        case ..<5:
+            return "Loved it"
+        default:
+            return "Perfect"
         }
     }
 
@@ -534,6 +680,13 @@ struct LogEntryEditorView: View {
     )
 }
 
+#Preview("Unrated") {
+    logEntryEditorPreview(
+        rating: nil,
+        reactionDisplayValues: []
+    )
+}
+
 #Preview("Mixed reaction") {
     logEntryEditorPreview(
         rating: 3.5,
@@ -558,7 +711,7 @@ struct LogEntryEditorView: View {
 
 @MainActor
 private func logEntryEditorPreview(
-    rating: Double,
+    rating: Double?,
     reactionDisplayValues: [String],
     existingReviewText: String? = nil
 ) -> some View {
@@ -581,7 +734,11 @@ private func logEntryEditorPreview(
     )
     container.mainContext.insert(album)
 
-    let existingLog = existingReviewText.map { reviewText in
+    let existingLog: LogEntry? = existingReviewText.flatMap { reviewText in
+        guard let rating else {
+            return nil
+        }
+
         let log = LogEntry(
             album: album,
             rating: rating,
@@ -601,6 +758,18 @@ private func logEntryEditorPreview(
     )
     .modelContainer(container)
     .environment(SoundPrintProfileRefreshCoordinator())
+}
+
+private struct EditorFieldSurface: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(ListendSpacing.md)
+            .background(Color.listendPaper, in: RoundedRectangle(cornerRadius: ListendRadius.control))
+            .overlay {
+                RoundedRectangle(cornerRadius: ListendRadius.control)
+                    .stroke(Color.listendHairline, lineWidth: 1)
+            }
+    }
 }
 
 private struct AlbumContextRow: View {

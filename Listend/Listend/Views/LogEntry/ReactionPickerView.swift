@@ -45,15 +45,11 @@ struct ReactionPickerSection: View {
                 }
 
                 Button(action: showMore) {
-                    Label("More", systemImage: "ellipsis.circle")
+                    Label("See all", systemImage: "plus")
                         .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, ListendSpacing.md)
+                        .padding(.horizontal, ListendSpacing.sm)
                         .frame(minHeight: 44)
-                        .background(Color.listendSurface, in: RoundedRectangle(cornerRadius: ListendRadius.chip))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: ListendRadius.chip)
-                                .stroke(Color.listendHairline, lineWidth: 1)
-                        }
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Color.listendAccent)
@@ -482,9 +478,9 @@ private struct ReactionTagChip: View {
             .padding(.horizontal, ListendSpacing.md)
             .padding(.vertical, 7)
             .frame(minHeight: 44)
-            .foregroundStyle(isSelected ? Color.listendAccent : Color.primary)
+            .foregroundStyle(isSelected ? Color.listendPaper : Color.primary)
             .background(
-                isSelected ? Color.listendAccentSoft : Color.listendSurface,
+                isSelected ? Color.listendAccent : Color.listendSurface,
                 in: RoundedRectangle(cornerRadius: ListendRadius.chip)
             )
             .overlay {
@@ -519,9 +515,9 @@ private struct ReactionSelectionChip: View {
             .padding(.horizontal, ListendSpacing.md)
             .padding(.vertical, 7)
             .frame(minHeight: 44)
-            .foregroundStyle(Color.listendAccent)
+            .foregroundStyle(Color.listendPaper)
             .background(
-                Color.listendAccentSoft,
+                Color.listendAccent,
                 in: RoundedRectangle(cornerRadius: ListendRadius.chip)
             )
             .contentShape(RoundedRectangle(cornerRadius: ListendRadius.chip))

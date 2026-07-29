@@ -186,9 +186,15 @@ final class ListendUITests: XCTestCase {
 
         app.buttons["logThisAlbumButton"].tap()
         XCTAssertFalse(app.buttons["saveLogButton"].isEnabled)
+        XCTAssertEqual(app.staticTexts["ratingSummaryText"].label, "Rating required to save")
+        XCTAssertEqual(
+            app.staticTexts["trackHighlightsSubtitle"].label,
+            "Favorite tracks, skips, or a standout moment"
+        )
 
         selectRating("4.5")
         XCTAssertTrue(app.buttons["saveLogButton"].isEnabled)
+        XCTAssertEqual(app.staticTexts["ratingSummaryText"].label, "4.5 · Loved it")
         app.buttons["saveLogButton"].tap()
 
         openTab("Logs")

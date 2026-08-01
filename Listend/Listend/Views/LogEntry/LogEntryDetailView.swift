@@ -145,7 +145,7 @@ struct LogEntryDetailView: View {
         do {
             modelContext.delete(log)
             try modelContext.save()
-            await soundPrintRefreshCoordinator.refreshProfile(in: modelContext, provider: soundPrintProvider)
+            await soundPrintRefreshCoordinator.processDeletedLog(in: modelContext, provider: soundPrintProvider)
             dismiss()
         } catch {
             errorMessage = "Could not delete log."

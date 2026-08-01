@@ -8,6 +8,17 @@
 import Foundation
 import SwiftData
 
+enum SoundPrintProfileBuildMode: Equatable {
+    case signalsOnly
+    case generateReflection
+}
+
+enum SoundPrintProfileBuildError: Error, Equatable {
+    case insufficientLogs
+    case invalidReflection
+    case unavailable
+}
+
 struct SoundPrintProfileBuilder {
     let provider: SoundPrintProvider
 
@@ -16,7 +27,10 @@ struct SoundPrintProfileBuilder {
     }
 
     @MainActor
-    func rebuildProfile(in modelContext: ModelContext) async throws {
+    func rebuildProfile(
+        in modelContext: ModelContext,
+        mode: SoundPrintProfileBuildMode
+    ) async throws {
         let logs = try modelContext.fetch(FetchDescriptor<LogEntry>())
         let logInputs = logs.compactMap(SoundPrintLogInput.init(log:))
         var signalsByDimension: [String: [TasteSignal]] = [:]
@@ -75,12 +89,28 @@ struct SoundPrintProfileBuilder {
             in: modelContext
         )
         try modelContext.save()
-        await refreshPersona(
-            in: modelContext,
-            logs: logs,
-            dimensions: pendingDimensions,
-            avoidanceSignals: pendingAvoidanceSignals
-        )
+
+        guard logs.count >= SoundPrintProfileThresholds.personaMinimumLogCount else {
+            try invalidateReflection(in: modelContext)
+
+            if mode == .generateReflection {
+                throw SoundPrintProfileBuildError.insufficientLogs
+            }
+
+            return
+        }
+
+        switch mode {
+        case .signalsOnly:
+            try clearRefreshFlagWhenNoReflectionExists(in: modelContext)
+        case .generateReflection:
+            try await generateReflection(
+                in: modelContext,
+                logs: logs,
+                dimensions: pendingDimensions,
+                avoidanceSignals: pendingAvoidanceSignals
+            )
+        }
     }
 
     private func makeDimensions(from signalsByDimension: [String: [TasteSignal]]) -> [PendingTasteDimension] {
@@ -217,142 +247,155 @@ struct SoundPrintProfileBuilder {
     }
 
     @MainActor
-    private func refreshPersona(
-        in modelContext: ModelContext,
-        logs: [LogEntry],
-        dimensions pendingDimensions: [PendingTasteDimension],
-        avoidanceSignals pendingAvoidanceSignals: [PendingTasteAvoidanceSignal]
-    ) async {
-        do {
-            let existingPersonas = try modelContext.fetch(
-                FetchDescriptor<SoundPrintPersona>(
-                    sortBy: [SortDescriptor(\.generatedAt, order: .reverse)]
-                )
-            )
+    private func invalidateReflection(in modelContext: ModelContext) throws {
+        let existingPersonas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
 
-            guard logs.count >= SoundPrintProfileThresholds.personaMinimumLogCount else {
-                for persona in existingPersonas {
-                    modelContext.delete(persona)
-                }
+        for persona in existingPersonas {
+            modelContext.delete(persona)
+        }
 
-                try modelContext.save()
-                return
-            }
-
-            let recentLogs = logs
-                .sorted { $0.loggedAt > $1.loggedAt }
-                .prefix(10)
-                .compactMap(PersonaLogInput.init(log:))
-            let topTags = topTags(from: logs)
-            let averageRating = logs.isEmpty ? nil : logs.map(\.rating).average
-            let avoidanceLabels = pendingAvoidanceSignals.map(\.label)
-            let tone = SoundPrintPersonaTone.current
-            let personaInput = PersonaInput(
-                dimensions: pendingDimensions.map(\.tasteDimension),
-                recentLogs: Array(recentLogs),
-                totalLogCount: logs.count,
-                topTags: topTags,
-                averageRating: averageRating,
-                avoidanceSignals: avoidanceLabels,
-                tone: tone
-            )
-            let userFacingSignals = FoundationModelsSoundPrintValidator.userFacingSignals(from: personaInput)
-            let result = try await provider.generatePersona(input: personaInput)
-
-            let validationContext = SoundPrintOutputValidator.PersonaValidationContext(
-                userFacingSignals: userFacingSignals,
-                internalAnalysisLabels: FoundationModelsSoundPrintValidator.internalAnalysisLabels(from: personaInput),
-                logCount: logs.count,
-                tone: tone
-            )
-
-            // Defense in depth: even a provider that returns a technically-successful
-            // PersonaResult must still pass the same always-on local gate before we persist it.
-            guard SoundPrintOutputValidator.validatePersona(result.text, context: validationContext).isValid else {
-                return
-            }
-
-            for persona in existingPersonas.dropFirst() {
-                modelContext.delete(persona)
-            }
-
-            let currentPersona: SoundPrintPersona
-            if let existing = existingPersonas.first {
-                existing.personaText = result.text
-                existing.generatedAt = Date()
-                existing.logCountAtGeneration = logs.count
-                existing.generationSource = result.generationSource
-                existing.tone = tone
-                currentPersona = existing
-            } else {
-                let inserted = SoundPrintPersona(
-                    personaText: result.text,
-                    logCountAtGeneration: logs.count,
-                    generationSource: result.generationSource,
-                    tone: tone
-                )
-                modelContext.insert(inserted)
-                currentPersona = inserted
-            }
-
+        if !existingPersonas.isEmpty {
             try modelContext.save()
+        }
 
-            // Compact summary generation is independent of persona persistence: a failure or
-            // invalid result here must not roll back the persona update that already succeeded.
-            await refreshCompactSummary(
-                for: currentPersona,
-                in: modelContext,
-                dimensions: pendingDimensions,
-                avoidanceSignals: pendingAvoidanceSignals,
-                userFacingSignals: userFacingSignals
-            )
-        } catch {
-            return
+        UserDefaults.standard.set(false, forKey: SoundPrintPreferenceKey.reflectionNeedsRefresh)
+    }
+
+    @MainActor
+    private func clearRefreshFlagWhenNoReflectionExists(in modelContext: ModelContext) throws {
+        let personaCount = try modelContext.fetchCount(FetchDescriptor<SoundPrintPersona>())
+        if personaCount == 0 {
+            UserDefaults.standard.set(false, forKey: SoundPrintPreferenceKey.reflectionNeedsRefresh)
         }
     }
 
     @MainActor
-    private func refreshCompactSummary(
-        for persona: SoundPrintPersona,
+    private func generateReflection(
         in modelContext: ModelContext,
+        logs: [LogEntry],
+        dimensions pendingDimensions: [PendingTasteDimension],
+        avoidanceSignals pendingAvoidanceSignals: [PendingTasteAvoidanceSignal]
+    ) async throws {
+        let existingPersonas = try modelContext.fetch(
+            FetchDescriptor<SoundPrintPersona>(
+                sortBy: [SortDescriptor(\.generatedAt, order: .reverse)]
+            )
+        )
+        let boundedDimensions = Array(pendingDimensions.prefix(5))
+        let boundedAvoidanceSignals = Array(pendingAvoidanceSignals.prefix(3))
+        let recentLogs = logs
+            .sorted { $0.loggedAt > $1.loggedAt }
+            .prefix(10)
+            .compactMap(PersonaLogInput.init(log:))
+        let tone: SoundPrintPersonaTone = .balanced
+        let personaInput = PersonaInput(
+            dimensions: boundedDimensions.map(\.tasteDimension),
+            recentLogs: Array(recentLogs),
+            totalLogCount: logs.count,
+            topTags: topTags(from: logs),
+            averageRating: logs.map(\.rating).average,
+            avoidanceSignals: boundedAvoidanceSignals.map(\.label),
+            tone: tone
+        )
+        let userFacingSignals = FoundationModelsSoundPrintValidator.userFacingSignals(from: personaInput)
+        let result: PersonaResult
+
+        do {
+            result = try await provider.generatePersona(input: personaInput)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw SoundPrintProfileBuildError.unavailable
+        }
+
+        let validationContext = SoundPrintOutputValidator.PersonaValidationContext(
+            userFacingSignals: userFacingSignals,
+            internalAnalysisLabels: FoundationModelsSoundPrintValidator.internalAnalysisLabels(from: personaInput),
+            logCount: logs.count,
+            tone: tone
+        )
+
+        // Defense in depth: every provider result passes the same local gate before
+        // the current reflection is mutated or duplicate legacy rows are removed.
+        guard SoundPrintOutputValidator.validatePersona(result.text, context: validationContext).isValid else {
+            throw SoundPrintProfileBuildError.invalidReflection
+        }
+
+        let compactSummary = try await optionalCompactSummary(
+            dimensions: boundedDimensions,
+            avoidanceSignals: boundedAvoidanceSignals,
+            userFacingSignals: userFacingSignals,
+            tone: tone
+        )
+
+        for persona in existingPersonas.dropFirst() {
+            modelContext.delete(persona)
+        }
+
+        let currentPersona: SoundPrintPersona
+        if let existing = existingPersonas.first {
+            existing.personaText = result.text
+            existing.generatedAt = Date()
+            existing.logCountAtGeneration = logs.count
+            existing.generationSource = result.generationSource
+            existing.tone = tone
+            currentPersona = existing
+        } else {
+            let inserted = SoundPrintPersona(
+                personaText: result.text,
+                logCountAtGeneration: logs.count,
+                generationSource: result.generationSource,
+                tone: tone
+            )
+            modelContext.insert(inserted)
+            currentPersona = inserted
+        }
+
+        currentPersona.headline = compactSummary?.headline
+        currentPersona.summaryText = compactSummary?.summary
+        currentPersona.bullets = compactSummary?.bullets ?? []
+
+        do {
+            try modelContext.save()
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+
+        UserDefaults.standard.set(false, forKey: SoundPrintPreferenceKey.reflectionNeedsRefresh)
+    }
+
+    private func optionalCompactSummary(
         dimensions pendingDimensions: [PendingTasteDimension],
         avoidanceSignals pendingAvoidanceSignals: [PendingTasteAvoidanceSignal],
-        userFacingSignals: [String]
-    ) async {
+        userFacingSignals: [String],
+        tone: SoundPrintPersonaTone
+    ) async throws -> CompactSummaryResult? {
         do {
-            let tone = SoundPrintPersonaTone.current
-            let result = try await provider.generateCompactSummary(
-                input: CompactSummaryInput(
-                    dimensions: pendingDimensions.map(\.tasteDimension),
-                    avoidanceSignals: pendingAvoidanceSignals.map(\.tasteAvoidanceSignal),
-                    userFacingSignals: userFacingSignals,
-                    tone: tone
-                )
-            )
-
-            let compactSummaryInput = CompactSummaryInput(
+            let input = CompactSummaryInput(
                 dimensions: pendingDimensions.map(\.tasteDimension),
                 avoidanceSignals: pendingAvoidanceSignals.map(\.tasteAvoidanceSignal),
                 userFacingSignals: userFacingSignals,
                 tone: tone
             )
+            let result = try await provider.generateCompactSummary(input: input)
+
             guard SoundPrintOutputValidator.validateCompactSummary(
                 headline: result.headline,
                 summary: result.summary,
                 bullets: result.bullets,
                 tone: tone,
-                userFacingSignals: FoundationModelsSoundPrintValidator.userFacingSignals(from: compactSummaryInput),
-                internalAnalysisLabels: FoundationModelsSoundPrintValidator.internalAnalysisLabels(from: compactSummaryInput)
+                userFacingSignals: FoundationModelsSoundPrintValidator.userFacingSignals(from: input),
+                internalAnalysisLabels: FoundationModelsSoundPrintValidator.internalAnalysisLabels(from: input)
             ).isValid else {
-                return
+                return nil
             }
 
-            persona.headline = result.headline
-            persona.summaryText = result.summary
-            persona.bullets = result.bullets
-            try modelContext.save()
+            return result
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
-            return
+            return nil
         }
     }
 

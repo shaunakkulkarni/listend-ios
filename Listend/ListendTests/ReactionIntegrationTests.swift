@@ -259,7 +259,7 @@ struct ReactionIntegrationTests {
         modelContext.insert(log)
         try modelContext.save()
 
-        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext, mode: .signalsOnly)
 
         let evidence = try modelContext.fetch(FetchDescriptor<TasteEvidence>())
             .filter { $0.logEntryID == log.id }
@@ -319,7 +319,7 @@ struct ReactionIntegrationTests {
         modelContext.insert(log)
         try modelContext.save()
 
-        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext, mode: .signalsOnly)
 
         let avoidanceSignals = try modelContext.fetch(
             FetchDescriptor<TasteAvoidanceSignal>()

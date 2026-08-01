@@ -154,6 +154,10 @@ private struct SoundPrintReflectionCard: View {
                 }
             }
 
+            if status.phase == .collecting || status.phase == .readyToCreate {
+                settingsLink
+            }
+
             if isGenerating {
                 ProgressView("Reading your latest logs…")
                     .font(.subheadline)
@@ -260,6 +264,17 @@ private struct SoundPrintReflectionCard: View {
                     .accessibilityIdentifier("updateSoundPrintButton")
             }
         }
+    }
+
+    private var settingsLink: some View {
+        NavigationLink {
+            SoundPrintSettingsView()
+        } label: {
+            Label("SoundPrint Settings", systemImage: "gearshape")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityIdentifier("soundPrintSettingsLink")
     }
 }
 

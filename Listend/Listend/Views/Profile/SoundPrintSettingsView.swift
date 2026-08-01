@@ -8,10 +8,11 @@ import SwiftData
 
 struct SoundPrintSettingsView: View {
     @AppStorage(SoundPrintPreferenceKey.preferAppleIntelligence) private var preferAppleIntelligence = true
-    @AppStorage(SoundPrintPreferenceKey.personaTone) private var personaToneRawValue = SoundPrintPersonaTone.default.rawValue
+    @AppStorage(SoundPrintPreferenceKey.reflectionNeedsRefresh) private var reflectionNeedsRefresh = false
     @Environment(\.modelContext) private var modelContext
     @Environment(\.soundPrintProvider) private var soundPrintProvider
     @Environment(SoundPrintProfileRefreshCoordinator.self) private var soundPrintRefreshCoordinator
+    @Query private var logs: [LogEntry]
     @Query(sort: \SoundPrintPersona.generatedAt, order: .reverse) private var personas: [SoundPrintPersona]
 
     @State private var isShowingDetail = false
@@ -24,7 +25,7 @@ struct SoundPrintSettingsView: View {
 
     var body: some View {
         List {
-            Section {
+            Section("Reflection status") {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .center, spacing: 8) {
                         Image(systemName: statusImage)
@@ -38,8 +39,8 @@ struct SoundPrintSettingsView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
-                    HStack {
-                        Text("Current generator")
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("Last successful generator")
                         Spacer()
                         if latestSource.userFacingTitle != nil {
                             SoundPrintGenerationSourceBadge(source: latestSource)
@@ -54,26 +55,15 @@ struct SoundPrintSettingsView: View {
             }
             .accessibilityIdentifier("soundPrintSettingsStatusSection")
 
-            Section {
-                Picker("Persona tone", selection: $personaToneRawValue) {
-                    ForEach(SoundPrintPersonaTone.allCases) { tone in
-                        Text(tone.userFacingTitle).tag(tone.rawValue)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .accessibilityIdentifier("personaTonePicker")
-
-                Text(selectedTone.userFacingDescription)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } header: {
-                Text("Voice")
-            }
-
-            Section {
+            Section("Apple Intelligence") {
                 if availability.isToggleVisible {
-                    Toggle("Prefer Apple Intelligence for SoundPrint", isOn: $preferAppleIntelligence)
+                    Toggle("Prefer Apple Intelligence", isOn: $preferAppleIntelligence)
                         .accessibilityIdentifier("preferAppleIntelligenceToggle")
+
+                    Text("This preference applies only when you explicitly create or update a reflection. It never replaces your current reflection automatically.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 } else {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Apple Intelligence is not available for SoundPrint on this device.")
@@ -84,21 +74,27 @@ struct SoundPrintSettingsView: View {
                     }
                     .accessibilityIdentifier("appleIntelligenceUnsupportedMessage")
                 }
-
-                Button {
-                    Task {
-                        await soundPrintRefreshCoordinator.generateReflection(in: modelContext, provider: soundPrintProvider)
-                    }
-                } label: {
-                    Label("Try Apple Intelligence Again", systemImage: "arrow.triangle.2.circlepath")
-                }
-                .disabled(soundPrintRefreshCoordinator.isRebuilding)
-                .accessibilityIdentifier("tryAppleIntelligenceAgainButton")
             }
 
-            Section {
-                DisclosureGroup("Why am I seeing this?", isExpanded: $isShowingDetail) {
+            if canGenerateReflection {
+                Section {
+                    Button {
+                        Task {
+                            await soundPrintRefreshCoordinator.generateReflection(in: modelContext, provider: soundPrintProvider)
+                        }
+                    } label: {
+                        Label(generationActionTitle, systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    .disabled(soundPrintRefreshCoordinator.isRebuilding)
+                    .accessibilityIdentifier("soundPrintSettingsGenerationButton")
+                }
+            }
+
+            Section("Technical details") {
+                DisclosureGroup("Apple Intelligence availability", isExpanded: $isShowingDetail) {
                     VStack(alignment: .leading, spacing: 8) {
+                        Text("Availability")
+                            .font(.subheadline.weight(.semibold))
                         Text(availability.headline)
                         Text(availability.technicalDetail)
                             .font(.caption)
@@ -106,6 +102,7 @@ struct SoundPrintSettingsView: View {
                     }
                     .padding(.vertical, 4)
                 }
+                .accessibilityValue(isShowingDetail ? "Expanded" : "Collapsed")
                 .accessibilityIdentifier("appleIntelligenceDetailDisclosure")
             }
         }
@@ -118,16 +115,39 @@ struct SoundPrintSettingsView: View {
         personas.first?.generationSource ?? .unknown
     }
 
-    private var selectedTone: SoundPrintPersonaTone {
-        SoundPrintPersonaTone(rawValue: personaToneRawValue)
-    }
-
     private var displayState: SoundPrintSettingsDisplayState {
         SoundPrintSettingsDisplayState(
             preferAppleIntelligence: preferAppleIntelligence,
             latestSource: latestSource,
             availability: availability
         )
+    }
+
+    private var reflectionStatus: SoundPrintReflectionStatus {
+        SoundPrintReflectionStatus.resolve(
+            logCount: logs.count,
+            representedLogCount: personas.first?.logCountAtGeneration,
+            historyChanged: reflectionNeedsRefresh
+        )
+    }
+
+    private var canGenerateReflection: Bool {
+        switch reflectionStatus.phase {
+        case .readyToCreate, .readyToUpdate:
+            return true
+        case .collecting, .current:
+            return false
+        }
+    }
+
+    private var generationActionTitle: String {
+        if soundPrintRefreshCoordinator.lastError != nil {
+            return "Try again"
+        }
+
+        return reflectionStatus.phase == .readyToCreate
+            ? "Create my SoundPrint"
+            : "Update my SoundPrint"
     }
 
     private var statusImage: String {

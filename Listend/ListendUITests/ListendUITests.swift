@@ -90,7 +90,42 @@ final class ListendUITests: XCTestCase {
         XCTAssertTrue(app.buttons["addLogButton"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Recently Played"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.descendants(matching: .any)["recentLogsSection"].exists)
+        XCTAssertFalse(app.buttons["homeSoundPrintLink"].exists)
         XCTAssertFalse(app.staticTexts["Blonde"].exists)
+    }
+
+    @MainActor
+    func testSoundPrintHomeAndSettingsSurfacesRemainExplicit() throws {
+        launchResetApp(additionalArguments: ["-seed-soundprint-reflection-ready"])
+
+        XCTAssertFalse(app.buttons["homeSoundPrintLink"].exists)
+
+        openTab("Profile")
+        app.buttons["soundPrintSettingsLink"].tap()
+
+        XCTAssertTrue(app.navigationBars["SoundPrint Settings"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["soundPrintSettingsStatusSection"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.descendants(matching: .any)["personaTonePicker"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["soundPrintPersonaToneBadge"].exists)
+
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.descendants(matching: .any)["soundPrintReflectionCard"].waitForExistence(timeout: 5))
+
+        app.buttons["createSoundPrintButton"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["soundPrintReflectionLink"].waitForExistence(timeout: 10))
+
+        openTab("Home")
+        let homeReflectionLink = app.buttons["homeSoundPrintLink"]
+        XCTAssertTrue(homeReflectionLink.waitForExistence(timeout: 5))
+        XCTAssertTrue(homeReflectionLink.label.contains("SoundPrint Reflection"))
+        XCTAssertTrue(homeReflectionLink.label.contains("Local fallback"))
+        XCTAssertFalse(homeReflectionLink.label.contains("Balanced"))
+
+        homeReflectionLink.tap()
+        let reflectionLink = app.descendants(matching: .any)["soundPrintReflectionLink"]
+        XCTAssertTrue(reflectionLink.waitForExistence(timeout: 5))
+        reflectionLink.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["soundPrintReflectionDetailCard"].waitForExistence(timeout: 5))
     }
 
     @MainActor

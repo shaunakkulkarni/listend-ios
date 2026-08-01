@@ -15,6 +15,10 @@ enum SoundPrintProfileThresholds {
     /// they're independent steps sharing one threshold, not staggered.
     static let personaMinimumLogCount = 5
 
+    /// A current SoundPrint Reflection becomes eligible for an explicit update after
+    /// this many additional saved logs.
+    static let reflectionRefreshLogIncrement = 5
+
     /// Below this, the UI shows dimensions/persona but not the fuller avoidance + evidence
     /// receipts layout.
     static let fullerProfileMinimumLogCount = 10

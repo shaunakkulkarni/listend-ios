@@ -12,6 +12,7 @@ import FoundationModels
 enum SoundPrintPreferenceKey {
     static let preferAppleIntelligence = "soundPrint.preferAppleIntelligence"
     static let personaTone = "soundPrint.personaTone"
+    static let reflectionNeedsRefresh = "soundPrint.reflectionNeedsRefresh"
 }
 
 /// Chooses the SoundPrint provider for this launch. The production path uses

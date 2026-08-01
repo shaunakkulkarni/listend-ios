@@ -1780,7 +1780,7 @@ struct ListendTests {
         let persona = try #require(personas.first)
 
         #expect(persona.tone == .balanced)
-        #expect(persona.toneRawValue == SoundPrintPersonaTone.balanced.rawValue)
+        #expect(persona.toneRawValue == nil)
     }
 
     @Test func soundPrintPersonaUnknownSourceCoversOldAndInvalidRawValues() {
@@ -3835,7 +3835,7 @@ struct ListendTests {
         #expect(outcome.isValid)
     }
 
-    @Test func soundPrintOutputValidatorDoesNotRejectPersonaForWordCount() {
+    @Test func soundPrintOutputValidatorAcceptsReflectionBelowWordLimit() {
         let longSentence = (["You"] + Array(repeating: "word", count: 59)).joined(separator: " ")
         let text = "\(longSentence). Second sentence here."
         let outcome = SoundPrintOutputValidator.validatePersona(
@@ -3846,13 +3846,13 @@ struct ListendTests {
         #expect(outcome.isValid)
     }
 
-    @Test func soundPrintOutputValidatorAcceptsAnySentenceCount() {
+    @Test func soundPrintOutputValidatorAcceptsUpToThreeClaims() {
         let oneSentence = SoundPrintOutputValidator.validatePersona(
-            "You tend to reward records with a clear emotional temperature and real replay value throughout.",
+            "You tend to reward records with a clear emotional temperature and lasting value throughout.",
             context: .init(concreteSignals: ["emotional temperature"])
         )
         let threeSentences = SoundPrintOutputValidator.validatePersona(
-            "You tend to reward emotional temperature. You lose patience with filler. Replay value matters most.",
+            "You tend to reward emotional temperature. You lose patience with filler. Careful pacing matters most.",
             context: .init(concreteSignals: ["emotional temperature"])
         )
 
@@ -3912,7 +3912,7 @@ struct ListendTests {
 
         #expect(!labelOnly.isValid)
         #expect(albumGrounded.isValid)
-        #expect(userAuthoredLabel.isValid)
+        #expect(!userAuthoredLabel.isValid)
     }
 
     @Test func foundationModelsPersonaValidationRejectsRawInternalKeyNames() {
@@ -3997,7 +3997,7 @@ struct ListendTests {
     }
 
     @Test func soundPrintOutputValidatorBannedPhrasesAreToneAware() {
-        let vibesText = "You keep chasing big late night vibes. Filler tracks never make the cut."
+        let vibesText = "You keep chasing big late night vibes. Filler tracks get cut quickly."
 
         let underWrapped = SoundPrintOutputValidator.validatePersona(
             vibesText,
@@ -4025,7 +4025,7 @@ struct ListendTests {
         #expect(!eclecticUnderWrapped.isValid)
     }
 
-    @Test func soundPrintOutputValidatorAnalystToneEnforcesOverconfidenceRegardlessOfLogCount() {
+    @Test func soundPrintOutputValidatorRejectsAbsoluteFrequencyRegardlessOfToneOrLogCount() {
         let text = "You never settle unless vocals hit hard. Filler always drops your patience fast."
 
         let underAnalystHighLogCount = SoundPrintOutputValidator.validatePersona(
@@ -4038,7 +4038,7 @@ struct ListendTests {
         )
 
         #expect(!underAnalystHighLogCount.isValid)
-        #expect(underBalancedHighLogCount.isValid)
+        #expect(!underBalancedHighLogCount.isValid)
     }
 
     @Test func soundPrintOutputValidatorRejectsCriticStyleMetaCommentary() {
@@ -4085,11 +4085,9 @@ struct ListendTests {
         #expect(named.isValid)
     }
 
-    @Test func mockPersonaTemplatesRespectTone() async throws {
+    @Test func mockPersonaGenerationUsesBalancedReflectionVoice() async throws {
         let provider = MockSoundPrintProvider()
-        let forbiddenWrappedPhrases = ["certified", "award", "winner", "champion", "top listener", "on repeat", "in rotation", "sessions", "hooked"]
-
-        var textsByTone: [SoundPrintPersonaTone: String] = [:]
+        var texts: [String] = []
         for tone in SoundPrintPersonaTone.allCases {
             let input = personaInput(tone: tone)
             let result = try await provider.generatePersona(input: input)
@@ -4098,27 +4096,21 @@ struct ListendTests {
                 context: .init(
                     userFacingSignals: FoundationModelsSoundPrintValidator.userFacingSignals(from: input),
                     internalAnalysisLabels: FoundationModelsSoundPrintValidator.internalAnalysisLabels(from: input),
-                    tone: tone
+                    tone: .balanced
                 )
             )
             let normalizedText = result.text.lowercased()
 
-            #expect(outcome.isValid, "Expected \(tone) persona to validate: \(String(describing: outcome))")
+            #expect(outcome.isValid, "Expected balanced reflection to validate: \(String(describing: outcome))")
             #expect(!normalizedText.contains("vocal focus"))
             #expect(!normalizedText.contains("production style"))
             #expect(!normalizedText.contains("replay pull"))
-            textsByTone[tone] = result.text
+            #expect(result.generationSource == .localFallback)
+            texts.append(result.text)
         }
 
-        #expect(Set(textsByTone.values).count == SoundPrintPersonaTone.allCases.count)
-        #expect(textsByTone[.analyst]?.normalizedSoundPrintText.contains("data") == true)
-        #expect(textsByTone[.analyst]?.normalizedSoundPrintText.contains("so far") == true)
-
-        let wrappedText = textsByTone[.wrapped]?.normalizedSoundPrintText ?? ""
-        #expect(wrappedText.contains("your logs wanted"))
-        for phrase in forbiddenWrappedPhrases {
-            #expect(!wrappedText.containsNormalizedSoundPrintPhrase(phrase), "Wrapped persona should avoid: \(phrase)")
-        }
+        #expect(Set(texts).count == 1)
+        #expect(texts.first?.normalizedSoundPrintText.contains("in these logs") == true)
     }
 
     @Test func mockCompactSummaryTemplatesRespectTone() {

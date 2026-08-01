@@ -312,7 +312,8 @@ struct SoundPrintProfileBuilder {
             userFacingSignals: userFacingSignals,
             internalAnalysisLabels: FoundationModelsSoundPrintValidator.internalAnalysisLabels(from: personaInput),
             logCount: logs.count,
-            tone: tone
+            tone: tone,
+            supportsReplayBehaviorClaims: FoundationModelsSoundPrintValidator.supportsReplayBehaviorClaims(from: personaInput)
         )
 
         // Defense in depth: every provider result passes the same local gate before

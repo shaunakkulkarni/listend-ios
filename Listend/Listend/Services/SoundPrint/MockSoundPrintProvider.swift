@@ -793,7 +793,7 @@ struct MockSoundPrintProvider: SoundPrintProvider {
                 return $0.weight > $1.weight
             }
         let positiveLogs = input.recentLogs.filter(\.isPositiveSignal)
-        let favoriteLog = positiveLogs
+        let groundingLog = (positiveLogs
             .sorted {
                 if $0.rating == $1.rating {
                     return $0.albumTitle < $1.albumTitle
@@ -801,18 +801,17 @@ struct MockSoundPrintProvider: SoundPrintProvider {
 
                 return $0.rating > $1.rating
             }
-            .first
+            .first) ?? input.recentLogs.first
 
         let primaryDimension = strongestDimensions.first?.label
-        let secondaryDimension = strongestDimensions.dropFirst().first?.label
         let topAvoidanceLabel = input.avoidanceSignals.first
+        let reaction = input.topTags.first ?? groundingLog?.tags.first
 
-        let draft = buildPersonaDraft(
+        let draft = buildReflectionDraft(
             primaryDimension: primaryDimension,
-            secondaryDimension: secondaryDimension,
             topAvoidanceLabel: topAvoidanceLabel,
-            favoriteLog: favoriteLog,
-            tone: input.tone
+            groundingLog: groundingLog,
+            reaction: reaction
         )
 
         if SoundPrintOutputValidator.isPersonaValid(
@@ -820,157 +819,85 @@ struct MockSoundPrintProvider: SoundPrintProvider {
             userFacingSignals: FoundationModelsSoundPrintValidator.userFacingSignals(from: input),
             internalAnalysisLabels: FoundationModelsSoundPrintValidator.internalAnalysisLabels(from: input),
             logCount: input.totalLogCount,
-            tone: input.tone
+            tone: .balanced,
+            supportsReplayBehaviorClaims: FoundationModelsSoundPrintValidator.supportsReplayBehaviorClaims(from: input)
         ) {
             return PersonaResult(text: draft, generationSource: .localFallback)
         }
 
         return PersonaResult(
-            text: fallbackPersona(
+            text: fallbackReflection(
                 primaryDimension: primaryDimension,
                 topAvoidanceLabel: topAvoidanceLabel,
-                favoriteLog: favoriteLog,
-                tone: input.tone
+                groundingLog: groundingLog,
+                reaction: reaction
             ),
             generationSource: .localFallback
         )
     }
 
-    /// Two sentences: the first states what's rewarded (preferred phrasing
-    /// per the tone spec), the second grounds it in either an avoidance signal (what's rejected)
-    /// or the strongest available track-level/album evidence — never both, to stay within budget.
-    private static func buildPersonaDraft(
+    /// The deterministic production fallback follows the same short, balanced
+    /// reflection contract as Foundation Models output. It deliberately ignores
+    /// legacy tone preferences for newly generated reflections.
+    private static func buildReflectionDraft(
         primaryDimension: String?,
-        secondaryDimension: String?,
         topAvoidanceLabel: String?,
-        favoriteLog: PersonaLogInput?,
-        tone: SoundPrintPersonaTone
+        groundingLog: PersonaLogInput?,
+        reaction: String?
     ) -> String {
-        "\(personaRewardClause(primaryDimension: primaryDimension, secondaryDimension: secondaryDimension, tone: tone)) \(personaEvidenceClause(topAvoidanceLabel: topAvoidanceLabel, favoriteLog: favoriteLog, tone: tone))"
-    }
+        let reward = primaryDimension.map(naturalPhrase(for:)) ?? "records that earned your strongest ratings"
+        let anchor = reflectionAnchor(for: groundingLog)
 
-    private static func personaRewardClause(primaryDimension: String?, secondaryDimension: String?, tone: SoundPrintPersonaTone) -> String {
-        guard let primaryDimension else {
-            switch tone {
-            case .analyst: return "Your data so far points to records with real staying power."
-            case .balanced: return "Your logs point toward records with real staying power."
-            case .wrapped: return "Your logs are still writing this chapter."
-            }
-        }
-
-        switch tone {
-        case .analyst:
-            if let secondaryDimension {
-                return "Your data points to \(naturalPhrase(for: primaryDimension)) and \(naturalPhrase(for: secondaryDimension)) as reward signals."
-            }
-            return "Your data points to \(naturalPhrase(for: primaryDimension)) as the leading reward signal."
-        case .balanced:
-            if let secondaryDimension {
-                return "You reward \(naturalPhrase(for: primaryDimension)) and \(naturalPhrase(for: secondaryDimension))."
-            }
-            return "You reward \(naturalPhrase(for: primaryDimension))."
-        case .wrapped:
-            if let secondaryDimension {
-                return "Your logs wanted \(naturalPhrase(for: primaryDimension)) and \(naturalPhrase(for: secondaryDimension))."
-            }
-            return "Your logs wanted \(naturalPhrase(for: primaryDimension))."
-        }
-    }
-
-    private static func personaEvidenceClause(topAvoidanceLabel: String?, favoriteLog: PersonaLogInput?, tone: SoundPrintPersonaTone) -> String {
         if let topAvoidanceLabel {
-            let albumText = favoriteLog.map { " \($0.albumTitle) is the clearest example." } ?? ""
-            switch tone {
-            case .analyst: return "\(naturalPhrase(for: topAvoidanceLabel)) is where your patience runs out.\(albumText)"
-            case .balanced: return "You lose patience with \(naturalPhrase(for: topAvoidanceLabel)).\(albumText)"
-            case .wrapped: return "\(naturalPhrase(for: topAvoidanceLabel)) got cut fast.\(albumText)"
-            }
+            return "In these logs, you reward \(reward), and \(anchor) makes that pull concrete. The tension is that \(naturalPhrase(for: topAvoidanceLabel)) still creates friction for you, so far."
         }
 
-        guard let favoriteLog else {
-            switch tone {
-            case .analyst: return "Your sample so far is too small for a clear secondary signal."
-            case .balanced: return "The pattern so far is still taking shape."
-            case .wrapped: return "The plot is still warming up."
-            }
-        }
-
-        if favoriteLog.hasStandoutMoment {
-            switch tone {
-            case .analyst: return "The moment you flagged in \(favoriteLog.albumTitle) is the clearest data point."
-            case .balanced: return "The moment you flagged in \(favoriteLog.albumTitle) says it best."
-            case .wrapped: return "The moment you flagged in \(favoriteLog.albumTitle) did the talking."
-            }
-        }
-
-        if let favoriteTrack = favoriteLog.favoriteTracks.first {
-            switch tone {
-            case .analyst: return "\"\(favoriteTrack)\" off \(favoriteLog.albumTitle) is the clearest example in your logs so far."
-            case .balanced: return "\"\(favoriteTrack)\" off \(favoriteLog.albumTitle) is the clearest example so far."
-            case .wrapped: return "\"\(favoriteTrack)\" off \(favoriteLog.albumTitle) made the case."
-            }
-        }
-
-        switch tone {
-        case .analyst: return "\(favoriteLog.albumTitle) by \(favoriteLog.artistName) is the clearest example in your logs so far."
-        case .balanced: return "\(favoriteLog.albumTitle) by \(favoriteLog.artistName) is the clearest example so far."
-        case .wrapped: return "\(favoriteLog.albumTitle) by \(favoriteLog.artistName) made the pattern obvious."
-        }
+        return "In these logs, you reward \(reward), and \(anchor) makes that pull concrete.\(reflectionReactionSentence(reaction))"
     }
 
-    private static func fallbackPersona(
+    private static func fallbackReflection(
         primaryDimension: String?,
         topAvoidanceLabel: String?,
-        favoriteLog: PersonaLogInput?,
-        tone: SoundPrintPersonaTone
+        groundingLog: PersonaLogInput?,
+        reaction: String?
     ) -> String {
-        guard let primaryDimension else {
-            switch tone {
-            case .analyst:
-                let albumText = favoriteLog.map { "\($0.albumTitle) is the clearest example in your logs so far." } ?? "Your ratings alone are doing the talking so far."
-                return "Your data so far points to records with real staying power. \(albumText)"
-            case .balanced:
-                let albumText = favoriteLog.map { "\($0.albumTitle) is the clearest example so far." } ?? "The ratings alone are doing the talking so far."
-                return "Your logs point toward records with real staying power. \(albumText)"
-            case .wrapped:
-                let albumText = favoriteLog.map { "\($0.albumTitle) made the pattern visible." } ?? "The ratings alone are telling the story so far."
-                return "Your logs are still writing this chapter. \(albumText)"
-            }
+        let reward = primaryDimension.map(naturalPhrase(for:)) ?? "the records you rated most highly"
+        let anchor = reflectionAnchor(for: groundingLog)
+        let tension = topAvoidanceLabel.map { " while \(naturalPhrase(for: $0)) is where your patience drops" } ?? ""
+
+        return "In these logs, you reward \(reward), and \(anchor) is the clearest anchor\(tension).\(reflectionReactionSentence(reaction))"
+    }
+
+    private static func reflectionAnchor(for log: PersonaLogInput?) -> String {
+        guard let log else {
+            return "the albums you logged"
         }
 
-        if let topAvoidanceLabel, let favoriteLog {
-            switch tone {
-            case .analyst:
-                return "Your data points to \(naturalPhrase(for: primaryDimension)) as the clearest signal so far. \(naturalPhrase(for: topAvoidanceLabel)) is where \(favoriteLog.albumTitle) shows the limit."
-            case .balanced:
-                return "You reward \(naturalPhrase(for: primaryDimension)). \(favoriteLog.albumTitle) also shows your patience dropping around \(naturalPhrase(for: topAvoidanceLabel))."
-            case .wrapped:
-                return "Your logs wanted \(naturalPhrase(for: primaryDimension)). \(naturalPhrase(for: topAvoidanceLabel)) got cut fast on \(favoriteLog.albumTitle)."
-            }
+        let albumTitle = reflectionPhrase(log.albumTitle, maximumWordCount: 8)
+        let artistName = reflectionPhrase(log.artistName, maximumWordCount: 6)
+
+        if let favoriteTrack = log.favoriteTracks.first {
+            return "\"\(reflectionPhrase(favoriteTrack, maximumWordCount: 6))\" on \(albumTitle) by \(artistName)"
         }
 
-        if let favoriteLog, let favoriteTrack = favoriteLog.favoriteTracks.first {
-            switch tone {
-            case .analyst:
-                return "Your data points to \(naturalPhrase(for: primaryDimension)) as the clearest signal so far. \"\(favoriteTrack)\" off \(favoriteLog.albumTitle) is the clearest example."
-            case .balanced:
-                return "Your logs point toward \(naturalPhrase(for: primaryDimension)). \"\(favoriteTrack)\" off \(favoriteLog.albumTitle) is the clearest example."
-            case .wrapped:
-                return "Your logs wanted \(naturalPhrase(for: primaryDimension)). \"\(favoriteTrack)\" off \(favoriteLog.albumTitle) made the case."
-            }
+        return "\(albumTitle) by \(artistName)"
+    }
+
+    private static func reflectionReactionSentence(_ reaction: String?) -> String {
+        guard let reaction else {
+            return " The pattern is still taking shape so far."
         }
 
-        switch tone {
-        case .analyst:
-            let albumText = favoriteLog.map { " \($0.albumTitle) is the clearest example in your logs." } ?? ""
-            return "Your data points to \(naturalPhrase(for: primaryDimension)) as the clearest signal so far.\(albumText)"
-        case .balanced:
-            let albumText = favoriteLog.map { " \($0.albumTitle) is the clearest example." } ?? " That pattern is the clearest signal so far."
-            return "Your logs point toward \(naturalPhrase(for: primaryDimension)).\(albumText)"
-        case .wrapped:
-            let albumText = favoriteLog.map { " \($0.albumTitle) made the pattern obvious." } ?? " The pattern is only getting clearer."
-            return "Your logs wanted \(naturalPhrase(for: primaryDimension)).\(albumText)"
+        return " Your \"\(reflectionPhrase(reaction, maximumWordCount: 6))\" reaction keeps that pattern grounded so far."
+    }
+
+    private static func reflectionPhrase(_ text: String, maximumWordCount: Int) -> String {
+        let words = text.split(whereSeparator: \.isWhitespace)
+        guard words.count > maximumWordCount else {
+            return text
         }
+
+        return words.prefix(maximumWordCount).joined(separator: " ")
     }
 
     private static func compactGroundingSignal(from userFacingSignals: [String]) -> String? {

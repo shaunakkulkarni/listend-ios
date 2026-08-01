@@ -15,24 +15,33 @@ enum SoundPrintOutputValidator {
         let internalAnalysisLabels: [String]
         let logCount: Int
         let tone: SoundPrintPersonaTone
+        let supportsReplayBehaviorClaims: Bool
 
         init(
             userFacingSignals: [String],
             internalAnalysisLabels: [String] = [],
             logCount: Int = Int.max,
-            tone: SoundPrintPersonaTone = .balanced
+            tone: SoundPrintPersonaTone = .balanced,
+            supportsReplayBehaviorClaims: Bool = false
         ) {
             self.userFacingSignals = userFacingSignals
             self.internalAnalysisLabels = internalAnalysisLabels
             self.logCount = logCount
             self.tone = tone
+            self.supportsReplayBehaviorClaims = supportsReplayBehaviorClaims
         }
 
-        init(concreteSignals: [String], logCount: Int = Int.max, tone: SoundPrintPersonaTone = .balanced) {
+        init(
+            concreteSignals: [String],
+            logCount: Int = Int.max,
+            tone: SoundPrintPersonaTone = .balanced,
+            supportsReplayBehaviorClaims: Bool = false
+        ) {
             self.userFacingSignals = concreteSignals
             self.internalAnalysisLabels = []
             self.logCount = logCount
             self.tone = tone
+            self.supportsReplayBehaviorClaims = supportsReplayBehaviorClaims
         }
     }
 
@@ -50,6 +59,9 @@ enum SoundPrintOutputValidator {
     }
 
     static let minimumPersonaCharacterCount = 40
+    static let maximumPersonaWordCount = 90
+    static let maximumPersonaParagraphCount = 2
+    static let maximumPersonaClaimCount = 3
 
     static let requiredSummarySentenceCount = 1
     static let requiredBulletCount = 3
@@ -100,12 +112,19 @@ enum SoundPrintOutputValidator {
     /// text instead of writing it — critique leakage. Matched on word boundaries
     /// so "personal"/"critical" don't false-positive.
     private static let metaCommentaryWords: Set<String> = [
-        "persona", "personas", "rewrite", "critic", "critique", "unsupported", "conflates"
+        "persona", "personas", "prompt", "prompts", "schema", "schemas",
+        "model", "models", "validation", "validated", "validator", "protocol",
+        "instruction", "instructions", "rewrite", "critic", "critique", "unsupported", "conflates"
     ]
 
     private static let metaCommentaryPhrases: [String] = [
         "the user",
-        "this text"
+        "this text",
+        "language model",
+        "foundation models",
+        "apple intelligence",
+        "as an ai",
+        "i am an ai"
     ]
 
     /// A persona is a holistic cross-log summary, never anchored to one album on
@@ -123,6 +142,46 @@ enum SoundPrintOutputValidator {
         "obsessed with",
         "consistently proves",
         "your favorite genre is"
+    ]
+
+    /// Reject absolute-frequency language, and allow replay behavior only when
+    /// a supplied reaction or review phrase explicitly supports it.
+    private static let unsupportedFrequencyPhrases: [String] = [
+        "always",
+        "never",
+        "every time",
+        "each time",
+        "all the time",
+        "constantly",
+        "without fail",
+        "repeatedly",
+        "your favorite genre is"
+    ]
+
+    private static let replayBehaviorPhrases: [String] = [
+        "on repeat",
+        "in rotation",
+        "keep coming back",
+        "keep returning",
+        "come back to",
+        "coming back to",
+        "comes back to",
+        "returns to",
+        "replay",
+        "replays",
+        "revisit",
+        "revisits"
+    ]
+
+    private static let limitedEvidenceQualifiers: [String] = [
+        "so far",
+        "in these logs",
+        "from these logs",
+        "across these logs",
+        "based on these logs",
+        "lately",
+        "still forming",
+        "still taking shape"
     ]
 
     private static func overconfidentPhrases(for tone: SoundPrintPersonaTone) -> [String] {
@@ -155,6 +214,10 @@ enum SoundPrintOutputValidator {
         reasons.append(contentsOf: bannedPhraseReasons(in: normalized, tone: context.tone))
         reasons.append(contentsOf: metaCommentaryReasons(in: normalized, words: words))
         reasons.append(contentsOf: vagueAlbumReferenceReasons(in: normalized))
+        reasons.append(contentsOf: unsupportedFrequencyReasons(in: normalized))
+        if !context.supportsReplayBehaviorClaims {
+            reasons.append(contentsOf: unsupportedReplayReasons(in: normalized))
+        }
         reasons.append(contentsOf: internalAnalysisLabelReasons(
             in: normalized,
             internalAnalysisLabels: context.internalAnalysisLabels,
@@ -173,8 +236,25 @@ enum SoundPrintOutputValidator {
             reasons.append("too short")
         }
 
+        if words.count > maximumPersonaWordCount {
+            reasons.append("too long: \(words.count) words (maximum \(maximumPersonaWordCount))")
+        }
+
+        if trimmed.soundPrintParagraphs.count > maximumPersonaParagraphCount {
+            reasons.append("too many paragraphs: \(trimmed.soundPrintParagraphs.count) (maximum \(maximumPersonaParagraphCount))")
+        }
+
+        if trimmed.soundPrintSentences.count > maximumPersonaClaimCount {
+            reasons.append("too many substantive claims: \(trimmed.soundPrintSentences.count) (maximum \(maximumPersonaClaimCount))")
+        }
+
         if !containsConcreteSignal(normalized, concreteSignals: context.userFacingSignals) {
             reasons.append("no concrete signal referenced (generic filler)")
+        }
+
+        if context.logCount < 10,
+           !limitedEvidenceQualifiers.contains(where: { normalized.containsNormalizedSoundPrintPhrase($0) }) {
+            reasons.append("limited evidence is not qualified")
         }
 
         if context.logCount < overconfidenceLogCountThreshold(for: context.tone) {
@@ -189,7 +269,8 @@ enum SoundPrintOutputValidator {
         userFacingSignals: [String],
         internalAnalysisLabels: [String] = [],
         logCount: Int = Int.max,
-        tone: SoundPrintPersonaTone = .balanced
+        tone: SoundPrintPersonaTone = .balanced,
+        supportsReplayBehaviorClaims: Bool = false
     ) -> Bool {
         validatePersona(
             text,
@@ -197,13 +278,26 @@ enum SoundPrintOutputValidator {
                 userFacingSignals: userFacingSignals,
                 internalAnalysisLabels: internalAnalysisLabels,
                 logCount: logCount,
-                tone: tone
+                tone: tone,
+                supportsReplayBehaviorClaims: supportsReplayBehaviorClaims
             )
         ).isValid
     }
 
-    static func isPersonaValid(_ text: String, concreteSignals: [String], logCount: Int = Int.max, tone: SoundPrintPersonaTone = .balanced) -> Bool {
-        isPersonaValid(text, userFacingSignals: concreteSignals, logCount: logCount, tone: tone)
+    static func isPersonaValid(
+        _ text: String,
+        concreteSignals: [String],
+        logCount: Int = Int.max,
+        tone: SoundPrintPersonaTone = .balanced,
+        supportsReplayBehaviorClaims: Bool = false
+    ) -> Bool {
+        isPersonaValid(
+            text,
+            userFacingSignals: concreteSignals,
+            logCount: logCount,
+            tone: tone,
+            supportsReplayBehaviorClaims: supportsReplayBehaviorClaims
+        )
     }
 
     static func validateCompactSummary(
@@ -297,19 +391,37 @@ enum SoundPrintOutputValidator {
             .map { "overconfident language for low log count: \($0)" }
     }
 
+    private static func unsupportedFrequencyReasons(in normalizedText: String) -> [String] {
+        unsupportedFrequencyPhrases
+            .filter { containsPhraseOrWord($0, in: normalizedText) }
+            .map { "unsupported absolute-frequency claim: \($0)" }
+    }
+
+    private static func unsupportedReplayReasons(in normalizedText: String) -> [String] {
+        replayBehaviorPhrases
+            .filter { containsPhraseOrWord($0, in: normalizedText) }
+            .map { "unsupported replay behavior: \($0)" }
+    }
+
+    private static func containsPhraseOrWord(_ phrase: String, in normalizedText: String) -> Bool {
+        let normalizedPhrase = phrase.normalizedSoundPrintText
+        if normalizedPhrase.normalizedSoundPrintWords.count == 1 {
+            return normalizedText.normalizedSoundPrintWords.contains(normalizedPhrase)
+        }
+
+        return normalizedText.containsNormalizedSoundPrintPhrase(normalizedPhrase)
+    }
+
     private static func internalAnalysisLabelReasons(
         in normalizedText: String,
         internalAnalysisLabels: [String],
         userFacingSignals: [String]
     ) -> [String] {
-        let allowedUserSignals = Set(userFacingSignals.map { $0.normalizedSoundPrintText.trimmingCharacters(in: .whitespacesAndNewlines) })
-
         return internalAnalysisLabels.compactMap { label in
             let normalizedLabel = label.normalizedSoundPrintText.trimmingCharacters(in: .whitespacesAndNewlines)
 
             guard !normalizedLabel.isEmpty,
-                  normalizedText.contains(normalizedLabel),
-                  !allowedUserSignals.contains(normalizedLabel) else {
+                  normalizedText.contains(normalizedLabel) else {
                 return nil
             }
 

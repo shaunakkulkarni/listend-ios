@@ -94,6 +94,43 @@ final class ListendUITests: XCTestCase {
     }
 
     @MainActor
+    func testSoundPrintReflectionCreateCurrentAndUpdateFlow() throws {
+        launchResetApp(additionalArguments: ["-seed-soundprint-reflection-ready"])
+
+        openTab("Profile")
+        XCTAssertTrue(app.descendants(matching: .any)["soundPrintReflectionCard"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Your first SoundPrint is ready"].waitForExistence(timeout: 5))
+
+        let createButton = app.buttons["createSoundPrintButton"]
+        XCTAssertTrue(createButton.waitForExistence(timeout: 5))
+        createButton.tap()
+
+        let reflectionLink = app.descendants(matching: .any)["soundPrintReflectionLink"]
+        XCTAssertTrue(reflectionLink.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Based on 5 logs"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["soundPrintGenerationSourceBadge"].waitForExistence(timeout: 5))
+
+        reflectionLink.tap()
+        XCTAssertTrue(app.navigationBars["SoundPrint Reflection"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["soundPrintReflectionDetailCard"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["What you're rewarding"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["soundPrintPrivacyNote"].waitForExistence(timeout: 5))
+
+        app.terminate()
+        launchAppPreservingData(additionalArguments: ["-seed-soundprint-reflection-update"])
+        openTab("Profile")
+
+        XCTAssertTrue(app.staticTexts["5 new logs since this reflection"].waitForExistence(timeout: 5))
+        let updateButton = app.buttons["updateSoundPrintButton"]
+        XCTAssertTrue(updateButton.waitForExistence(timeout: 5))
+        updateButton.tap()
+
+        XCTAssertTrue(app.staticTexts["Based on 10 logs"].waitForExistence(timeout: 10))
+        XCTAssertTrue(updateButton.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["soundPrintReflectionLink"].exists)
+    }
+
+    @MainActor
     func testLogsTabStartsEmptyAndShowsCreatedLogs() throws {
         launchResetApp()
 
@@ -716,9 +753,9 @@ final class ListendUITests: XCTestCase {
         app.launch()
     }
 
-    private func launchAppPreservingData() {
+    private func launchAppPreservingData(additionalArguments: [String] = []) {
         app = XCUIApplication()
-        app.launchArguments = ["-ui-testing"]
+        app.launchArguments = ["-ui-testing"] + additionalArguments
         configureUITestingStore()
         app.launch()
     }

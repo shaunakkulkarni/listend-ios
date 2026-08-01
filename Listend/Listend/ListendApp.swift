@@ -33,6 +33,7 @@ struct ListendApp: App {
             if shouldResetUITestingData {
                 resetStore(at: storeURL)
                 UserDefaults.standard.removeObject(forKey: TodayPickPreferenceKey.recommendationMode)
+                UserDefaults.standard.removeObject(forKey: SoundPrintPreferenceKey.reflectionNeedsRefresh)
             }
 
             modelConfiguration = ModelConfiguration("ListendUITests", schema: schema, url: storeURL)
@@ -77,6 +78,52 @@ struct ListendApp: App {
                     reviewText: "The atmosphere kept pulling me back.",
                     tags: ["floaty"]
                 ))
+                try container.mainContext.save()
+            }
+
+            if isUITesting,
+               arguments.contains("-seed-soundprint-reflection-ready"),
+               try container.mainContext.fetchCount(FetchDescriptor<LogEntry>()) == 0 {
+                for (index, result) in MockAlbumCatalogService.defaultAlbums.prefix(5).enumerated() {
+                    let album = Album(
+                        appleMusicID: result.catalogID,
+                        title: result.title,
+                        artistName: result.artistName,
+                        releaseYear: result.releaseYear,
+                        genreName: result.genreName
+                    )
+                    container.mainContext.insert(album)
+                    container.mainContext.insert(LogEntry(
+                        album: album,
+                        rating: index == 2 ? 4.0 : 4.5,
+                        reviewText: "Detailed listening note \(index + 1) with expressive vocals and layered production.",
+                        tags: index.isMultiple(of: 2) ? ["vocals", "layered"] : ["textured", "replayable"]
+                    ))
+                }
+                try container.mainContext.save()
+            }
+
+            if isUITesting,
+               arguments.contains("-seed-soundprint-reflection-update"),
+               try container.mainContext.fetchCount(FetchDescriptor<LogEntry>()) == 5,
+               try container.mainContext.fetchCount(FetchDescriptor<SoundPrintPersona>()) == 1 {
+                for (offset, result) in MockAlbumCatalogService.defaultAlbums.dropFirst(5).prefix(5).enumerated() {
+                    let album = Album(
+                        appleMusicID: result.catalogID,
+                        title: result.title,
+                        artistName: result.artistName,
+                        releaseYear: result.releaseYear,
+                        genreName: result.genreName
+                    )
+                    container.mainContext.insert(album)
+                    container.mainContext.insert(LogEntry(
+                        album: album,
+                        rating: offset == 2 ? 3.0 : 4.5,
+                        reviewText: "New listening note \(offset + 1) adds another grounded pattern.",
+                        tags: offset == 2 ? ["uneven"] : ["vivid", "replayable"],
+                        skipTracks: offset == 2 ? ["Track 4"] : []
+                    ))
+                }
                 try container.mainContext.save()
             }
 

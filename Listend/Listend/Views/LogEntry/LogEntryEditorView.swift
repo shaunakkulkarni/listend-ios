@@ -629,6 +629,7 @@ struct LogEntryEditorView: View {
 
         do {
             let savedLog: LogEntry
+            let mutation: SoundPrintLogMutation
 
             if let log {
                 log.album = album
@@ -640,6 +641,7 @@ struct LogEntryEditorView: View {
                 log.standoutMoment = standoutMomentToSave
                 log.updatedAt = Date()
                 savedLog = log
+                mutation = .updated
             } else {
                 let now = Date()
                 let newLog = LogEntry(
@@ -655,6 +657,7 @@ struct LogEntryEditorView: View {
                 )
                 modelContext.insert(newLog)
                 savedLog = newLog
+                mutation = .created
             }
 
             try modelContext.save()
@@ -662,6 +665,7 @@ struct LogEntryEditorView: View {
             Task { @MainActor in
                 await soundPrintRefreshCoordinator.processSavedLog(
                     savedLog,
+                    mutation: mutation,
                     in: modelContext,
                     provider: soundPrintProvider
                 )

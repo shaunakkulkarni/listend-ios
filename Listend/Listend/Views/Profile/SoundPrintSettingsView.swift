@@ -69,15 +69,6 @@ struct SoundPrintSettingsView: View {
             } header: {
                 Text("Voice")
             }
-            .onChange(of: personaToneRawValue) {
-                guard personas.first?.tone.rawValue != personaToneRawValue else {
-                    return
-                }
-
-                Task {
-                    await soundPrintRefreshCoordinator.refreshProfile(in: modelContext, provider: soundPrintProvider)
-                }
-            }
 
             Section {
                 if availability.isToggleVisible {
@@ -96,7 +87,7 @@ struct SoundPrintSettingsView: View {
 
                 Button {
                     Task {
-                        await soundPrintRefreshCoordinator.refreshProfile(in: modelContext, provider: soundPrintProvider)
+                        await soundPrintRefreshCoordinator.generateReflection(in: modelContext, provider: soundPrintProvider)
                     }
                 } label: {
                     Label("Try Apple Intelligence Again", systemImage: "arrow.triangle.2.circlepath")

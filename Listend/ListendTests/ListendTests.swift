@@ -888,7 +888,12 @@ struct ListendTests {
         modelContext.insert(log)
         try modelContext.save()
 
-        await SoundPrintProfileRefreshCoordinator().processSavedLog(log, in: modelContext, provider: MockSoundPrintProvider())
+        await SoundPrintProfileRefreshCoordinator().processSavedLog(
+            log,
+            mutation: .created,
+            in: modelContext,
+            provider: MockSoundPrintProvider()
+        )
 
         let dimensions = try modelContext.fetch(FetchDescriptor<TasteDimension>())
         #expect(log.sentimentScore != nil)
@@ -1222,7 +1227,7 @@ struct ListendTests {
         modelContext.insert(negativeLog)
         try modelContext.save()
 
-        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext, mode: .signalsOnly)
 
         var dimensions = try modelContext.fetch(FetchDescriptor<TasteDimension>())
         var evidence = try modelContext.fetch(FetchDescriptor<TasteEvidence>())
@@ -1239,7 +1244,7 @@ struct ListendTests {
         modelContext.delete(positiveLog)
         try modelContext.save()
 
-        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext, mode: .signalsOnly)
 
         dimensions = try modelContext.fetch(FetchDescriptor<TasteDimension>())
         evidence = try modelContext.fetch(FetchDescriptor<TasteEvidence>())
@@ -1393,7 +1398,10 @@ struct ListendTests {
         try modelContext.save()
 
         do {
-            try await SoundPrintProfileBuilder(provider: ThrowingSoundPrintProvider(failingOperation: .tasteExtraction)).rebuildProfile(in: modelContext)
+            try await SoundPrintProfileBuilder(provider: ThrowingSoundPrintProvider(failingOperation: .tasteExtraction)).rebuildProfile(
+                in: modelContext,
+                mode: .signalsOnly
+            )
             Issue.record("Profile rebuild should throw when extraction fails.")
         } catch {
             let dimensions = try modelContext.fetch(FetchDescriptor<TasteDimension>())
@@ -1702,7 +1710,7 @@ struct ListendTests {
         modelContext.insert(SoundPrintPersona(personaText: "Old persona two", logCountAtGeneration: 5))
         try modelContext.save()
 
-        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext, mode: .generateReflection)
 
         let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
 
@@ -1722,7 +1730,7 @@ struct ListendTests {
 
         try await SoundPrintProfileBuilder(
             provider: SourceTrackingSoundPrintProvider(source: .foundationModels)
-        ).rebuildProfile(in: modelContext)
+        ).rebuildProfile(in: modelContext, mode: .generateReflection)
 
         let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
         let persona = try #require(personas.first)
@@ -1744,7 +1752,7 @@ struct ListendTests {
                 primary: MalformedOutputSoundPrintProvider(),
                 fallback: MockSoundPrintProvider()
             )
-        ).rebuildProfile(in: modelContext)
+        ).rebuildProfile(in: modelContext, mode: .generateReflection)
 
         let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
         let persona = try #require(personas.first)
@@ -1753,7 +1761,7 @@ struct ListendTests {
         #expect(persona.generationSource != .unavailable)
     }
 
-    @Test func soundPrintProfileRebuildPersistsPersonaTone() async throws {
+    @Test func soundPrintProfileRebuildUsesBalancedToneForNewReflection() async throws {
         let container = try makeInMemoryContainer()
         let modelContext = container.mainContext
 
@@ -1766,13 +1774,13 @@ struct ListendTests {
 
         try await SoundPrintProfileBuilder(
             provider: SourceTrackingSoundPrintProvider(source: .foundationModels)
-        ).rebuildProfile(in: modelContext)
+        ).rebuildProfile(in: modelContext, mode: .generateReflection)
 
         let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
         let persona = try #require(personas.first)
 
-        #expect(persona.tone == .wrapped)
-        #expect(persona.toneRawValue == SoundPrintPersonaTone.wrapped.rawValue)
+        #expect(persona.tone == .balanced)
+        #expect(persona.toneRawValue == SoundPrintPersonaTone.balanced.rawValue)
     }
 
     @Test func soundPrintPersonaUnknownSourceCoversOldAndInvalidRawValues() {
@@ -1798,7 +1806,14 @@ struct ListendTests {
         )
         try modelContext.save()
 
-        try await SoundPrintProfileBuilder(provider: ThrowingSoundPrintProvider(failingOperation: .persona)).rebuildProfile(in: modelContext)
+        do {
+            try await SoundPrintProfileBuilder(
+                provider: ThrowingSoundPrintProvider(failingOperation: .persona)
+            ).rebuildProfile(in: modelContext, mode: .generateReflection)
+            Issue.record("Reflection generation should surface a builder error.")
+        } catch let error as SoundPrintProfileBuildError {
+            #expect(error == .unavailable)
+        }
 
         let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
         let dimensions = try modelContext.fetch(FetchDescriptor<TasteDimension>())
@@ -1817,7 +1832,7 @@ struct ListendTests {
         modelContext.insert(SoundPrintPersona(personaText: "Stale persona", logCountAtGeneration: 5))
         try modelContext.save()
 
-        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext, mode: .signalsOnly)
 
         let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
 
@@ -1842,7 +1857,7 @@ struct ListendTests {
         modelContext.insert(log)
         try modelContext.save()
 
-        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext, mode: .signalsOnly)
 
         let avoidanceSignals = try modelContext.fetch(FetchDescriptor<TasteAvoidanceSignal>())
         let skipHeavy = try #require(avoidanceSignals.first { $0.name == "skipHeavyAlbums" })
@@ -1867,7 +1882,7 @@ struct ListendTests {
         modelContext.insert(log)
         try modelContext.save()
 
-        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext, mode: .signalsOnly)
 
         var avoidanceSignals = try modelContext.fetch(FetchDescriptor<TasteAvoidanceSignal>())
         #expect(!avoidanceSignals.isEmpty)
@@ -1875,7 +1890,7 @@ struct ListendTests {
         modelContext.delete(log)
         try modelContext.save()
 
-        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext, mode: .signalsOnly)
 
         avoidanceSignals = try modelContext.fetch(FetchDescriptor<TasteAvoidanceSignal>())
         #expect(avoidanceSignals.isEmpty)
@@ -1902,7 +1917,10 @@ struct ListendTests {
         try modelContext.save()
 
         do {
-            try await SoundPrintProfileBuilder(provider: ThrowingSoundPrintProvider(failingOperation: .tasteExtraction)).rebuildProfile(in: modelContext)
+            try await SoundPrintProfileBuilder(provider: ThrowingSoundPrintProvider(failingOperation: .tasteExtraction)).rebuildProfile(
+                in: modelContext,
+                mode: .signalsOnly
+            )
             Issue.record("Profile rebuild should throw when extraction fails.")
         } catch {
             let avoidanceSignals = try modelContext.fetch(FetchDescriptor<TasteAvoidanceSignal>())
@@ -1919,7 +1937,7 @@ struct ListendTests {
         insertPersonaReadyLogs(in: modelContext, count: 5)
         try modelContext.save()
 
-        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext)
+        try await SoundPrintProfileBuilder().rebuildProfile(in: modelContext, mode: .generateReflection)
 
         let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
         let persona = try #require(personas.first)
@@ -1939,7 +1957,7 @@ struct ListendTests {
 
         try await SoundPrintProfileBuilder(
             provider: ThrowingSoundPrintProvider(failingOperation: .compactSummary)
-        ).rebuildProfile(in: modelContext)
+        ).rebuildProfile(in: modelContext, mode: .generateReflection)
 
         let personas = try modelContext.fetch(FetchDescriptor<SoundPrintPersona>())
         let persona = try #require(personas.first)

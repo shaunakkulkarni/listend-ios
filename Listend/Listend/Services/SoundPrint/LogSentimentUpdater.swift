@@ -28,7 +28,7 @@ struct LogSentimentUpdater {
             log.sentimentScore = sentiment.score
             log.sentimentConfidence = sentiment.confidence
         } catch is CancellationError {
-            return
+            throw CancellationError()
         } catch {
             log.sentimentScore = MockSoundPrintProvider.baseScore(for: log.rating)
             log.sentimentConfidence = 0.6

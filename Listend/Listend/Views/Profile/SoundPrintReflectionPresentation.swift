@@ -59,13 +59,14 @@ struct SoundPrintReflectionPresentation: Equatable {
     }
 
     private static func newLogsText(_ count: Int) -> String {
-        "\(count) new \(count == 1 ? "log" : "logs") since this reflection"
+        let requiredCount = SoundPrintProfileThresholds.reflectionRefreshLogIncrement
+        return "\(count) of \(requiredCount) new logs toward your next SoundPrint update"
     }
 
-    private static func updateReasonText(_ reason: SoundPrintReflectionStatus.UpdateReason?) -> String {
+    private static func updateReasonText(_ reason: SoundPrintReflectionStatus.UpdateReason?) -> String? {
         switch reason {
-        case .newLogs(let count):
-            return newLogsText(count)
+        case .newLogs:
+            return nil
         case .historyChanged:
             return "Your listening history changed since this reflection."
         case nil:

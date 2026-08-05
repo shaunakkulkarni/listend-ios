@@ -135,6 +135,24 @@ struct SoundPrintProfileView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
+                    if reflectionStatus.phase == .current,
+                       reflectionStatus.newLogCount > 0 {
+                        let requiredCount = SoundPrintProfileThresholds.reflectionRefreshLogIncrement
+
+                        ProgressView(
+                            value: Double(min(reflectionStatus.newLogCount, requiredCount)),
+                            total: Double(requiredCount)
+                        )
+                        .accessibilityLabel("SoundPrint update progress")
+                        .accessibilityValue("\(reflectionStatus.newLogCount) of \(requiredCount) new logs")
+                        .accessibilityIdentifier("soundPrintUpdateProgress")
+
+                        Text("Your current reflection stays visible until you choose to update it.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
                     if reflectionStatus.phase == .readyToUpdate {
                         Button("Update my SoundPrint", action: generateReflection)
                             .buttonStyle(.borderedProminent)

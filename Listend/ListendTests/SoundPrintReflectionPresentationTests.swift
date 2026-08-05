@@ -29,16 +29,22 @@ struct SoundPrintReflectionPresentationTests {
         let presentation = makePresentation(logCount: 7, representedLogCount: 5)
 
         #expect(presentation.title == "SoundPrint Reflection")
-        #expect(presentation.freshnessText == "2 new logs since this reflection")
+        #expect(presentation.freshnessText == "2 of 5 new logs toward your next SoundPrint update")
         #expect(presentation.primaryAction == .view)
         #expect(presentation.canOpenReflection)
+    }
+
+    @Test func oneNewLogStillExplainsTheFiveLogUpdateThreshold() {
+        let presentation = makePresentation(logCount: 6, representedLogCount: 5)
+
+        #expect(presentation.freshnessText == "1 of 5 new logs toward your next SoundPrint update")
     }
 
     @Test func fiveNewLogsMapToExplicitUpdateAction() {
         let presentation = makePresentation(logCount: 10, representedLogCount: 5)
 
         #expect(presentation.description == "Your SoundPrint is ready for an update.")
-        #expect(presentation.freshnessText == "5 new logs since this reflection")
+        #expect(presentation.freshnessText == nil)
         #expect(presentation.primaryAction == .update)
         #expect(presentation.canOpenReflection)
     }

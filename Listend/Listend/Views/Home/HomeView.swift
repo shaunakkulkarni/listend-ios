@@ -18,7 +18,6 @@ struct HomeView: View {
 
     @Query(sort: \Album.title) private var albums: [Album]
     @Query(sort: \LogEntry.loggedAt, order: .reverse) private var logs: [LogEntry]
-    @Query(sort: \TasteDimension.weight, order: .reverse) private var dimensions: [TasteDimension]
     @Query(sort: \SoundPrintPersona.generatedAt, order: .reverse) private var personas: [SoundPrintPersona]
     @Query(sort: \Recommendation.createdAt, order: .reverse) private var recommendations: [Recommendation]
     @Query(sort: \RecentlyPlayedAlbumSnapshot.sortOrder) private var cachedRecentlyPlayedAlbumSnapshots: [RecentlyPlayedAlbumSnapshot]
@@ -80,16 +79,15 @@ struct HomeView: View {
                     selectAlbum: startRecentLog
                 )
 
-                if let currentPersona {
+                if let currentReflection {
                     Button {
                         switchToProfileTab()
                     } label: {
-                        SoundPrintSummaryModule(
-                            persona: currentPersona,
-                            topDimension: dimensions.first
-                        )
+                        SoundPrintReflectionModule(persona: currentReflection)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(currentReflection.accessibilitySummary)
+                    .accessibilityHint("Opens your SoundPrint Reflection in Profile.")
                     .accessibilityIdentifier("homeSoundPrintLink")
                 }
 
@@ -125,8 +123,14 @@ struct HomeView: View {
         }
     }
 
-    private var currentPersona: SoundPrintPersona? {
-        personas.first
+    private var currentReflection: SoundPrintPersona? {
+        guard logs.count >= SoundPrintProfileThresholds.personaMinimumLogCount,
+              let persona = personas.first,
+              persona.personaText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+            return nil
+        }
+
+        return persona
     }
 
     private var activeRecommendation: Recommendation? {
@@ -339,9 +343,8 @@ private struct TodayPickCard: View {
     }
 }
 
-private struct SoundPrintSummaryModule: View {
+private struct SoundPrintReflectionModule: View {
     let persona: SoundPrintPersona
-    let topDimension: TasteDimension?
 
     var body: some View {
         ListendObjectCard {
@@ -349,7 +352,7 @@ private struct SoundPrintSummaryModule: View {
                 HStack(spacing: 8) {
                     Image(systemName: "waveform.path")
                         .foregroundStyle(.secondary)
-                    Text("SoundPrint")
+                    Text("SoundPrint Reflection")
                         .font(.headline)
                     SoundPrintGenerationSourceBadge(source: persona.generationSource)
 
@@ -360,22 +363,33 @@ private struct SoundPrintSummaryModule: View {
                         .foregroundStyle(.tertiary)
                 }
 
-                SoundPrintPersonaToneBadge(tone: persona.tone)
-
-                Text(persona.personaText)
+                Text(persona.homeExcerpt)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .lineLimit(4)
+                    .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
-
-                if let topDimension {
-                    Text("Current thread: \(topDimension.label)")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
             }
         }
+        .accessibilityElement(children: .combine)
         .accessibilityIdentifier("homeSoundPrintModule")
+    }
+}
+
+private extension SoundPrintPersona {
+    var homeExcerpt: String {
+        let trimmedText = personaText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sentence = trimmedText
+            .split(whereSeparator: { ".!?".contains($0) })
+            .first
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return sentence?.isEmpty == false ? sentence! : trimmedText
+    }
+
+    var accessibilitySummary: String {
+        let sourceText = generationSource.userFacingTitle.map { "Generated with \($0)." } ?? "Generator unknown."
+        return "SoundPrint Reflection. \(homeExcerpt). \(sourceText)"
     }
 }
 

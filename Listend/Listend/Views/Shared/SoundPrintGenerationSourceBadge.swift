@@ -39,6 +39,8 @@ struct SoundPrintGenerationSourceBadge: View {
             .background(backgroundColor, in: Capsule())
             .fixedSize(horizontal: true, vertical: false)
             .accessibilityElement(children: .combine)
+            .accessibilityLabel("SoundPrint generator: \(title)")
+            .accessibilityHint("Shows how this reflection was generated.")
             .accessibilityIdentifier("soundPrintGenerationSourceBadge")
         }
     }

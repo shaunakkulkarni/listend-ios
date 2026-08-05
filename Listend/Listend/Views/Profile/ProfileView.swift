@@ -9,9 +9,11 @@ import SwiftUI
 import SwiftData
 
 struct ProfileView: View {
+    @AppStorage(SoundPrintPreferenceKey.reflectionNeedsRefresh) private var reflectionNeedsRefresh = false
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.soundPrintProvider) private var soundPrintProvider
     @Environment(SoundPrintProfileRefreshCoordinator.self) private var soundPrintRefreshCoordinator
     @Query private var logs: [LogEntry]
-    @Query(sort: \TasteDimension.weight, order: .reverse) private var dimensions: [TasteDimension]
     @Query(sort: \SoundPrintPersona.generatedAt, order: .reverse) private var personas: [SoundPrintPersona]
 
     var body: some View {
@@ -40,55 +42,13 @@ struct ProfileView: View {
             }
 
             Section("SoundPrint") {
-                PersonaCard(logCount: logs.count, persona: currentPersona)
-                if soundPrintRefreshCoordinator.isRebuilding {
-                    Label("Refreshing SoundPrint", systemImage: "arrow.triangle.2.circlepath")
-                        .foregroundStyle(.secondary)
-                }
-
-                if let lastError = soundPrintRefreshCoordinator.lastError {
-                    Label(lastError, systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.red)
-                }
-
-                NavigationLink {
-                    SoundPrintSettingsView()
-                } label: {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("SoundPrint Settings")
-                            .font(.headline)
-                        Text("Apple Intelligence preference and current generator")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 4)
-                }
-                .accessibilityIdentifier("soundPrintSettingsLink")
-
-                if canShowSoundPrintProfile {
-                    NavigationLink {
-                        SoundPrintProfileView()
-                    } label: {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("SoundPrint Profile")
-                                .font(.headline)
-                            Text(soundPrintProfileSubtitle)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.vertical, 4)
-                    }
-                    .accessibilityIdentifier("soundPrintProfileLink")
-                } else {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Taste profile pending")
-                            .font(.headline)
-                        Text("Log an album to start building your SoundPrint.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 4)
-                }
+                SoundPrintReflectionCard(
+                    status: reflectionStatus,
+                    persona: currentPersona,
+                    isGenerating: soundPrintRefreshCoordinator.isRebuilding,
+                    errorMessage: soundPrintRefreshCoordinator.lastError,
+                    generate: generateReflection
+                )
             }
 
             if SandboxMode.isEnabled {
@@ -148,92 +108,157 @@ struct ProfileView: View {
         logs.isEmpty ? "Start logging to build your taste recap." : "\(logs.count.formatted()) logs and counting"
     }
 
-    private var canShowSoundPrintProfile: Bool {
-        !logs.isEmpty
-    }
-
-    private var soundPrintProfileSubtitle: String {
-        guard !dimensions.isEmpty else {
-            return "Keep logging to build your taste profile."
-        }
-
-        return "\(dimensions.count) taste dimensions from your logs"
-    }
-
     private var currentPersona: SoundPrintPersona? {
         personas.first
     }
 
+    private var reflectionStatus: SoundPrintReflectionStatus {
+        SoundPrintReflectionStatus.resolve(
+            logCount: logs.count,
+            representedLogCount: currentPersona?.logCountAtGeneration,
+            historyChanged: reflectionNeedsRefresh
+        )
+    }
+
+    private func generateReflection() {
+        Task {
+            await soundPrintRefreshCoordinator.generateReflection(
+                in: modelContext,
+                provider: soundPrintProvider
+            )
+        }
+    }
 }
 
-private struct PersonaCard: View {
-    let logCount: Int
+private struct SoundPrintReflectionCard: View {
+    let status: SoundPrintReflectionStatus
     let persona: SoundPrintPersona?
+    let isGenerating: Bool
+    let errorMessage: String?
+    let generate: () -> Void
+
+    private var presentation: SoundPrintReflectionPresentation {
+        SoundPrintReflectionPresentation(status: status)
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            personaHeader
-
-            if let persona, logCount >= SoundPrintProfileThresholds.personaMinimumLogCount {
-                Text(persona.personaText)
-                    .font(.system(.subheadline, design: .serif))
-                    .foregroundStyle(.secondary)
-
-                if let headline = persona.headline {
-                    Text(headline)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: ListendSpacing.md) {
+            switch status.phase {
+            case .collecting:
+                collectingContent
+            case .readyToCreate:
+                readyToCreateContent
+            case .current, .readyToUpdate:
+                if let persona {
+                    reflectionContent(persona)
                 }
-            } else {
-                Text(statusMessage)
+            }
+
+            if isGenerating {
+                ProgressView("Reading your latest logs…")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("soundPrintGenerationProgress")
+            }
+
+            if let errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle")
+                    .font(.subheadline)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("soundPrintGenerationError")
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("soundPrintReflectionCard")
     }
 
     @ViewBuilder
-    private var personaHeader: some View {
-        if let persona, logCount >= SoundPrintProfileThresholds.personaMinimumLogCount {
+    private var collectingContent: some View {
+        Text(presentation.title)
+            .font(.headline)
+        Text(presentation.description)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+
+        if let progressText = presentation.progressText {
+            Text(progressText)
+                .font(.subheadline.weight(.semibold))
+                .monospacedDigit()
+                .accessibilityLabel("SoundPrint progress")
+                .accessibilityValue(progressText)
+                .accessibilityIdentifier("soundPrintProgressText")
+        }
+    }
+
+    @ViewBuilder
+    private var readyToCreateContent: some View {
+        Text(presentation.title)
+            .font(.headline)
+        Text(presentation.description)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+
+        Button("Create my SoundPrint", action: generate)
+            .buttonStyle(.borderedProminent)
+            .disabled(isGenerating)
+            .accessibilityIdentifier("createSoundPrintButton")
+    }
+
+    private func reflectionContent(_ persona: SoundPrintPersona) -> some View {
+        VStack(alignment: .leading, spacing: ListendSpacing.md) {
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .center, spacing: 8) {
-                    personaTitle
-                    personaBadges(for: persona)
+                    Text(presentation.title)
+                        .font(.headline)
+                    SoundPrintGenerationSourceBadge(source: persona.generationSource)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    personaTitle
-                    personaBadges(for: persona)
+                    Text(presentation.title)
+                        .font(.headline)
+                    SoundPrintGenerationSourceBadge(source: persona.generationSource)
                 }
             }
-        } else {
-            personaTitle
-        }
-    }
 
-    private var personaTitle: some View {
-        Text("Persona")
-            .font(.headline)
-    }
+            NavigationLink {
+                SoundPrintProfileView()
+            } label: {
+                VStack(alignment: .leading, spacing: ListendSpacing.sm) {
+                    Text(persona.personaText)
+                        .font(.system(.subheadline, design: .serif))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(4)
+                        .fixedSize(horizontal: false, vertical: true)
 
-    private func personaBadges(for persona: SoundPrintPersona) -> some View {
-        HStack(alignment: .center, spacing: 8) {
-            SoundPrintGenerationSourceBadge(source: persona.generationSource)
-            SoundPrintPersonaToneBadge(tone: persona.tone)
-        }
-    }
+                    Text("Based on \(persona.logCountAtGeneration) logs")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
 
-    private var statusMessage: String {
-        switch logCount {
-        case 0:
-            return "Log a few albums and SoundPrint will start noticing patterns."
-        case 1..<3:
-            return "A couple more logs and real patterns will start to show."
-        case 3..<SoundPrintProfileThresholds.personaMinimumLogCount:
-            return "Early signals are forming — a few more logs unlocks your persona."
-        default:
-            return "Log \(SoundPrintProfileThresholds.personaMinimumLogCount) albums to unlock your SoundPrint persona."
+                    if let freshnessText = presentation.freshnessText {
+                        Text(freshnessText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            .accessibilityIdentifier("soundPrintReflectionLink")
+
+            if status.phase == .readyToUpdate {
+                Text(presentation.description)
+                    .font(.subheadline.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button("Update my SoundPrint", action: generate)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isGenerating)
+                    .accessibilityIdentifier("updateSoundPrintButton")
+            }
         }
     }
 }
@@ -265,7 +290,7 @@ private struct StatRow: View {
     }
 }
 
-#Preview {
+#Preview("Collecting") {
     NavigationStack {
         ProfileView()
     }
@@ -273,7 +298,15 @@ private struct StatRow: View {
     .environment(SoundPrintProfileRefreshCoordinator())
 }
 
-#Preview("Unlocked Persona") {
+#Preview("Ready to Create") {
+    NavigationStack {
+        ProfileView()
+    }
+    .modelContainer(PreviewData.readyReflectionContainer)
+    .environment(SoundPrintProfileRefreshCoordinator())
+}
+
+#Preview("Current Reflection") {
     NavigationStack {
         ProfileView()
     }
@@ -281,7 +314,7 @@ private struct StatRow: View {
     .environment(SoundPrintProfileRefreshCoordinator())
 }
 
-#Preview("Apple Intelligence Persona") {
+#Preview("Apple Intelligence Reflection") {
     NavigationStack {
         ProfileView()
     }
@@ -289,10 +322,10 @@ private struct StatRow: View {
     .environment(SoundPrintProfileRefreshCoordinator())
 }
 
-#Preview("Local Fallback Persona") {
+#Preview("Update Ready") {
     NavigationStack {
         ProfileView()
     }
-    .modelContainer(PreviewData.localFallbackPersonaContainer)
+    .modelContainer(PreviewData.updateReadyReflectionContainer)
     .environment(SoundPrintProfileRefreshCoordinator())
 }

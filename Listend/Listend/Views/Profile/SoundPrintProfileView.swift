@@ -7,6 +7,10 @@ import SwiftUI
 import SwiftData
 
 struct SoundPrintProfileView: View {
+    @AppStorage(SoundPrintPreferenceKey.reflectionNeedsRefresh) private var reflectionNeedsRefresh = false
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.soundPrintProvider) private var soundPrintProvider
+    @Environment(SoundPrintProfileRefreshCoordinator.self) private var soundPrintRefreshCoordinator
     @Query(sort: \SoundPrintPersona.generatedAt, order: .reverse) private var personas: [SoundPrintPersona]
     @Query(sort: \TasteDimension.weight, order: .reverse) private var dimensions: [TasteDimension]
     @Query(sort: \TasteAvoidanceSignal.strength, order: .reverse) private var avoidanceSignals: [TasteAvoidanceSignal]
@@ -16,25 +20,15 @@ struct SoundPrintProfileView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: ListendSpacing.xl) {
-                switch profileState {
-                case .coldStart:
+                if let persona = currentPersona,
+                   logs.count >= SoundPrintProfileThresholds.personaMinimumLogCount {
+                    reflectionContent(persona)
+                } else {
                     placeholderState(
-                        title: "Nothing Logged Yet",
+                        title: "No SoundPrint Reflection Yet",
                         systemImage: "waveform.path",
-                        description: "Log a few albums and SoundPrint will start noticing patterns."
+                        description: "Return to Profile to keep building or create your first reflection."
                     )
-                case .tooEarly:
-                    placeholderState(
-                        title: "Too Early To Tell",
-                        systemImage: "waveform.path.ecg",
-                        description: "A couple more logs and real patterns will start to show."
-                    )
-                case .earlySignals:
-                    earlySignalsContent
-                case .persona:
-                    personaStateContent(showsAvoidance: false)
-                case .fullerProfile:
-                    personaStateContent(showsAvoidance: true)
                 }
             }
             .padding(.horizontal, ListendSpacing.lg)
@@ -43,124 +37,176 @@ struct SoundPrintProfileView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Color.listendPaper)
-        .navigationTitle("SoundPrint")
+        .navigationTitle("SoundPrint Reflection")
+        .accessibilityIdentifier("soundPrintReflectionScreen")
     }
 
-    private var profileState: SoundPrintProfileState {
-        SoundPrintProfileState(logCount: logs.count)
+    private var currentPersona: SoundPrintPersona? {
+        personas.first
     }
 
-    @ViewBuilder
-    private var earlySignalsContent: some View {
-        VStack(alignment: .leading, spacing: ListendSpacing.sm) {
-            Text("Early Signals")
-                .font(.title2.weight(.bold))
-            Text("Not enough logs yet for a full profile, but a pattern is starting to form.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-
-        if dimensions.isEmpty {
-            placeholderState(
-                title: "Still Listening",
-                systemImage: "waveform.path",
-                description: "Keep logging and dimensions will start to appear here."
-            )
-        } else {
-            dimensionsSection
-        }
+    private var reflectionStatus: SoundPrintReflectionStatus {
+        SoundPrintReflectionStatus.resolve(
+            logCount: logs.count,
+            representedLogCount: currentPersona?.logCountAtGeneration,
+            historyChanged: reflectionNeedsRefresh
+        )
     }
 
     @ViewBuilder
-    private func personaStateContent(showsAvoidance: Bool) -> some View {
-        if let persona = personas.first {
-            personaSection(persona)
-
-            if persona.headline != nil || persona.summaryText != nil {
-                summaryCard(persona)
-            }
-        }
-
-        VStack(alignment: .leading, spacing: 4) {
-            Text("How SoundPrint sees your taste")
-                .font(.title2.weight(.bold))
-            Text("Built from your logs and their receipts.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
+    private func reflectionContent(_ persona: SoundPrintPersona) -> some View {
+        reflectionCard(persona)
+        freshnessCard
 
         if dimensions.isEmpty {
             placeholderState(
-                title: "No SoundPrint Yet",
+                title: "Receipts Are Still Forming",
                 systemImage: "waveform.path",
-                description: "Positive logs with reviews or tags will build your taste profile."
+                description: "Your reflection is saved. More detailed logs will add grounded examples here."
             )
         } else {
             dimensionsSection
         }
 
-        if showsAvoidance && !avoidanceSignals.isEmpty {
+        if logs.count >= SoundPrintProfileThresholds.fullerProfileMinimumLogCount,
+           !avoidanceSignals.isEmpty {
             avoidanceSection
         }
+
+        privacyFooter(for: persona)
+        settingsLink
     }
 
     private func placeholderState(title: String, systemImage: String, description: String) -> some View {
         ContentUnavailableView(title, systemImage: systemImage, description: Text(description))
     }
 
-    private func personaSection(_ persona: SoundPrintPersona) -> some View {
+    private func reflectionCard(_ persona: SoundPrintPersona) -> some View {
         ListendObjectCard {
-            VStack(alignment: .leading, spacing: ListendSpacing.sm) {
-                HStack(alignment: .center, spacing: 8) {
-                    Text("Persona")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-
-                    SoundPrintGenerationSourceBadge(source: persona.generationSource)
-                }
-
+            VStack(alignment: .leading, spacing: ListendSpacing.md) {
                 Text(persona.personaText)
                     .font(.system(.title3, design: .serif))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .center, spacing: ListendSpacing.sm) {
+                        reflectionMetadata(persona)
+                    }
+
+                    VStack(alignment: .leading, spacing: ListendSpacing.sm) {
+                        reflectionMetadata(persona)
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier("soundPrintReflectionDetailCard")
+    }
+
+    @ViewBuilder
+    private func reflectionMetadata(_ persona: SoundPrintPersona) -> some View {
+        SoundPrintGenerationSourceBadge(source: persona.generationSource)
+        Text("Based on \(persona.logCountAtGeneration) logs")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+        Text("Generated \(persona.generatedAt.formatted(date: .abbreviated, time: .omitted))")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+    }
+
+    @ViewBuilder
+    private var freshnessCard: some View {
+        let presentation = SoundPrintReflectionPresentation(status: reflectionStatus)
+
+        if reflectionStatus.phase == .readyToUpdate ||
+            reflectionStatus.newLogCount > 0 ||
+            soundPrintRefreshCoordinator.isRebuilding ||
+            soundPrintRefreshCoordinator.lastError != nil {
+            ListendObjectCard {
+                VStack(alignment: .leading, spacing: ListendSpacing.sm) {
+                    Text(reflectionStatus.phase == .readyToUpdate
+                        ? "Your SoundPrint is ready for an update"
+                        : "Your next reflection is forming")
+                        .font(.headline)
+
+                    if let freshnessText = presentation.freshnessText {
+                        Text(freshnessText)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    if reflectionStatus.phase == .readyToUpdate {
+                        Button("Update my SoundPrint", action: generateReflection)
+                            .buttonStyle(.borderedProminent)
+                            .disabled(soundPrintRefreshCoordinator.isRebuilding)
+                            .accessibilityIdentifier("updateSoundPrintButton")
+                    }
+
+                    if soundPrintRefreshCoordinator.isRebuilding {
+                        ProgressView("Reading your latest logs…")
+                            .font(.subheadline)
+                            .accessibilityIdentifier("soundPrintGenerationProgress")
+                    }
+
+                    if let lastError = soundPrintRefreshCoordinator.lastError {
+                        Label(lastError, systemImage: "exclamationmark.triangle")
+                            .font(.subheadline)
+                            .foregroundStyle(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("soundPrintGenerationError")
+                    }
+                }
             }
         }
     }
 
-    private func summaryCard(_ persona: SoundPrintPersona) -> some View {
-        ListendObjectCard {
-            VStack(alignment: .leading, spacing: ListendSpacing.sm) {
-                if let headline = persona.headline {
-                    Text(headline)
-                        .font(.headline)
-                }
+    private func privacyFooter(for persona: SoundPrintPersona) -> some View {
+        Label(privacyText(for: persona), systemImage: "lock.shield")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("soundPrintPrivacyNote")
+    }
 
-                if let summaryText = persona.summaryText {
-                    Text(summaryText)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+    private var settingsLink: some View {
+        NavigationLink {
+            SoundPrintSettingsView()
+        } label: {
+            Label("SoundPrint Settings", systemImage: "gearshape")
+                .font(.subheadline.weight(.semibold))
+        }
+        .accessibilityIdentifier("soundPrintSettingsLink")
+    }
 
-                if !persona.bullets.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(persona.bullets, id: \.self) { bullet in
-                            HStack(alignment: .top, spacing: 6) {
-                                Text("-")
-                                    .foregroundStyle(.secondary)
-                                Text(bullet)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .font(.caption)
-                        }
-                    }
-                    .padding(.top, 4)
-                }
-            }
+    private func privacyText(for persona: SoundPrintPersona) -> String {
+        switch persona.generationSource {
+        case .foundationModels:
+            return "Generated privately on your device from your Listend journal."
+        case .localFallback:
+            return "Built locally from your Listend journal."
+        case .unavailable, .unknown:
+            return "Built privately from your ratings, reactions, and notes."
+        }
+    }
+
+    private func generateReflection() {
+        Task {
+            await soundPrintRefreshCoordinator.generateReflection(
+                in: modelContext,
+                provider: soundPrintProvider
+            )
         }
     }
 
     private var dimensionsSection: some View {
         VStack(alignment: .leading, spacing: ListendSpacing.md) {
-            Text("Taste Dimensions (\(dimensions.count))")
-                .font(.headline)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("What you're rewarding")
+                    .font(.title2.weight(.bold))
+                Text("Patterns grounded in the albums and reactions behind this reflection.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
 
             VStack(spacing: ListendSpacing.md) {
                 ForEach(dimensions) { dimension in
@@ -179,9 +225,9 @@ struct SoundPrintProfileView: View {
     private var avoidanceSection: some View {
         VStack(alignment: .leading, spacing: ListendSpacing.md) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("What You Tend To Reject")
-                    .font(.headline)
-                Text("Patterns that show up in lower-rated or skip-heavy logs.")
+                Text("What tends to lose you")
+                    .font(.title2.weight(.bold))
+                Text("Patterns grounded in lower-rated or skip-heavy logs.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -214,29 +260,6 @@ struct SoundPrintProfileView: View {
     }
 }
 
-private enum SoundPrintProfileState {
-    case coldStart
-    case tooEarly
-    case earlySignals
-    case persona
-    case fullerProfile
-
-    init(logCount: Int) {
-        switch logCount {
-        case 0:
-            self = .coldStart
-        case 1..<3:
-            self = .tooEarly
-        case 3..<SoundPrintProfileThresholds.personaMinimumLogCount:
-            self = .earlySignals
-        case SoundPrintProfileThresholds.personaMinimumLogCount..<SoundPrintProfileThresholds.fullerProfileMinimumLogCount:
-            self = .persona
-        default:
-            self = .fullerProfile
-        }
-    }
-}
-
 private struct DimensionCard: View {
     let dimension: TasteDimension
     let evidence: [TasteEvidence]
@@ -247,7 +270,7 @@ private struct DimensionCard: View {
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
             VStack(alignment: .leading, spacing: 12) {
-                ReceiptSectionTitle(text: "You reward...")
+                ReceiptSectionTitle(text: "From your logs")
 
                 if receipts.isEmpty {
                     Text("No usable receipts for this dimension yet.")
@@ -261,20 +284,17 @@ private struct DimensionCard: View {
             }
             .padding(.top, 8)
         } label: {
-            VStack(alignment: .leading, spacing: 10) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(dimension.label)
-                        .font(.headline)
-                    Text(dimension.summary)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-
-                MetricBar(title: "Weight", value: dimension.weight, tint: Color.listendAccent)
-                MetricBar(title: "Confidence", value: dimension.confidence, tint: Color.listendAccent)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(dimension.label)
+                    .font(.headline)
+                Text(dimension.summary)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.vertical, 6)
         }
+        .accessibilityHint(isExpanded ? "Collapse supporting logs" : "Expand supporting logs")
     }
 
     private var receipts: [SoundPrintReceiptDisplay] {
@@ -291,7 +311,7 @@ private struct AvoidanceSignalCard: View {
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
             VStack(alignment: .leading, spacing: 12) {
-                ReceiptSectionTitle(text: "You tend to avoid...")
+                ReceiptSectionTitle(text: "From your logs")
 
                 if receipts.isEmpty {
                     Text("Original log unavailable")
@@ -305,45 +325,21 @@ private struct AvoidanceSignalCard: View {
             }
             .padding(.top, 8)
         } label: {
-            VStack(alignment: .leading, spacing: 10) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(signal.label)
-                        .font(.headline)
-                    Text(signal.summary)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-
-                MetricBar(title: "Strength", value: signal.strength, tint: Color.listendMutedInk)
-                MetricBar(title: "Confidence", value: signal.confidence, tint: Color.listendMutedInk)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(signal.label)
+                    .font(.headline)
+                Text(signal.summary)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.vertical, 6)
         }
+        .accessibilityHint(isExpanded ? "Collapse supporting logs" : "Expand supporting logs")
     }
 
     private var receipts: [SoundPrintReceiptDisplay] {
         SoundPrintReceiptDisplay.avoidanceReceipts(logIDs: signal.evidenceLogEntryIDs, logsByID: logsByID)
-    }
-}
-
-private struct MetricBar: View {
-    let title: String
-    let value: Double
-    let tint: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(title)
-                Spacer()
-                Text(value, format: .percent.precision(.fractionLength(0)))
-                    .foregroundStyle(.secondary)
-            }
-            .font(.caption)
-
-            ProgressView(value: value.clamped(to: 0.0...1.0))
-                .tint(tint)
-        }
     }
 }
 
@@ -521,17 +517,12 @@ private extension String {
     }
 }
 
-private extension Double {
-    func clamped(to range: ClosedRange<Double>) -> Double {
-        min(max(self, range.lowerBound), range.upperBound)
-    }
-}
-
 #Preview("Cold Start") {
     NavigationStack {
         SoundPrintProfileView()
     }
     .modelContainer(PreviewData.coldStartRecommendationContainer)
+    .environment(SoundPrintProfileRefreshCoordinator())
 }
 
 #Preview("Too Early") {
@@ -539,6 +530,7 @@ private extension Double {
         SoundPrintProfileView()
     }
     .modelContainer(PreviewData.tooEarlyContainer)
+    .environment(SoundPrintProfileRefreshCoordinator())
 }
 
 #Preview("Early Signals") {
@@ -546,32 +538,37 @@ private extension Double {
         SoundPrintProfileView()
     }
     .modelContainer(PreviewData.lockedPersonaContainer)
+    .environment(SoundPrintProfileRefreshCoordinator())
 }
 
-#Preview("Persona") {
+#Preview("Current Reflection") {
     NavigationStack {
         SoundPrintProfileView()
     }
     .modelContainer(PreviewData.unlockedPersonaContainer)
+    .environment(SoundPrintProfileRefreshCoordinator())
 }
 
-#Preview("Persona Apple Intelligence") {
+#Preview("Apple Intelligence Reflection") {
     NavigationStack {
         SoundPrintProfileView()
     }
     .modelContainer(PreviewData.appleIntelligencePersonaContainer)
+    .environment(SoundPrintProfileRefreshCoordinator())
 }
 
-#Preview("Persona Local Fallback") {
+#Preview("Local Fallback Reflection") {
     NavigationStack {
         SoundPrintProfileView()
     }
     .modelContainer(PreviewData.localFallbackPersonaContainer)
+    .environment(SoundPrintProfileRefreshCoordinator())
 }
 
-#Preview("Fuller Profile") {
+#Preview("Update Ready") {
     NavigationStack {
         SoundPrintProfileView()
     }
-    .modelContainer(PreviewData.fullerProfileContainer)
+    .modelContainer(PreviewData.updateReadyReflectionContainer)
+    .environment(SoundPrintProfileRefreshCoordinator())
 }

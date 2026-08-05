@@ -21,6 +21,10 @@ enum PreviewData {
     @MainActor
     static let lockedPersonaContainer: ModelContainer = makeContainer(logCount: 3, includePersona: false)
 
+    /// 5 logs and no artifact: explicit first-reflection action.
+    @MainActor
+    static let readyReflectionContainer: ModelContainer = makeContainer(logCount: 5, includePersona: false)
+
     /// 5+ logs: modest persona and compact summary.
     @MainActor
     static let unlockedPersonaContainer: ModelContainer = makeContainer(logCount: 5, includePersona: true)
@@ -47,6 +51,15 @@ enum PreviewData {
         includeAvoidanceSignals: true
     )
 
+    /// 10 logs represented by an artifact generated at 5: explicit update action.
+    @MainActor
+    static let updateReadyReflectionContainer: ModelContainer = makeContainer(
+        logCount: 10,
+        includePersona: true,
+        includeAvoidanceSignals: true,
+        personaLogCountAtGeneration: 5
+    )
+
     @MainActor
     static let activeRecommendationContainer: ModelContainer = makeContainer(logCount: 5, includePersona: true, includeRecommendation: true)
 
@@ -56,7 +69,8 @@ enum PreviewData {
         includePersona: Bool,
         includeRecommendation: Bool = false,
         includeAvoidanceSignals: Bool = false,
-        personaGenerationSource: SoundPrintGenerationSource = .localFallback
+        personaGenerationSource: SoundPrintGenerationSource = .localFallback,
+        personaLogCountAtGeneration: Int? = nil
     ) -> ModelContainer {
         let schema = ListendModelSchema.schema
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
@@ -69,6 +83,7 @@ enum PreviewData {
                 includeRecommendation: includeRecommendation,
                 includeAvoidanceSignals: includeAvoidanceSignals,
                 personaGenerationSource: personaGenerationSource,
+                personaLogCountAtGeneration: personaLogCountAtGeneration,
                 in: container.mainContext
             )
             return container
@@ -84,6 +99,7 @@ enum PreviewData {
         includeRecommendation: Bool,
         includeAvoidanceSignals: Bool,
         personaGenerationSource: SoundPrintGenerationSource,
+        personaLogCountAtGeneration: Int?,
         in modelContext: ModelContext
     ) {
         let albums = [
@@ -202,7 +218,7 @@ enum PreviewData {
             modelContext.insert(
                 SoundPrintPersona(
                     personaText: "You tend to reward standout vocal performances and albums that hold up past the first impression. Blonde by Frank Ocean is the clearest example so far.",
-                    logCountAtGeneration: logCount,
+                    logCountAtGeneration: personaLogCountAtGeneration ?? logCount,
                     headline: "Clear Reward Pattern",
                     summaryText: "You tend to reward standout vocals and lose patience with albums that drag.",
                     bullets: ["Example: Blonde", "Rewards standout vocals", "Avoids dead weight"],

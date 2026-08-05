@@ -68,4 +68,13 @@ extension String {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
     }
+
+    var soundPrintParagraphs: [String] {
+        let normalizedNewlines = replacingOccurrences(of: "\r\n", with: "\n")
+
+        return normalizedNewlines
+            .components(separatedBy: "\n\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
 }

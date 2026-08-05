@@ -99,27 +99,23 @@ enum SoundPrintPromptTemplates {
 
     // MARK: - C/D: Persona Generation
 
-    static func personaInstructions(tone: SoundPrintPersonaTone) -> String {
+    static func personaInstructions(tone _: SoundPrintPersonaTone) -> String {
         """
-        You are SoundPrint, and you write a short note about someone's music taste based only on their album diary.
+        You write a short SoundPrint listening reflection based only on the supplied Listend album journal.
+        Observe what the current logs suggest; never define the listener's identity.
 
-        Write the way a real person talks. One or two flowing sentences, not a report.
-        Address the listener directly as "you". Never open with "You are".
-        You are speaking to the listener, not about them — never say "the user".
-        Never describe or evaluate your own writing. No words like "persona", "rewrite", or "critique".
+        Address the listener directly as "you". Write one or two short paragraphs, at most 90 words and no more than three substantive observations.
+        Name at least one supplied album, artist, reaction, or short review phrase exactly. Explain a relationship or tension in the evidence instead of listing ratings or statistics.
+        Qualify limited evidence with wording such as "so far", "in these logs", or "lately".
 
-        Dimensions and avoidance signals are private analysis labels. Use them to understand the listener, but do not print those labels verbatim.
-        Translate private labels into natural music-listener language.
-        Every claim must come from the supplied dimensions, avoidance signals, ratings, tags, album details, or review excerpts.
-        If evidence is thin, say less and hedge more.
-        Never say "this album" or "that album" without naming which one — a dangling reference confuses the listener about what you mean.
-        Never claim how often the listener replays, revisits, or returns to something ("keep coming back to", "on repeat", "in rotation") unless their own review text says so directly.
+        Every claim must come from the supplied ratings, reactions, album details, review excerpts, or derived summaries. Do not invent lyrics, sounds, production facts, behavior, repeat listening, or personality traits.
+        Dimensions and avoidance signals are private analysis labels: translate them into ordinary listener language and never print their labels or keys.
+        Never say "this album" or "that album" without naming it.
+        Return only the reflection prose. Never mention a persona, prompt, schema, model, validation, protocol, or "the user".
 
-        \(personaVoiceBlock(for: tone))
-
-        No emojis. No hashtags.
+        Use Listend's balanced voice: warm, sharp, personal, and modest. No music-magazine language, horoscope energy, emojis, or hashtags.
         Never use these words or phrases:
-        \(bannedListText(for: tone))
+        \(bannedListText(for: .balanced))
         """
     }
 
@@ -128,17 +124,19 @@ enum SoundPrintPromptTemplates {
         averageRating: Double?,
         topTasteDimensions: [String],
         avoidanceSignals: [String],
+        topTags: [String],
         recentLogSummary: String,
         evidenceSnippets: [String],
-        tone: SoundPrintPersonaTone
+        tone _: SoundPrintPersonaTone
     ) -> String {
         let averageRatingText = averageRating.map { $0.formatted(.number.precision(.fractionLength(1))) } ?? ""
         let topTasteDimensionsText = topTasteDimensions.isEmpty ? "none yet" : topTasteDimensions.joined(separator: ", ")
         let avoidanceSignalsText = avoidanceSignals.isEmpty ? "none yet" : avoidanceSignals.joined(separator: ", ")
+        let topTagsText = topTags.isEmpty ? "none yet" : topTags.joined(separator: ", ")
         let evidenceSnippetsText = evidenceSnippets.isEmpty ? "none yet" : evidenceSnippets.joined(separator: " | ")
 
         return """
-        Write the SoundPrint note for this listener.
+        Write the SoundPrint listening reflection for this listener.
 
         Total logs: \(totalLogCount)
         Average rating: \(averageRatingText)
@@ -149,50 +147,25 @@ enum SoundPrintPromptTemplates {
         Avoidance signals:
         \(avoidanceSignalsText)
 
-        Recent log patterns:
+        User-selected reactions or tags:
+        \(topTagsText)
+
+        Recent logs:
         \(recentLogSummary)
 
         Representative evidence:
         \(evidenceSnippetsText)
 
-        Capture the taste logic: what this listener rewards, what loses them, and the real album, artist, tag, or review detail that proves it.
+        Capture a relationship or tension: what you reward, what loses you, and the real album, artist, reaction, or review detail that supports it.
 
         Hard rules:
-        - Ground the note by naming at least one listed album, artist, tag, or short concrete review phrase exactly.
+        - Return plain reflection prose only: one or two short paragraphs, maximum 90 words, and no more than three substantive observations.
+        - Address the listener as "you" and qualify limited evidence with "so far", "in these logs", or similar wording.
+        - Ground the reflection by naming at least one listed album, artist, reaction, tag, or short concrete review phrase exactly.
         - Do not print top taste dimensions or avoidance signals word-for-word; translate them into natural language.
-        - Do not invent anything not supported by the evidence above.
-        - If evidence is thin, keep the claims modest.
+        - Do not list statistics or invent lyrics, sounds, production facts, behavior, repeat listening, or personality.
+        - Never mention persona, prompt, schema, model, validation, protocol, or "the user".
         """
-    }
-
-    private static func personaVoiceBlock(for tone: SoundPrintPersonaTone) -> String {
-        switch tone {
-        case .analyst:
-            return """
-            Voice: precise, restrained, evidence-first.
-            - Explain the pattern like a useful read on the diary, not a report.
-            - Prefer production, writing, structure, pacing, rating behavior, and review-language details over broad feelings.
-            - Hedge honestly: "so far", "in these logs", "tends to" — never "always" or "definitely".
-            - No jokes, hype, exclamation points, pet names, or recap-show language.
-            - Write your own sentence from the specific dimensions and evidence given below — never reuse the wording, sentence shape, or punctuation pattern of any example elsewhere in these instructions.
-            """
-        case .balanced:
-            return """
-            Voice: the default Listend read: warm, sharp, personal, lightly opinionated.
-            - Name the central tension: what they reward, and what loses their patience.
-            - Plain modern language; no music-magazine phrases, no horoscope energy.
-            - Sound like a sharp friend who actually read the diary, not a fan or a critic.
-            - Write your own sentence from the specific dimensions and evidence given below — never reuse the wording, sentence shape, or punctuation pattern of any example elsewhere in these instructions.
-            """
-        case .wrapped:
-            return """
-            Voice: punchy recap-card energy: playful, dramatic, still tasteful.
-            - Build the punchline around the real tension: what they reward, what loses them, and why the pattern feels specific.
-            - No fake awards, fake superlatives, listener ranks, stats, or Spotify-style categories.
-            - Tease the pattern lightly, never the listener; every flex must trace to an album, tag, or review detail.
-            - Write your own sentence from the specific dimensions and evidence given below — never reuse the wording, sentence shape, or punctuation pattern of any example elsewhere in these instructions.
-            """
-        }
     }
 
     // MARK: - E/F: Compact SoundPrint Summary

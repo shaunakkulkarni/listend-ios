@@ -215,7 +215,8 @@ private extension FoundationModelsSoundPrintProvider {
             userFacingSignals: FoundationModelsSoundPrintValidator.userFacingSignals(from: input),
             internalAnalysisLabels: FoundationModelsSoundPrintValidator.internalAnalysisLabels(from: input),
             logCount: input.totalLogCount,
-            tone: input.tone
+            tone: .balanced,
+            supportsReplayBehaviorClaims: FoundationModelsSoundPrintValidator.supportsReplayBehaviorClaims(from: input)
         )
 
         let draftText = try await requestPersonaText(input: input)
@@ -236,20 +237,78 @@ private extension FoundationModelsSoundPrintProvider {
     }
 
     static func requestPersonaText(input: PersonaInput) async throws -> String {
-        try await textResponse(
+        let boundedDimensions = input.dimensions
+            .sorted {
+                if $0.weight == $1.weight {
+                    return $0.label < $1.label
+                }
+
+                return $0.weight > $1.weight
+            }
+            .prefix(5)
+        let boundedAvoidanceSignals = input.avoidanceSignals.prefix(3)
+        let boundedTags = input.topTags.prefix(5)
+        let boundedLogs = input.recentLogs.prefix(10)
+
+        return try await textResponse(
             instructions: SoundPrintPromptTemplates.personaInstructions(tone: input.tone),
             prompt: SoundPrintPromptTemplates.personaPrompt(
                 totalLogCount: input.totalLogCount,
                 averageRating: input.averageRating,
-                topTasteDimensions: input.dimensions.map(\.label),
-                avoidanceSignals: input.avoidanceSignals,
-                recentLogSummary: input.recentLogs
-                    .map { "\($0.albumTitle) by \($0.artistName), rating \($0.rating)" }
+                topTasteDimensions: boundedDimensions.map(\.label),
+                avoidanceSignals: Array(boundedAvoidanceSignals),
+                topTags: Array(boundedTags),
+                recentLogSummary: boundedLogs
+                    .map(personaLogSummary)
                     .joined(separator: " | "),
-                evidenceSnippets: input.recentLogs.map(\.reviewSnippet).filter { !$0.isEmpty },
+                evidenceSnippets: boundedLogs
+                    .map(\.reviewSnippet)
+                    .filter { !$0.isEmpty }
+                    .map(\.trimmedForSoundPrint),
                 tone: input.tone
             )
         )
+    }
+
+    static func personaLogSummary(_ log: PersonaLogInput) -> String {
+        var fields = [
+            "\(boundedPromptField(log.albumTitle, characterLimit: 80)) by \(boundedPromptField(log.artistName, characterLimit: 60))",
+            "rating \(log.rating)"
+        ]
+
+        let reactions = log.tags.prefix(3).map { boundedPromptField($0, characterLimit: 40) }
+        if !reactions.isEmpty {
+            fields.append("reactions/tags: \(reactions.joined(separator: ", "))")
+        }
+
+        let review = boundedPromptField(log.reviewSnippet, characterLimit: 120)
+        if !review.isEmpty {
+            fields.append("thought: \(review)")
+        }
+
+        let favoriteTracks = log.favoriteTracks.prefix(2).map { boundedPromptField($0, characterLimit: 60) }
+        if !favoriteTracks.isEmpty {
+            fields.append("favorite tracks: \(favoriteTracks.joined(separator: ", "))")
+        }
+
+        if log.hasStandoutMoment {
+            fields.append("standout moment recorded")
+        }
+
+        return fields.joined(separator: "; ")
+    }
+
+    static func boundedPromptField(_ value: String, characterLimit: Int) -> String {
+        let singleLine = value
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard singleLine.count > characterLimit else {
+            return singleLine
+        }
+
+        return String(singleLine.prefix(characterLimit)).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     static func requestTasteExtractionPayload(input: TasteExtractionInput) async throws -> TasteExtractionPayload {
@@ -508,7 +567,8 @@ struct FoundationModelsSoundPrintValidator {
             userFacingSignals: userFacingSignals(from: input),
             internalAnalysisLabels: internalAnalysisLabels(from: input),
             logCount: input.totalLogCount,
-            tone: input.tone
+            tone: .balanced,
+            supportsReplayBehaviorClaims: supportsReplayBehaviorClaims(from: input)
         ) else {
             throw FoundationModelsSoundPrintProviderError.validationFailed
         }
@@ -517,11 +577,26 @@ struct FoundationModelsSoundPrintValidator {
     }
 
     static func userFacingSignals(from input: PersonaInput) -> [String] {
-        input.topTags
-            + input.recentLogs.map(\.albumTitle)
-            + input.recentLogs.map(\.artistName)
-            + input.recentLogs.flatMap(\.favoriteTracks)
-            + input.recentLogs.compactMap(\.reviewSnippet.firstSoundPrintPhrase)
+        let logs = Array(input.recentLogs.prefix(10))
+
+        return Array(input.topTags.prefix(5))
+            + logs.map(\.albumTitle)
+            + logs.map(\.artistName)
+            + logs.flatMap { $0.tags.prefix(3) }
+            + logs.compactMap(\.reviewSnippet.firstSoundPrintPhrase)
+    }
+
+    static func supportsReplayBehaviorClaims(from input: PersonaInput) -> Bool {
+        let explicitReplayPhrases = [
+            "replay", "repeat", "on repeat", "in rotation", "come back", "return to", "revisit"
+        ]
+
+        return input.recentLogs.prefix(10).contains { log in
+            let explicitText = ([log.reviewSnippet] + Array(log.tags.prefix(3)))
+                .joined(separator: " ")
+                .normalizedSoundPrintText
+            return explicitReplayPhrases.contains(where: { explicitText.containsNormalizedSoundPrintPhrase($0) })
+        }
     }
 
     static func internalAnalysisLabels(from input: PersonaInput) -> [String] {

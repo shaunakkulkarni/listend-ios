@@ -20,6 +20,7 @@ struct TodayPickView: View {
     @State private var receipts: [RecommendationReceipt] = []
     @State private var message: String?
     @State private var isWorking = false
+    @State private var isShowingDismissalChoices = false
 
     init(
         catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService(),
@@ -45,6 +46,8 @@ struct TodayPickView: View {
                         .font(.body)
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
+
+                    discoveryContext(for: recommendation)
 
                     receiptsSection
 
@@ -75,6 +78,24 @@ struct TodayPickView: View {
         }
         .task {
             await loadActiveRecommendation()
+        }
+        .confirmationDialog(
+            "Why are you passing on this pick?",
+            isPresented: $isShowingDismissalChoices,
+            titleVisibility: .visible
+        ) {
+            if let recommendation {
+                Button("Already know this") {
+                    submit(.alreadyKnown, for: recommendation)
+                }
+                .accessibilityIdentifier("alreadyKnownRecommendationAction")
+
+                Button("Not for me", role: .destructive) {
+                    submit(.dismissed, for: recommendation)
+                }
+                .accessibilityIdentifier("notForMeRecommendationAction")
+            }
+            Button("Cancel", role: .cancel) {}
         }
     }
 
@@ -225,7 +246,7 @@ struct TodayPickView: View {
                 label: "Dismiss recommendation",
                 identifier: "dismissRecommendationButton"
             ) {
-                submit(.dismissed, for: recommendation)
+                isShowingDismissalChoices = true
             }
         }
     }
@@ -319,10 +340,32 @@ struct TodayPickView: View {
 
     private func freshnessText(for recommendation: Recommendation) -> String {
         if recommendation.freshnessStatus == RecommendationFreshnessStatus.appleFreshnessChecked.rawValue {
-            return "Checked against Apple Music library and recent plays."
+            return "Checked against your Apple Music album library and recent plays."
         }
 
         return "Apple Music freshness was unavailable, so this pick is based on your Listend logs."
+    }
+
+    @ViewBuilder
+    private func discoveryContext(for recommendation: Recommendation) -> some View {
+        let artistName = recommendation.album?.artistName.normalizedTodayPickArtistText ?? ""
+        let isNewArtist = !artistName.isEmpty && !logs.contains {
+            $0.album?.artistName.normalizedTodayPickArtistText == artistName
+        }
+        let source = RecommendationSource(rawValue: recommendation.source ?? "")
+
+        HStack(spacing: ListendSpacing.sm) {
+            if isNewArtist {
+                Label("New artist in your Listend history", systemImage: "sparkles")
+            }
+            if source == .relatedAlbum {
+                Label("Close bridge", systemImage: "arrow.triangle.branch")
+            } else if source == .similarArtist {
+                Label("Further out", systemImage: "arrow.right")
+            }
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(Color.listendAccent)
     }
 
     @MainActor
@@ -443,6 +486,14 @@ private struct SavedPickRow: View {
                 .accessibilityHidden(true)
         }
         .padding(.vertical, ListendSpacing.sm)
+    }
+}
+
+private extension String {
+    var normalizedTodayPickArtistText: String {
+        folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

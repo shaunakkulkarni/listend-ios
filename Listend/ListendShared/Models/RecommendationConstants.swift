@@ -15,6 +15,7 @@ enum RecommendationStatus: String, Codable {
 enum RecommendationFeedbackType: String, Codable, CaseIterable {
     case liked
     case dismissed
+    case alreadyKnown
     case savedForLater
     case listened
 
@@ -22,7 +23,7 @@ enum RecommendationFeedbackType: String, Codable, CaseIterable {
         switch self {
         case .liked, .listened:
             return .accepted
-        case .dismissed:
+        case .dismissed, .alreadyKnown:
             return .dismissed
         case .savedForLater:
             return .saved
@@ -32,6 +33,8 @@ enum RecommendationFeedbackType: String, Codable, CaseIterable {
 
 enum RecommendationSource: String, Codable {
     case applePersonalRecommendations
+    case relatedAlbum
+    case similarArtist
     case listendFallback
 }
 
@@ -74,9 +77,9 @@ enum TodayPickRecommendationMode: String, CaseIterable, Identifiable {
         case .familiar:
             return "Stays close to the artists, genres, eras, and tags you already love."
         case .balanced:
-            return "Uses a mix of familiarity and discovery, matching Today's Pick's original behavior."
+            return "Starts with new artists connected to the albums you love, then keeps quality in the mix."
         case .adventurous:
-            return "Explores new artists and adjacent sounds, always tied back to your logs."
+            return "Pushes further into new artists, always with a clear connection to your logs."
         }
     }
 }

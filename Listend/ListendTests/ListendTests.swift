@@ -3615,6 +3615,35 @@ struct ListendTests {
     }
 
     @MainActor
+    @Test func viableRelatedCandidateSkipsSlowerDiscoveryExpansion() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let anchorAlbum = Album(appleMusicID: "anchor.catalog", title: "Anchor", artistName: "Anchor Artist", releaseYear: 2020, genreName: "Art Pop")
+        modelContext.insert(anchorAlbum)
+        modelContext.insert(LogEntry(album: anchorAlbum, rating: 5, tags: ["lush"]))
+        insertRecommendationSupportLogs(in: modelContext, count: 4)
+        try modelContext.save()
+
+        let related = AlbumSearchResult(id: "related.catalog", title: "Related", artistName: "New Artist", releaseYear: 2024, genreName: "Art Pop")
+        let callRecorder = AppleMusicRecommendationCallRecorder()
+        let recommendation = try await LocalRecommendationService(
+            catalogAlbums: [],
+            appleMusicService: RecordingAppleMusicRecommendationService(
+                personalRecommendations: [AlbumSearchResult(id: "personal.catalog", title: "Personal", artistName: "Personal Artist", releaseYear: 2024, genreName: "Art Pop")],
+                relatedAlbumsByAnchorID: ["anchor.catalog": [related]],
+                similarAlbumsByAnchorID: ["anchor.catalog": [AlbumSearchResult(id: "similar.catalog", title: "Similar", artistName: "Similar Artist", releaseYear: 2024, genreName: "Art Pop")]],
+                callRecorder: callRecorder
+            )
+        ).currentOrGenerateRecommendation(in: modelContext)
+
+        let callCounts = await callRecorder.counts()
+        #expect(recommendation.album?.appleMusicID == "related.catalog")
+        #expect(recommendation.source == RecommendationSource.relatedAlbum.rawValue)
+        #expect(callCounts.similarArtistRequests == 0)
+        #expect(callCounts.personalRecommendationRequests == 0)
+    }
+
+    @MainActor
     @Test func viableSimilarCandidatePreventsPersonalRecommendationRequest() async throws {
         let container = try makeInMemoryContainer()
         let modelContext = container.mainContext
@@ -3695,18 +3724,22 @@ struct ListendTests {
         })
         let unavailableIDs = Set(relatedAlbumsByAnchorID.values.flatMap { $0.map(\.catalogID) })
         let personal = AlbumSearchResult(id: "personal.viable", title: "Personal Viable", artistName: "Personal Artist", releaseYear: 2024, genreName: "Art Pop")
+        let callRecorder = AppleMusicRecommendationCallRecorder()
 
         let recommendation = try await LocalRecommendationService(
             catalogAlbums: [],
             appleMusicService: RecordingAppleMusicRecommendationService(
                 personalRecommendations: [personal],
                 libraryCatalogIDs: unavailableIDs,
-                relatedAlbumsByAnchorID: relatedAlbumsByAnchorID
+                relatedAlbumsByAnchorID: relatedAlbumsByAnchorID,
+                callRecorder: callRecorder
             )
         ).currentOrGenerateRecommendation(in: modelContext)
 
+        let callCounts = await callRecorder.counts()
         #expect(recommendation.album?.appleMusicID == "personal.viable")
         #expect(recommendation.source == RecommendationSource.applePersonalRecommendations.rawValue)
+        #expect(callCounts.albumLibraryRequests == 9)
     }
 
     @MainActor
@@ -4710,6 +4743,7 @@ private final class RecordingAlbumCatalogService: AlbumCatalogServiceProtocol {
 private actor AppleMusicRecommendationCallRecorder {
     private(set) var personalRecommendationRequests = 0
     private(set) var similarArtistRequests = 0
+    private(set) var albumLibraryRequests = 0
     private(set) var artistLibraryRequests = 0
 
     func recordPersonalRecommendationRequest() {
@@ -4720,12 +4754,16 @@ private actor AppleMusicRecommendationCallRecorder {
         similarArtistRequests += 1
     }
 
+    func recordAlbumLibraryRequest() {
+        albumLibraryRequests += 1
+    }
+
     func recordArtistLibraryRequest() {
         artistLibraryRequests += 1
     }
 
-    func counts() -> (personalRecommendationRequests: Int, similarArtistRequests: Int, artistLibraryRequests: Int) {
-        (personalRecommendationRequests, similarArtistRequests, artistLibraryRequests)
+    func counts() -> (personalRecommendationRequests: Int, similarArtistRequests: Int, albumLibraryRequests: Int, artistLibraryRequests: Int) {
+        (personalRecommendationRequests, similarArtistRequests, albumLibraryRequests, artistLibraryRequests)
     }
 }
 
@@ -4775,6 +4813,7 @@ private struct RecordingAppleMusicRecommendationService: AppleMusicRecommendatio
     }
 
     func containsInLibrary(_ album: AlbumSearchResult) async throws -> Bool {
+        await callRecorder?.recordAlbumLibraryRequest()
         if failingLibraryCatalogIDs.contains(album.catalogID) {
             throw ThrowingAppleMusicRecommendationError.failed
         }

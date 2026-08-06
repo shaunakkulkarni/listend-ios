@@ -5,6 +5,11 @@
 
 import Foundation
 
+struct RelatedAlbumLookupResult: Sendable {
+    let anchorIndex: Int
+    let albums: [AlbumSearchResult]
+}
+
 /// Candidate-only discovery context. Persistence deliberately stays on Recommendation,
 /// its source, explanation, and receipts so a relaunch never depends on this structure.
 struct DiscoveryCandidate {

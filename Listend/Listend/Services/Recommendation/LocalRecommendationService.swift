@@ -187,7 +187,8 @@ struct LocalRecommendationService {
     static let balancedUnfamiliarArtistHardFilterMinimum = 5
     private static let relationshipAnchorLimit = 3
     private static let relatedAlbumLimitPerAnchor = 10
-    private static let minimumRelationshipCandidateCount = 25
+    private static let freshnessVerificationCandidateLimit = 8
+    private static let minimumViableRelationshipCandidateCount = 1
     private static let similarArtistLimitPerAnchor = 3
     private static let similarArtistAlbumLimit = 4
 
@@ -662,17 +663,34 @@ struct LocalRecommendationService {
         let anchors = try await resolvedDiscoveryAnchors(from: anchorProfiles)
         var checkedCandidates: [DiscoveryCandidate] = []
 
-        for (profile, anchor) in anchors {
-            do {
-                let related = try await service.relatedAlbums(for: anchor, limit: Self.relatedAlbumLimitPerAnchor)
-                checkedCandidates.append(contentsOf: related.map {
-                    DiscoveryCandidate(album: $0, source: .relatedAlbum, anchorAlbumKeys: [profile.albumKey], anchorLogIDs: Set(profile.logIDs), isKnownArtist: nil)
-                })
-            } catch is CancellationError {
-                throw CancellationError()
-            } catch {
-                // Preserve successes from every other anchor/source.
+        let relatedLookupResults = try await withThrowingTaskGroup(of: RelatedAlbumLookupResult.self) { group in
+            for (anchorIndex, (_, anchor)) in anchors.enumerated() {
+                group.addTask {
+                    do {
+                        let albums = try await service.relatedAlbums(
+                            for: anchor,
+                            limit: Self.relatedAlbumLimitPerAnchor
+                        )
+                        return RelatedAlbumLookupResult(anchorIndex: anchorIndex, albums: albums)
+                    } catch is CancellationError {
+                        throw CancellationError()
+                    } catch {
+                        return RelatedAlbumLookupResult(anchorIndex: anchorIndex, albums: [])
+                    }
+                }
             }
+
+            var results: [RelatedAlbumLookupResult] = []
+            for try await result in group {
+                results.append(result)
+            }
+            return results.sorted { $0.anchorIndex < $1.anchorIndex }
+        }
+        for result in relatedLookupResults {
+            let profile = anchors[result.anchorIndex].0
+            checkedCandidates.append(contentsOf: result.albums.map {
+                DiscoveryCandidate(album: $0, source: .relatedAlbum, anchorAlbumKeys: [profile.albumKey], anchorLogIDs: Set(profile.logIDs), isKnownArtist: nil)
+            })
         }
 
         let localKnownArtists = knownArtistNames(
@@ -699,7 +717,7 @@ struct LocalRecommendationService {
             feedback: feedback,
             anchorProfiles: anchorProfiles,
             mode: mode
-        ).count < Self.minimumRelationshipCandidateCount {
+        ).count < Self.minimumViableRelationshipCandidateCount {
             for (profile, anchor) in anchors {
                 do {
                     let similar = try await service.similarArtistAlbums(
@@ -797,10 +815,12 @@ struct LocalRecommendationService {
         localKnownArtists: Set<String>,
         artistLibraryResultCache: ArtistLibraryResultCache
     ) async throws -> [DiscoveryCandidate] {
-        let freshnessEligibleCandidates = Self.mergeDiscoveryCandidates(candidates).filter { candidate in
-            !recentAlbums.contains(where: { Self.matches($0, candidate.album) })
-                && !recentSnapshots.contains(where: { AppleMusicRecentPlaySnapshotStore.matches($0, candidate.album) })
-        }
+        let freshnessEligibleCandidates = Self.mergeDiscoveryCandidates(candidates)
+            .filter { candidate in
+                !recentAlbums.contains(where: { Self.matches($0, candidate.album) })
+                    && !recentSnapshots.contains(where: { AppleMusicRecentPlaySnapshotStore.matches($0, candidate.album) })
+            }
+            .prefix(Self.freshnessVerificationCandidateLimit)
 
         let albumCheckedCandidates = try await withThrowingTaskGroup(of: AppleMusicLibraryCheckResult?.self) { group in
             for (index, candidate) in freshnessEligibleCandidates.enumerated() {

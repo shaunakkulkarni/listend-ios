@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct AlbumSearchResult: Identifiable, Hashable {
+struct AlbumSearchResult: Identifiable, Hashable, Sendable {
     let id: String
     let title: String
     let artistName: String

@@ -196,4 +196,12 @@ private struct StubAlbumCatalogService: AlbumCatalogServiceProtocol {
 
         return albumsByID[id]
     }
+
+    func appleMusicURL(for id: String) async throws -> URL? {
+        if let error {
+            throw error
+        }
+
+        return nil
+    }
 }

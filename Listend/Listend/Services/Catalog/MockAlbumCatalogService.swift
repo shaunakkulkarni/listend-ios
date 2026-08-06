@@ -9,9 +9,14 @@ import Foundation
 
 struct MockAlbumCatalogService: AlbumCatalogServiceProtocol {
     private let albums: [AlbumSearchResult]
+    private let appleMusicURLsByID: [String: URL]
 
-    init(albums: [AlbumSearchResult] = Self.defaultAlbums) {
+    init(
+        albums: [AlbumSearchResult] = Self.defaultAlbums,
+        appleMusicURLsByID: [String: URL] = [:]
+    ) {
         self.albums = albums
+        self.appleMusicURLsByID = appleMusicURLsByID
     }
 
     func searchAlbums(query: String) async throws -> [AlbumSearchResult] {
@@ -31,9 +36,19 @@ struct MockAlbumCatalogService: AlbumCatalogServiceProtocol {
     func albumDetails(id: String) async throws -> AlbumSearchResult? {
         albums.first { $0.id == id }
     }
+
+    func appleMusicURL(for id: String) async throws -> URL? {
+        appleMusicURLsByID[id]
+    }
 }
 
 extension MockAlbumCatalogService {
+    static let uiTestAppleMusicURLs: [String: URL] = defaultAlbums.reduce(into: [:]) { urls, album in
+        if let url = URL(string: "https://music.apple.com/us/album/\(album.catalogID)") {
+            urls[album.catalogID] = url
+        }
+    }
+
     static let defaultAlbums: [AlbumSearchResult] = [
         AlbumSearchResult(
             id: "mock.big-thief.dragon-new-warm-mountain",

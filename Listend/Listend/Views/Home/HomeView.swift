@@ -62,7 +62,7 @@ struct HomeView: View {
                         matchQuality: activeRecommendation.map {
                             TodayPickMatchQuality(confidence: $0.confidence)
                         },
-                        title: todayPickTitle,
+                        titlePresentation: todayPickTitlePresentation,
                         subtitle: todayPickSubtitle,
                         isActive: activeRecommendation != nil
                     )
@@ -160,8 +160,10 @@ struct HomeView: View {
         }
     }
 
-    private var todayPickTitle: String {
-        activeRecommendation?.album?.title ?? "Find Today's Pick"
+    private var todayPickTitlePresentation: TodayPickAlbumTitlePresentation {
+        TodayPickAlbumTitleFormatter.presentation(
+            for: activeRecommendation?.album?.title ?? "Find Today's Pick"
+        )
     }
 
     private var todayPickSubtitle: String {
@@ -289,7 +291,7 @@ private struct HomeStatNumeral: View {
 private struct TodayPickCard: View {
     let album: Album?
     let matchQuality: TodayPickMatchQuality?
-    let title: String
+    let titlePresentation: TodayPickAlbumTitlePresentation
     let subtitle: String
     let isActive: Bool
 
@@ -323,10 +325,20 @@ private struct TodayPickCard: View {
                                 .accessibilityIdentifier("homeTodayPickMatchQualityText")
                         }
                     }
-                    Text(title)
+                    Text(titlePresentation.primaryTitle)
                         .font(.headline)
                         .foregroundStyle(.primary)
                         .lineLimit(2)
+                        .accessibilityLabel(
+                            album?.title ?? titlePresentation.primaryTitle
+                        )
+                    if let qualifierText = titlePresentation.qualifierText {
+                        Text(qualifierText)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color.listendAccent)
+                            .lineLimit(1)
+                            .accessibilityHidden(true)
+                    }
                     Text(subtitle)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)

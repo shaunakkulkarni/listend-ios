@@ -62,6 +62,61 @@ struct ListendApp: App {
             }
 
             if isUITesting,
+               arguments.contains("-seed-today-pick-rich-receipts"),
+               try container.mainContext.fetchCount(FetchDescriptor<Recommendation>()) == 0,
+               let sourceLog = try container.mainContext.fetch(FetchDescriptor<LogEntry>())
+                .first(where: { $0.album?.title == "Titanic Rising" })
+                    ?? container.mainContext.fetch(FetchDescriptor<LogEntry>()).first,
+               let sourceAlbum = sourceLog.album {
+                let recommendedAlbum = Album(
+                    appleMusicID: "mock.fiona-apple.fetch-the-bolt-cutters",
+                    title: "Fetch the Bolt Cutters",
+                    artistName: "Fiona Apple",
+                    releaseYear: 2020,
+                    genreName: "Art Pop"
+                )
+                let recommendation = Recommendation(
+                    album: recommendedAlbum,
+                    score: 0.82,
+                    confidence: 0.84,
+                    source: RecommendationSource.relatedAlbum.rawValue,
+                    explanationText: "Fixture explanation retained for persistence compatibility."
+                )
+                container.mainContext.insert(recommendedAlbum)
+                container.mainContext.insert(recommendation)
+
+                let receipts = [
+                    RecommendationReceipt(
+                        recommendationID: recommendation.id,
+                        logEntryID: sourceLog.id,
+                        sourceAlbumTitle: sourceAlbum.title,
+                        sourceArtistName: sourceAlbum.artistName,
+                        sourceRating: sourceLog.rating,
+                        snippet: "Your review of \(sourceAlbum.title) said: Lush, layered, and worth returning to.",
+                        linkedDimension: "productionStyle"
+                    ),
+                    RecommendationReceipt(
+                        recommendationID: recommendation.id,
+                        logEntryID: sourceLog.id,
+                        sourceAlbumTitle: sourceAlbum.title,
+                        sourceArtistName: sourceAlbum.artistName,
+                        sourceRating: sourceLog.rating,
+                        snippet: "Favorite tracks from \(sourceAlbum.title): Track One, Track Two."
+                    ),
+                    RecommendationReceipt(
+                        recommendationID: recommendation.id,
+                        logEntryID: sourceLog.id,
+                        sourceAlbumTitle: sourceAlbum.title,
+                        sourceArtistName: sourceAlbum.artistName,
+                        sourceRating: sourceLog.rating,
+                        snippet: "Rated \(sourceAlbum.title) \(sourceLog.rating.formatted(.number.precision(.fractionLength(1)))) stars."
+                    )
+                ]
+                receipts.forEach(container.mainContext.insert)
+                try container.mainContext.save()
+            }
+
+            if isUITesting,
                arguments.contains("-seed-reaction-existing-custom"),
                try container.mainContext.fetchCount(FetchDescriptor<LogEntry>()) == 0 {
                 let album = Album(
@@ -185,7 +240,10 @@ struct ListendApp: App {
         let arguments = ProcessInfo.processInfo.arguments
 
         if SandboxMode.isEnabled || arguments.contains("-ui-testing") {
-            return MockAlbumCatalogService()
+            let appleMusicURLs = arguments.contains("-seed-today-pick-apple-music-url")
+                ? MockAlbumCatalogService.uiTestAppleMusicURLs
+                : [:]
+            return MockAlbumCatalogService(appleMusicURLsByID: appleMusicURLs)
         }
 
         return FallbackAlbumCatalogService(primary: MusicKitAlbumCatalogService())

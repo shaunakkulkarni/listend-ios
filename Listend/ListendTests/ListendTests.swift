@@ -2719,6 +2719,96 @@ struct ListendTests {
         #expect(results.first?.catalogID == "mock.sza.sos")
     }
 
+    @Test func mockCatalogResolvesOptionalAppleMusicURLAndFailsSafeWhenAbsent() async throws {
+        let albumID = "mock.album"
+        let url = URL(string: "https://music.apple.com/us/album/mock-album/123")!
+        let service = MockAlbumCatalogService(appleMusicURLsByID: [albumID: url])
+
+        #expect(try await service.appleMusicURL(for: albumID) == url)
+        #expect(try await service.appleMusicURL(for: "missing") == nil)
+        #expect(try await MockAlbumCatalogService().appleMusicURL(for: albumID) == nil)
+    }
+
+    @Test func fallbackCatalogResolvesAppleMusicURLAndKeepsAbsenceOptional() async throws {
+        let albumID = "music.fallback"
+        let url = URL(string: "https://music.apple.com/us/album/fallback/456")!
+        let service = FallbackAlbumCatalogService(
+            primary: ThrowingAlbumCatalogService(),
+            fallback: MockAlbumCatalogService(appleMusicURLsByID: [albumID: url])
+        )
+
+        #expect(try await service.appleMusicURL(for: albumID) == url)
+        #expect(try await service.appleMusicURL(for: "missing") == nil)
+    }
+
+    @Test func todayPickTitleFormatterCleansKnownQualifiersWithoutTouchingMeaningfulTitles() {
+        let soundtrack = TodayPickAlbumTitleFormatter.presentation(
+            for: "De De Pyaar De 2 - Deluxe Album (Original Motion Picture Soundtrack)"
+        )
+        let deluxe = TodayPickAlbumTitleFormatter.presentation(for: "Album Name (Deluxe Edition)")
+        let ordinary = TodayPickAlbumTitleFormatter.presentation(for: "Carrie & Lowell")
+        let meaningfulParenthetical = TodayPickAlbumTitleFormatter.presentation(for: "Live at the Forum (1982)")
+        let unknownDash = TodayPickAlbumTitleFormatter.presentation(for: "Album - A Story in Three Parts")
+
+        #expect(soundtrack.primaryTitle == "De De Pyaar De 2")
+        #expect(soundtrack.qualifierText == "Deluxe · Soundtrack")
+        #expect(deluxe.primaryTitle == "Album Name")
+        #expect(deluxe.qualifierText == "Deluxe")
+        #expect(ordinary.primaryTitle == "Carrie & Lowell")
+        #expect(ordinary.qualifiers.isEmpty)
+        #expect(meaningfulParenthetical.primaryTitle == "Live at the Forum (1982)")
+        #expect(unknownDash.primaryTitle == "Album - A Story in Three Parts")
+    }
+
+    @Test func todayPickWhyAndReceiptPresentationStayGroundedAndDistinct() {
+        let firstReceipt = RecommendationReceipt(
+            recommendationID: UUID(),
+            logEntryID: UUID(),
+            sourceAlbumTitle: "Titanic Rising",
+            sourceArtistName: "Weyes Blood",
+            sourceRating: 4.5,
+            snippet: "Your review of Titanic Rising said: Lush, layered, and never sleepy.",
+            linkedDimension: "vocalFocus"
+        )
+        let secondReceipt = RecommendationReceipt(
+            recommendationID: UUID(),
+            logEntryID: UUID(),
+            sourceAlbumTitle: "Blonde",
+            sourceArtistName: "Frank Ocean",
+            sourceRating: 5.0,
+            snippet: "Favorite tracks from Blonde: Nights, Ivy.",
+            linkedDimension: "replayability"
+        )
+        let thirdReceipt = RecommendationReceipt(
+            recommendationID: UUID(),
+            logEntryID: UUID(),
+            sourceAlbumTitle: "SOS",
+            sourceArtistName: "SZA",
+            sourceRating: 4.0,
+            snippet: "You tagged SOS layered, repeatable."
+        )
+
+        let presentations = TodayPickPresentation.receiptPresentations(
+            for: [firstReceipt, secondReceipt, thirdReceipt]
+        )
+        let why = TodayPickPresentation.whyThisPick(
+            source: .relatedAlbum,
+            receipts: [firstReceipt]
+        )
+        let sparseWhy = TodayPickPresentation.whyThisPick(source: .listendFallback, receipts: [])
+
+        #expect(presentations.count == 3)
+        #expect(presentations[0].headline == "Vocal focus")
+        #expect(presentations[0].whyItMattered.contains("catalog detail"))
+        #expect(presentations[0].supportingEvidence == "“Lush, layered, and never sleepy”")
+        #expect(presentations[0].sourceMetadata == "Titanic Rising · by Weyes Blood · 4.5 stars")
+        #expect(presentations[1].headline == "Replayability")
+        #expect(presentations[1].supportingEvidence == "Favorite tracks: Nights, Ivy.")
+        #expect(why.contains("related-album connection"))
+        #expect(!why.contains("Titanic Rising"))
+        #expect(sparseWhy.contains("exploratory"))
+    }
+
     @MainActor
     @Test func recommendationUpsertStoresAndRefreshesArtworkMetadata() async throws {
         let container = try makeInMemoryContainer()
@@ -3849,7 +3939,7 @@ struct ListendTests {
             == service.recommendationScoreBreakdown(for: candidate, anchorProfiles: repeatedProfile).genreAffinity)
     }
 
-    @Test func recommendationReceiptsUseRealNonNegativeLogsInPriorityOrderAndCapAtTwo() throws {
+    @Test func recommendationReceiptsUseRealNonNegativeLogsInPriorityOrderAndCapAtThree() throws {
         let service = LocalRecommendationService(catalogAlbums: [
             AlbumSearchResult(id: "candidate", title: "Candidate", artistName: "New", releaseYear: 2019, genreName: "Art Pop")
         ])
@@ -3866,7 +3956,7 @@ struct ListendTests {
 
         let result = try #require(service.bestCandidate(logs: logs, recommendations: [], anchorProfiles: profiles))
 
-        #expect(result.receipts.count == 2)
+        #expect(result.receipts.count == 3)
         #expect(result.receipts[0].logID == standoutLog.id)
         #expect(Set(result.receipts.map(\.logID)).isSubset(of: Set(logs.filter { !$0.isNegativeSignal }.map(\.id))))
         #expect(!result.explanation.contains("genreAffinity"))
@@ -4673,6 +4763,10 @@ private struct ThrowingAlbumCatalogService: AlbumCatalogServiceProtocol {
     func albumDetails(id: String) async throws -> AlbumSearchResult? {
         throw ThrowingAlbumCatalogError.failed
     }
+
+    func appleMusicURL(for id: String) async throws -> URL? {
+        throw ThrowingAlbumCatalogError.failed
+    }
 }
 
 private struct ThrowingAlbumPreviewService: AlbumPreviewServiceProtocol {
@@ -4714,11 +4808,17 @@ private struct CancellingJournalAssistService: JournalAssistServiceProtocol {
 private final class RecordingAlbumCatalogService: AlbumCatalogServiceProtocol {
     private let resultsByQuery: [String: [AlbumSearchResult]]
     private let error: Error?
+    private let appleMusicURLsByID: [String: URL]
     private(set) var queries: [String] = []
 
-    init(resultsByQuery: [String: [AlbumSearchResult]] = [:], error: Error? = nil) {
+    init(
+        resultsByQuery: [String: [AlbumSearchResult]] = [:],
+        error: Error? = nil,
+        appleMusicURLsByID: [String: URL] = [:]
+    ) {
         self.resultsByQuery = resultsByQuery
         self.error = error
+        self.appleMusicURLsByID = appleMusicURLsByID
     }
 
     func searchAlbums(query: String) async throws -> [AlbumSearchResult] {
@@ -4737,6 +4837,14 @@ private final class RecordingAlbumCatalogService: AlbumCatalogServiceProtocol {
         }
 
         return resultsByQuery.values.flatMap { $0 }.first { $0.catalogID == id }
+    }
+
+    func appleMusicURL(for id: String) async throws -> URL? {
+        if let error {
+            throw error
+        }
+
+        return appleMusicURLsByID[id]
     }
 }
 

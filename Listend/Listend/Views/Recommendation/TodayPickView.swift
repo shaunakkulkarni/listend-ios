@@ -11,13 +11,16 @@ import SwiftData
 struct TodayPickView: View {
     @AppStorage(TodayPickPreferenceKey.recommendationMode) private var recommendationModeRawValue = TodayPickRecommendationMode.default.rawValue
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.openURL) private var openURL
     @Query(sort: \LogEntry.loggedAt, order: .reverse) private var logs: [LogEntry]
     @Query(sort: \Recommendation.createdAt, order: .reverse) private var recommendations: [Recommendation]
 
+    private let catalogService: AlbumCatalogServiceProtocol
     private let recommendationService: LocalRecommendationService
 
     @State private var recommendation: Recommendation?
     @State private var receipts: [RecommendationReceipt] = []
+    @State private var appleMusicURL: URL?
     @State private var message: String?
     @State private var isWorking = false
     @State private var isShowingDismissalChoices = false
@@ -26,6 +29,7 @@ struct TodayPickView: View {
         catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService(),
         appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol? = nil
     ) {
+        self.catalogService = catalogService
         recommendationService = LocalRecommendationService(
             catalogService: catalogService,
             appleMusicService: appleMusicRecommendationService
@@ -42,10 +46,7 @@ struct TodayPickView: View {
                 if let recommendation {
                     recommendationCard(recommendation)
 
-                    Text(recommendation.explanationText)
-                        .font(.body)
-                        .foregroundStyle(.primary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    whyThisPickSection(for: recommendation)
 
                     discoveryContext(for: recommendation)
 
@@ -113,9 +114,22 @@ struct TodayPickView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(recommendation.album?.title ?? "Unknown Album")
+                    let canonicalTitle = recommendation.album?.title ?? "Unknown Album"
+                    let titlePresentation = TodayPickAlbumTitleFormatter.presentation(for: canonicalTitle)
+
+                    Text(titlePresentation.primaryTitle)
                         .font(.system(.title2, design: .serif).weight(.semibold))
+                        .lineLimit(2)
+                        .accessibilityLabel(canonicalTitle)
                         .accessibilityIdentifier("todayPickStateText")
+                    if let qualifierText = titlePresentation.qualifierText {
+                        Text(qualifierText)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color.listendAccent)
+                            .lineLimit(1)
+                            .accessibilityIdentifier("todayPickTitleQualifierText")
+                            .accessibilityHidden(true)
+                    }
                     Text(recommendation.album?.artistName ?? "Unknown Artist")
                         .font(.headline)
                         .foregroundStyle(.secondary)
@@ -137,8 +151,39 @@ struct TodayPickView: View {
 
                 if let album = recommendation.album {
                     AlbumPreviewControl(lookup: AlbumPreviewLookup(album: album))
+
+                    if let appleMusicURL {
+                        Button {
+                            openURL(appleMusicURL)
+                        } label: {
+                            Label("Open in Apple Music", systemImage: "arrow.up.right.square")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityIdentifier("openInAppleMusicButton")
+                    }
                 }
             }
+        }
+    }
+
+    private func whyThisPickSection(for recommendation: Recommendation) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Why this pick")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("todayPickWhyTitle")
+
+            Text(
+                TodayPickPresentation.whyThisPick(
+                    source: RecommendationSource(rawValue: recommendation.source ?? ""),
+                    receipts: receipts
+                )
+            )
+                .font(.body)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("todayPickWhyText")
         }
     }
 
@@ -154,18 +199,34 @@ struct TodayPickView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
+                let presentedReceipts = TodayPickPresentation.receiptPresentations(for: receipts)
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(receipts.enumerated()), id: \.element.id) { index, receipt in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(receipt.snippet)
-                                .font(.subheadline)
-                            Text("\(receipt.sourceAlbumTitle) - \(receipt.sourceArtistName)")
+                    ForEach(Array(presentedReceipts.enumerated()), id: \.element.id) { index, receipt in
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(receipt.headline)
+                                .font(.subheadline.weight(.semibold))
+                                .accessibilityIdentifier("todayPickReceiptHeadline-\(index)")
+                            Text(receipt.whyItMattered)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("todayPickReceiptWhy-\(index)")
+                            Text(receipt.supportingEvidence)
+                                .font(.subheadline)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("todayPickReceiptEvidence-\(index)")
+                            if let sourceMetadata = receipt.sourceMetadata {
+                                Text(sourceMetadata)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .accessibilityIdentifier("todayPickReceiptSource-\(index)")
+                            }
                         }
                         .padding(.vertical, 8)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("todayPickReceipt-\(index)")
 
-                        if index < receipts.count - 1 {
+                        if index < presentedReceipts.count - 1 {
                             Divider()
                                 .background(Color.listendHairline)
                         }
@@ -372,8 +433,12 @@ struct TodayPickView: View {
     private func loadActiveRecommendation() async {
         do {
             recommendation = try recommendationService.activeRecommendation(in: modelContext)
+            appleMusicURL = nil
             if let recommendation {
                 receipts = try recommendationService.receipts(for: recommendation, in: modelContext)
+                await loadAppleMusicURL(for: recommendation)
+            } else {
+                receipts = []
             }
         } catch {
             message = "Could not load Today's Pick."
@@ -408,13 +473,38 @@ struct TodayPickView: View {
             )
             recommendation = generated
             receipts = try recommendationService.receipts(for: generated, in: modelContext)
+            appleMusicURL = nil
             message = nil
+            // The optional catalog link must not hold the pick's existing
+            // controls behind a secondary lookup.
+            isWorking = false
+            await loadAppleMusicURL(for: generated)
         } catch LocalRecommendationError.needsMoreLogs {
             message = eligibility.lockedDescription
         } catch LocalRecommendationError.noCandidates {
             message = "No picks left."
         } catch {
             message = "Could not generate Today's Pick."
+        }
+    }
+
+    @MainActor
+    private func loadAppleMusicURL(for recommendation: Recommendation) async {
+        guard let albumID = recommendation.album?.appleMusicID,
+              !albumID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            appleMusicURL = nil
+            return
+        }
+
+        do {
+            let resolvedURL = try await catalogService.appleMusicURL(for: albumID)
+            guard !Task.isCancelled, self.recommendation?.id == recommendation.id else { return }
+            appleMusicURL = resolvedURL
+        } catch is CancellationError {
+            return
+        } catch {
+            guard self.recommendation?.id == recommendation.id else { return }
+            appleMusicURL = nil
         }
     }
 
@@ -443,6 +533,7 @@ struct TodayPickView: View {
             try recommendationService.submitFeedback(feedbackType, for: recommendation, in: modelContext)
             self.recommendation = nil
             receipts = []
+            appleMusicURL = nil
             if feedbackType == .savedForLater {
                 message = "Saved to Saved Picks. You can generate another pick."
             } else {
@@ -460,6 +551,8 @@ private struct SavedPickRow: View {
     let album: Album
 
     var body: some View {
+        let titlePresentation = TodayPickAlbumTitleFormatter.presentation(for: album.title)
+
         HStack(spacing: ListendSpacing.md) {
             AlbumArtworkView(
                 artworkURL: album.artworkURL,
@@ -468,10 +561,18 @@ private struct SavedPickRow: View {
             )
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(album.title)
+                Text(titlePresentation.primaryTitle)
                     .font(.headline)
                     .foregroundStyle(.primary)
                     .lineLimit(2)
+                    .accessibilityLabel(album.title)
+                if let qualifierText = titlePresentation.qualifierText {
+                    Text(qualifierText)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.listendAccent)
+                        .lineLimit(1)
+                        .accessibilityHidden(true)
+                }
                 Text(album.artistName)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

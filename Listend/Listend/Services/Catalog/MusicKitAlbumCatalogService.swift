@@ -92,6 +92,20 @@ struct MusicKitAlbumCatalogService: AlbumCatalogServiceProtocol {
         }
     }
 
+    func appleMusicURL(for id: String) async throws -> URL? {
+        let trimmedID = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedID.isEmpty else { return nil }
+
+        // This optional presentation lookup must not prompt for Music access or
+        // delay the already-available recommendation when authorization is absent.
+        guard MusicAuthorization.currentStatus == .authorized else { return nil }
+
+        let request = MusicCatalogResourceRequest<MusicKit.Album>(matching: \.id, equalTo: MusicItemID(trimmedID))
+        let response = try await request.response()
+        try Task.checkCancellation()
+        return response.items.first?.url
+    }
+
     private func ensureAuthorized() async throws {
         switch MusicAuthorization.currentStatus {
         case .authorized:
@@ -128,6 +142,10 @@ struct MusicKitAlbumCatalogService: AlbumCatalogServiceProtocol {
 
     func albumDetails(id: String) async throws -> AlbumSearchResult? {
         throw MusicKitAlbumCatalogError.unavailable
+    }
+
+    func appleMusicURL(for id: String) async throws -> URL? {
+        nil
     }
 }
 #endif

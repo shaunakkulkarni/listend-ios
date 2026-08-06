@@ -15,6 +15,25 @@ protocol AppleMusicRecommendationServiceProtocol: Sendable {
     func recommendedAlbums(limit: Int) async throws -> [AlbumSearchResult]
     func recentlyPlayedAlbums(limit: Int) async throws -> [AlbumSearchResult]
     func containsInLibrary(_ album: AlbumSearchResult) async throws -> Bool
+    func relatedAlbums(for anchor: AlbumSearchResult, limit: Int) async throws -> [AlbumSearchResult]
+    func similarArtistAlbums(for anchor: AlbumSearchResult, artistLimit: Int, albumLimit: Int) async throws -> [AlbumSearchResult]
+    func containsArtistInLibrary(named artistName: String) async throws -> Bool
+}
+
+extension AppleMusicRecommendationServiceProtocol {
+    // Defaults keep existing injectable mocks source-compatible while allowing the
+    // real MusicKit implementation to opt into relationship discovery.
+    func relatedAlbums(for anchor: AlbumSearchResult, limit: Int) async throws -> [AlbumSearchResult] {
+        throw AppleMusicRecommendationError.unavailable
+    }
+
+    func similarArtistAlbums(for anchor: AlbumSearchResult, artistLimit: Int, albumLimit: Int) async throws -> [AlbumSearchResult] {
+        throw AppleMusicRecommendationError.unavailable
+    }
+
+    func containsArtistInLibrary(named artistName: String) async throws -> Bool {
+        throw AppleMusicRecommendationError.unavailable
+    }
 }
 
 enum AppleMusicRecommendationError: Error, Equatable {
@@ -135,6 +154,51 @@ struct AppleMusicRecommendationService: AppleMusicRecommendationServiceProtocol 
         }
     }
 
+    func relatedAlbums(for anchor: AlbumSearchResult, limit: Int) async throws -> [AlbumSearchResult] {
+        try await ensureAuthorized()
+        guard let album = try await catalogAlbum(for: anchor) else { return [] }
+        let hydrated = try await album.with([.relatedAlbums])
+        try Task.checkCancellation()
+        return hydrated.relatedAlbums?.prefix(limit).compactMap { Self.searchResult(from: $0) } ?? []
+    }
+
+    func similarArtistAlbums(for anchor: AlbumSearchResult, artistLimit: Int, albumLimit: Int) async throws -> [AlbumSearchResult] {
+        try await ensureAuthorized()
+        guard let album = try await catalogAlbum(for: anchor) else { return [] }
+        let hydratedAlbum = try await album.with([.artists])
+        try Task.checkCancellation()
+        guard let artist = hydratedAlbum.artists?.first(where: {
+            $0.name.normalizedAppleMusicFreshnessText == anchor.artistName.normalizedAppleMusicFreshnessText
+        }) else { return [] }
+        let hydratedArtist = try await artist.with([.similarArtists])
+        let similarArtists = Array((hydratedArtist.similarArtists ?? []).prefix(artistLimit))
+        var albums: [AlbumSearchResult] = []
+        for similarArtist in similarArtists {
+            try Task.checkCancellation()
+            let hydratedSimilarArtist = try await similarArtist.with([.fullAlbums])
+            albums.append(contentsOf: (hydratedSimilarArtist.fullAlbums ?? []).prefix(albumLimit).compactMap(Self.searchResult(from:)))
+        }
+        return albums.uniquedAppleMusicRecommendations()
+    }
+
+    private func catalogAlbum(for anchor: AlbumSearchResult) async throws -> MusicKit.Album? {
+        let request = MusicCatalogResourceRequest<MusicKit.Album>(matching: \.id, equalTo: MusicItemID(anchor.catalogID))
+        let response = try await request.response()
+        try Task.checkCancellation()
+        return response.items.first
+    }
+
+    func containsArtistInLibrary(named artistName: String) async throws -> Bool {
+        try await ensureAuthorized()
+        var request = MusicLibrarySearchRequest(term: artistName, types: [MusicKit.Artist.self])
+        request.limit = 10
+        let response = try await request.response()
+        try Task.checkCancellation()
+        return response.artists.contains {
+            $0.name.normalizedAppleMusicFreshnessText == artistName.normalizedAppleMusicFreshnessText
+        }
+    }
+
     private func ensureAuthorized() async throws {
         switch MusicAuthorization.currentStatus {
         case .authorized:
@@ -162,6 +226,17 @@ struct AppleMusicRecommendationService: AppleMusicRecommendationServiceProtocol 
             genreName: album.genreNames.first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
             artworkURL: album.artwork?.url(width: 300, height: 300)?.absoluteString
         )
+    }
+
+    private static func searchResult(from album: MusicKit.Album) -> AlbumSearchResult? {
+        MusicKitAlbumMapper.albumSearchResult(from: MusicKitAlbumMetadata(
+            id: album.id.rawValue,
+            title: album.title,
+            artistName: album.artistName,
+            releaseDate: album.releaseDate,
+            genreNames: album.genreNames,
+            artworkURL: album.artwork?.url(width: 300, height: 300)
+        ))
     }
 }
 #else

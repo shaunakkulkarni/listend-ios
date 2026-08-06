@@ -113,10 +113,13 @@ struct RecommendationScoreBreakdown: Equatable {
     let recentArtistRepetition: Double
     let genreAvoidance: Double
     let feedbackAffinity: Double
+    let relationshipAffinity: Double
+    let crossAnchorConsensus: Double
 
     var total: Double {
         (base + genreAffinity + eraAffinity + tagAffinity + artistAffinity + artistNovelty
-            + genreNovelty + eraNovelty + recentArtistRepetition + genreAvoidance + feedbackAffinity)
+            + genreNovelty + eraNovelty + recentArtistRepetition + genreAvoidance + feedbackAffinity
+            + relationshipAffinity + crossAnchorConsensus)
             .clamped(to: 0...1)
     }
 }
@@ -179,8 +182,18 @@ private struct TodayPickScoringPolicy {
 }
 
 struct LocalRecommendationService {
+    /// When this many viable new-artist candidates exist, Balanced does not trade
+    /// discovery away merely to keep a familiar artist in the pool.
+    static let balancedUnfamiliarArtistHardFilterMinimum = 5
+    private static let relationshipAnchorLimit = 3
+    private static let relatedAlbumLimitPerAnchor = 10
+    private static let minimumRelationshipCandidateCount = 25
+    private static let similarArtistLimitPerAnchor = 3
+    private static let similarArtistAlbumLimit = 4
+
     private let catalogAlbums: [AlbumSearchResult]
     private let candidateProvider: CatalogRecommendationCandidateProvider?
+    private let catalogService: AlbumCatalogServiceProtocol?
     private let appleMusicService: AppleMusicRecommendationServiceProtocol?
     private let appleMusicCandidateLimit: Int
 
@@ -191,6 +204,7 @@ struct LocalRecommendationService {
     ) {
         self.catalogAlbums = catalogAlbums
         candidateProvider = nil
+        catalogService = nil
         self.appleMusicService = appleMusicService
         self.appleMusicCandidateLimit = appleMusicCandidateLimit
     }
@@ -206,6 +220,7 @@ struct LocalRecommendationService {
             catalogService: catalogService,
             fallbackCandidates: fallbackCandidates
         )
+        self.catalogService = catalogService
         self.appleMusicService = appleMusicService
         self.appleMusicCandidateLimit = appleMusicCandidateLimit
     }
@@ -429,6 +444,27 @@ struct LocalRecommendationService {
         anchorProfiles: [RecommendationAnchorProfile],
         mode: TodayPickRecommendationMode = .balanced
     ) -> ScoredRecommendationCandidate? {
+        bestDiscoveryCandidate(
+            (candidates ?? catalogAlbums).map {
+                DiscoveryCandidate(album: $0, source: .listendFallback, anchorAlbumKeys: [], anchorLogIDs: [], isKnownArtist: nil)
+            },
+            logs: logs,
+            recommendations: recommendations,
+            feedback: feedback,
+            anchorProfiles: anchorProfiles,
+            mode: mode
+        )
+    }
+
+    @MainActor
+    private func rankedDiscoveryCandidates(
+        _ candidates: [DiscoveryCandidate],
+        logs: [LogEntry],
+        recommendations: [Recommendation],
+        feedback: [RecommendationFeedback],
+        anchorProfiles: [RecommendationAnchorProfile],
+        mode: TodayPickRecommendationMode
+    ) -> [ScoredRecommendationCandidate] {
         let loggedAlbums = logs.compactMap(\.album)
         let recommendedAlbums = recommendations.compactMap(\.album)
         let recentlyRecommendedArtists = Set(
@@ -439,25 +475,45 @@ struct LocalRecommendationService {
         )
         let latestFeedbackByRecommendationID = Dictionary(grouping: feedback, by: \.recommendationID)
             .compactMapValues { $0.max { $0.createdAt < $1.createdAt } }
+        let knownArtists = knownArtistNames(
+            logs: logs,
+            recommendations: recommendations,
+            feedback: feedback,
+            anchorProfiles: anchorProfiles
+        )
+        let eligibleCandidates = candidates
+            .filter { candidate in
+                !loggedAlbums.contains { Self.matches($0, candidate.album) }
+            }
+            .filter { candidate in
+                !recommendedAlbums.contains { Self.matches($0, candidate.album) }
+            }
+        let unfamiliarEligibleCandidates = eligibleCandidates.filter {
+            !($0.isKnownArtist ?? knownArtists.contains($0.album.artistName.normalizedRecommendationText))
+        }
+        let modeCandidates: [DiscoveryCandidate]
+        switch mode {
+        case .balanced where unfamiliarEligibleCandidates.count >= Self.balancedUnfamiliarArtistHardFilterMinimum:
+            modeCandidates = unfamiliarEligibleCandidates
+        case .adventurous:
+            modeCandidates = unfamiliarEligibleCandidates
+        default:
+            modeCandidates = eligibleCandidates
+        }
 
-        return (candidates ?? catalogAlbums)
-            .filter { candidate in
-                !loggedAlbums.contains { Self.matches($0, candidate) }
-            }
-            .filter { candidate in
-                !recommendedAlbums.contains { Self.matches($0, candidate) }
-            }
+        return modeCandidates
             .map { candidate in
                 score(
-                    candidate,
+                    candidate.album,
                     anchorProfiles: anchorProfiles,
                     recommendations: recommendations,
                     latestFeedbackByRecommendationID: latestFeedbackByRecommendationID,
                     recentlyRecommendedArtists: recentlyRecommendedArtists,
-                    mode: mode
+                    mode: mode,
+                    discoveryCandidate: candidate
                 )
             }
-            .filter { mode != .adventurous || !$0.receipts.isEmpty }
+            .filter { candidate in mode != .adventurous || !candidate.receipts.isEmpty }
             .sorted { lhs, rhs in
                 if lhs.score != rhs.score {
                     return lhs.score > rhs.score
@@ -471,7 +527,25 @@ struct LocalRecommendationService {
                 let rhsName = "\(rhs.album.artistName.normalizedRecommendationText)|\(rhs.album.title.normalizedRecommendationText)"
                 return lhsName < rhsName
             }
-            .first
+    }
+
+    @MainActor
+    private func bestDiscoveryCandidate(
+        _ candidates: [DiscoveryCandidate],
+        logs: [LogEntry],
+        recommendations: [Recommendation],
+        feedback: [RecommendationFeedback],
+        anchorProfiles: [RecommendationAnchorProfile],
+        mode: TodayPickRecommendationMode
+    ) -> ScoredRecommendationCandidate? {
+        rankedDiscoveryCandidates(
+            candidates,
+            logs: logs,
+            recommendations: recommendations,
+            feedback: feedback,
+            anchorProfiles: anchorProfiles,
+            mode: mode
+        ).first
     }
 
     @MainActor
@@ -486,40 +560,36 @@ struct LocalRecommendationService {
     ) async throws -> PendingRecommendationInput {
         if let appleMusicService {
             do {
-                let candidates = try await appleMusicRecommendationCandidates(
+                let candidates = try await discoveryCandidates(
                     service: appleMusicService,
+                    logs: logs,
+                    recommendations: recommendations,
+                    feedback: feedback,
+                    anchorProfiles: anchorProfiles,
+                    mode: mode,
                     in: modelContext
                 )
 
-                guard let scoredCandidate = bestCandidate(
-                    candidates: candidates,
+                if let scoredCandidate = bestDiscoveryCandidate(
+                    candidates,
                     logs: logs,
                     recommendations: recommendations,
                     feedback: feedback,
                     anchorProfiles: anchorProfiles,
                     mode: mode
-                ) else {
-                    throw LocalRecommendationError.noCandidates
+                ) {
+                    return PendingRecommendationInput(
+                        scoredCandidate: scoredCandidate,
+                        source: scoredCandidate.discoverySource,
+                        freshnessStatus: .appleFreshnessChecked
+                    )
                 }
-
-                return PendingRecommendationInput(
-                    scoredCandidate: scoredCandidate,
-                    source: .applePersonalRecommendations,
-                    freshnessStatus: .appleFreshnessChecked
-                )
             } catch is CancellationError {
                 throw CancellationError()
-            } catch LocalRecommendationError.noCandidates {
-                throw LocalRecommendationError.noCandidates
             } catch {
-                return try await listendFallbackRecommendationInput(
-                    logs: logs,
-                    evidence: evidence,
-                    recommendations: recommendations,
-                    feedback: feedback,
-                    anchorProfiles: anchorProfiles,
-                    mode: mode
-                )
+                // Relationship and personalized source failures are deliberately
+                // isolated below. A freshness/auth failure lands here and falls
+                // through to the existing Listend-only disclosure.
             }
         }
 
@@ -549,8 +619,17 @@ struct LocalRecommendationService {
             mode: mode
         )
 
-        guard let scoredCandidate = bestCandidate(
-            candidates: candidates,
+        let discoveryCandidates = candidates.map {
+            DiscoveryCandidate(
+                album: $0,
+                source: .listendFallback,
+                anchorAlbumKeys: [],
+                anchorLogIDs: [],
+                isKnownArtist: nil
+            )
+        }
+        guard let scoredCandidate = bestDiscoveryCandidate(
+            discoveryCandidates,
             logs: logs,
             recommendations: recommendations,
             feedback: feedback,
@@ -568,42 +647,234 @@ struct LocalRecommendationService {
     }
 
     @MainActor
-    private func appleMusicRecommendationCandidates(
+    private func discoveryCandidates(
         service: AppleMusicRecommendationServiceProtocol,
+        logs: [LogEntry],
+        recommendations: [Recommendation],
+        feedback: [RecommendationFeedback],
+        anchorProfiles: [RecommendationAnchorProfile],
+        mode: TodayPickRecommendationMode,
         in modelContext: ModelContext
-    ) async throws -> [AlbumSearchResult] {
-        async let recommendedAlbums = service.recommendedAlbums(limit: appleMusicCandidateLimit)
-        async let recentlyPlayedAlbums = service.recentlyPlayedAlbums(limit: appleMusicCandidateLimit)
-
-        let (recommendations, recentAlbums) = try await (recommendedAlbums, recentlyPlayedAlbums)
+    ) async throws -> [DiscoveryCandidate] {
+        let recentAlbums = try await service.recentlyPlayedAlbums(limit: appleMusicCandidateLimit)
         try AppleMusicRecentPlaySnapshotStore.recordRecentlyPlayedAlbums(recentAlbums, in: modelContext)
         let recentSnapshots = try AppleMusicRecentPlaySnapshotStore.recentlyObservedAlbums(in: modelContext)
+        let anchors = try await resolvedDiscoveryAnchors(from: anchorProfiles)
+        var checkedCandidates: [DiscoveryCandidate] = []
 
-        let freshnessEligibleCandidates = recommendations
-            .prefix(appleMusicCandidateLimit)
-            .filter { candidate in
-                !recentAlbums.contains(where: { Self.matches($0, candidate) })
-                    && !recentSnapshots.contains(where: { AppleMusicRecentPlaySnapshotStore.matches($0, candidate) })
+        for (profile, anchor) in anchors {
+            do {
+                let related = try await service.relatedAlbums(for: anchor, limit: Self.relatedAlbumLimitPerAnchor)
+                checkedCandidates.append(contentsOf: related.map {
+                    DiscoveryCandidate(album: $0, source: .relatedAlbum, anchorAlbumKeys: [profile.albumKey], anchorLogIDs: Set(profile.logIDs), isKnownArtist: nil)
+                })
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                // Preserve successes from every other anchor/source.
             }
+        }
 
-        return try await withThrowingTaskGroup(of: AppleMusicLibraryCheckResult.self) { group in
+        let localKnownArtists = knownArtistNames(
+            logs: logs,
+            recommendations: recommendations,
+            feedback: feedback,
+            anchorProfiles: anchorProfiles,
+            recentAlbums: recentAlbums,
+            recentSnapshots: recentSnapshots
+        )
+        let artistLibraryResultCache = ArtistLibraryResultCache()
+        var verifiedRelationshipCandidates = try await verifiedDiscoveryCandidates(
+            checkedCandidates,
+            service: service,
+            recentAlbums: recentAlbums,
+            recentSnapshots: recentSnapshots,
+            localKnownArtists: localKnownArtists,
+            artistLibraryResultCache: artistLibraryResultCache
+        )
+        if rankedDiscoveryCandidates(
+            verifiedRelationshipCandidates,
+            logs: logs,
+            recommendations: recommendations,
+            feedback: feedback,
+            anchorProfiles: anchorProfiles,
+            mode: mode
+        ).count < Self.minimumRelationshipCandidateCount {
+            for (profile, anchor) in anchors {
+                do {
+                    let similar = try await service.similarArtistAlbums(
+                        for: anchor,
+                        artistLimit: Self.similarArtistLimitPerAnchor,
+                        albumLimit: Self.similarArtistAlbumLimit
+                    )
+                    let similarCandidates = similar.map {
+                        DiscoveryCandidate(album: $0, source: .similarArtist, anchorAlbumKeys: [profile.albumKey], anchorLogIDs: Set(profile.logIDs), isKnownArtist: nil)
+                    }
+                    let netNewSimilarCandidates = Self.netNewDiscoveryCandidates(
+                        similarCandidates,
+                        excluding: checkedCandidates
+                    )
+                    checkedCandidates = Self.mergeDiscoveryCandidates(checkedCandidates + similarCandidates)
+                    verifiedRelationshipCandidates = Self.mergeVerifiedDiscoveryCandidates(
+                        verifiedRelationshipCandidates,
+                        with: similarCandidates
+                    )
+                    if !netNewSimilarCandidates.isEmpty {
+                        let verifiedSimilarCandidates = try await verifiedDiscoveryCandidates(
+                            netNewSimilarCandidates,
+                            service: service,
+                            recentAlbums: recentAlbums,
+                            recentSnapshots: recentSnapshots,
+                            localKnownArtists: localKnownArtists,
+                            artistLibraryResultCache: artistLibraryResultCache
+                        )
+                        verifiedRelationshipCandidates = Self.mergeVerifiedDiscoveryCandidates(
+                            verifiedRelationshipCandidates,
+                            with: verifiedSimilarCandidates
+                        )
+                    }
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    // Similar-artist expansion is optional after direct relatives.
+                }
+            }
+        }
+
+        if !rankedDiscoveryCandidates(
+            verifiedRelationshipCandidates,
+            logs: logs,
+            recommendations: recommendations,
+            feedback: feedback,
+            anchorProfiles: anchorProfiles,
+            mode: mode
+        ).isEmpty {
+            return verifiedRelationshipCandidates
+        }
+
+        do {
+            let personalRecommendations = try await service.recommendedAlbums(limit: appleMusicCandidateLimit)
+            let personalCandidates = personalRecommendations.prefix(appleMusicCandidateLimit).map {
+                DiscoveryCandidate(album: $0, source: .applePersonalRecommendations, anchorAlbumKeys: [], anchorLogIDs: [], isKnownArtist: nil)
+            }
+            let netNewPersonalCandidates = Self.netNewDiscoveryCandidates(
+                personalCandidates,
+                excluding: checkedCandidates
+            )
+            checkedCandidates = Self.mergeDiscoveryCandidates(checkedCandidates + personalCandidates)
+            verifiedRelationshipCandidates = Self.mergeVerifiedDiscoveryCandidates(
+                verifiedRelationshipCandidates,
+                with: personalCandidates
+            )
+            if !netNewPersonalCandidates.isEmpty {
+                let verifiedPersonalCandidates = try await verifiedDiscoveryCandidates(
+                    netNewPersonalCandidates,
+                    service: service,
+                    recentAlbums: recentAlbums,
+                    recentSnapshots: recentSnapshots,
+                    localKnownArtists: localKnownArtists,
+                    artistLibraryResultCache: artistLibraryResultCache
+                )
+                verifiedRelationshipCandidates = Self.mergeVerifiedDiscoveryCandidates(
+                    verifiedRelationshipCandidates,
+                    with: verifiedPersonalCandidates
+                )
+            }
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            // Personal recommendations supplement, but never replace, relationship results.
+        }
+        return verifiedRelationshipCandidates
+    }
+
+    @MainActor
+    private func verifiedDiscoveryCandidates(
+        _ candidates: [DiscoveryCandidate],
+        service: AppleMusicRecommendationServiceProtocol,
+        recentAlbums: [AlbumSearchResult],
+        recentSnapshots: [AppleMusicRecentPlaySnapshot],
+        localKnownArtists: Set<String>,
+        artistLibraryResultCache: ArtistLibraryResultCache
+    ) async throws -> [DiscoveryCandidate] {
+        let freshnessEligibleCandidates = Self.mergeDiscoveryCandidates(candidates).filter { candidate in
+            !recentAlbums.contains(where: { Self.matches($0, candidate.album) })
+                && !recentSnapshots.contains(where: { AppleMusicRecentPlaySnapshotStore.matches($0, candidate.album) })
+        }
+
+        let albumCheckedCandidates = try await withThrowingTaskGroup(of: AppleMusicLibraryCheckResult?.self) { group in
             for (index, candidate) in freshnessEligibleCandidates.enumerated() {
                 group.addTask {
-                    try Task.checkCancellation()
-                    let isInLibrary = try await service.containsInLibrary(candidate)
-                    return AppleMusicLibraryCheckResult(index: index, album: candidate, isInLibrary: isInLibrary)
+                    do {
+                        try Task.checkCancellation()
+                        guard !(try await service.containsInLibrary(candidate.album)) else { return nil }
+                        return AppleMusicLibraryCheckResult(index: index, candidate: candidate)
+                    } catch is CancellationError {
+                        throw CancellationError()
+                    } catch {
+                        // A failed album membership check excludes only this candidate.
+                        return nil
+                    }
                 }
             }
 
             var checkedCandidates: [AppleMusicLibraryCheckResult] = []
             for try await checkedCandidate in group {
-                checkedCandidates.append(checkedCandidate)
+                if let checkedCandidate {
+                    checkedCandidates.append(checkedCandidate)
+                }
+            }
+            return checkedCandidates
+                .sorted { $0.index < $1.index }
+        }
+
+        var artistResultsByKey: [String: Bool] = [:]
+        var unknownArtistsByKey: [String: String] = [:]
+        for result in albumCheckedCandidates {
+            let artistKey = result.candidate.album.artistName.normalizedRecommendationText
+            if localKnownArtists.contains(artistKey) {
+                artistResultsByKey[artistKey] = true
+            } else if let cachedResult = await artistLibraryResultCache.result(for: artistKey) {
+                artistResultsByKey[artistKey] = cachedResult
+            } else {
+                unknownArtistsByKey[artistKey] = result.candidate.album.artistName
+            }
+        }
+
+        let fetchedArtistResults = try await withThrowingTaskGroup(of: AppleMusicArtistLibraryCheckResult.self) { group in
+            for (artistKey, artistName) in unknownArtistsByKey {
+                group.addTask {
+                    do {
+                        try Task.checkCancellation()
+                        return AppleMusicArtistLibraryCheckResult(
+                            artistKey: artistKey,
+                            isKnownArtist: try await service.containsArtistInLibrary(named: artistName)
+                        )
+                    } catch is CancellationError {
+                        throw CancellationError()
+                    } catch {
+                        // Without an artist-library result, keep albums but treat the artist as familiar.
+                        return AppleMusicArtistLibraryCheckResult(artistKey: artistKey, isKnownArtist: true)
+                    }
+                }
             }
 
-            return checkedCandidates
-                .filter { !$0.isInLibrary }
-                .sorted { $0.index < $1.index }
-                .map(\.album)
+            var results: [AppleMusicArtistLibraryCheckResult] = []
+            for try await result in group {
+                results.append(result)
+            }
+            return results
+        }
+        for result in fetchedArtistResults {
+            await artistLibraryResultCache.store(result.isKnownArtist, for: result.artistKey)
+            artistResultsByKey[result.artistKey] = result.isKnownArtist
+        }
+
+        return albumCheckedCandidates.map { result in
+            var candidate = result.candidate
+            let artistKey = candidate.album.artistName.normalizedRecommendationText
+            candidate.isKnownArtist = artistResultsByKey[artistKey] ?? true
+            return candidate
         }
     }
 
@@ -639,7 +910,8 @@ struct LocalRecommendationService {
         recommendations: [Recommendation],
         latestFeedbackByRecommendationID: [UUID: RecommendationFeedback],
         recentlyRecommendedArtists: Set<String>,
-        mode: TodayPickRecommendationMode
+        mode: TodayPickRecommendationMode,
+        discoveryCandidate: DiscoveryCandidate? = nil
     ) -> ScoredRecommendationCandidate {
         let breakdown = recommendationScoreBreakdown(
             for: candidate,
@@ -647,9 +919,17 @@ struct LocalRecommendationService {
             recommendations: recommendations,
             latestFeedbackByRecommendationID: latestFeedbackByRecommendationID,
             recentlyRecommendedArtists: recentlyRecommendedArtists,
-            mode: mode
+            mode: mode,
+            discoveryCandidate: discoveryCandidate
         )
-        let relevantProfiles = candidateRelevantPositiveProfiles(candidate, profiles: anchorProfiles)
+        let relevantProfiles: [RecommendationAnchorProfile]
+        if let discoveryCandidate,
+           discoveryCandidate.source.isRelationshipDiscovery,
+           !discoveryCandidate.anchorAlbumKeys.isEmpty {
+            relevantProfiles = candidateProfiles(discoveryCandidate, in: anchorProfiles)
+        } else {
+            relevantProfiles = candidateRelevantPositiveProfiles(candidate, profiles: anchorProfiles)
+        }
         let receiptsAndProfiles = relevantProfiles.compactMap { profile -> (PendingRecommendationReceipt, RecommendationAnchorProfile)? in
             guard let receipt = makeReceipt(from: profile, candidate: candidate) else { return nil }
             return (receipt, profile)
@@ -669,9 +949,10 @@ struct LocalRecommendationService {
             album: candidate,
             score: breakdown.total,
             confidence: min(0.55 + breakdown.total * 0.35, confidenceCap),
-            explanation: explanation(candidate: candidate, receipts: receipts),
+            explanation: explanation(candidate: candidate, receipts: receipts, source: discoveryCandidate?.source),
             receipts: receipts,
-            scoreBreakdown: breakdown
+            scoreBreakdown: breakdown,
+            discoverySource: discoveryCandidate?.source ?? .listendFallback
         )
     }
 
@@ -704,7 +985,8 @@ struct LocalRecommendationService {
         recommendations: [Recommendation],
         latestFeedbackByRecommendationID: [UUID: RecommendationFeedback],
         recentlyRecommendedArtists: Set<String>,
-        mode: TodayPickRecommendationMode
+        mode: TodayPickRecommendationMode,
+        discoveryCandidate: DiscoveryCandidate? = nil
     ) -> RecommendationScoreBreakdown {
         let policy = TodayPickScoringPolicy.policy(for: mode)
         let positiveProfiles = anchorProfiles.filter(\.isPositive)
@@ -783,6 +1065,18 @@ struct LocalRecommendationService {
             return ((Self.sameGenre(album, candidate) ? 0.04 : 0)
                 + (Self.sameEra(album, candidate) ? 0.02 : 0)) * multiplier
         }.max() ?? 0, 0.06)
+        let relationshipAffinity: Double
+        let crossAnchorConsensus: Double
+        if let discoveryCandidate, discoveryCandidate.source.isRelationshipDiscovery {
+            let relationshipStrength = candidateProfiles(discoveryCandidate, in: anchorProfiles)
+                .map(\.strength)
+                .max() ?? 0
+            relationshipAffinity = min(relationshipStrength * 0.08, 0.08)
+            crossAnchorConsensus = discoveryCandidate.distinctAnchorCount >= 2 ? 0.06 : 0
+        } else {
+            relationshipAffinity = 0
+            crossAnchorConsensus = 0
+        }
 
         return RecommendationScoreBreakdown(
             base: 0.20,
@@ -795,7 +1089,9 @@ struct LocalRecommendationService {
             eraNovelty: eraNovelty,
             recentArtistRepetition: recentArtistRepetition,
             genreAvoidance: genreAvoidance,
-            feedbackAffinity: feedbackAffinity
+            feedbackAffinity: feedbackAffinity,
+            relationshipAffinity: relationshipAffinity,
+            crossAnchorConsensus: crossAnchorConsensus
         )
     }
 
@@ -817,6 +1113,119 @@ struct LocalRecommendationService {
             if $0.strength == $1.strength { return $0.albumKey < $1.albumKey }
             return $0.strength > $1.strength
         }
+    }
+
+    @MainActor
+    private func candidateProfiles(
+        _ candidate: DiscoveryCandidate,
+        in profiles: [RecommendationAnchorProfile]
+    ) -> [RecommendationAnchorProfile] {
+        profiles.filter { candidate.anchorAlbumKeys.contains($0.albumKey) }
+            .sorted {
+                $0.strength == $1.strength
+                    ? $0.albumKey < $1.albumKey
+                    : $0.strength > $1.strength
+            }
+    }
+
+    @MainActor
+    private func knownArtistNames(
+        logs: [LogEntry],
+        recommendations: [Recommendation],
+        feedback: [RecommendationFeedback],
+        anchorProfiles: [RecommendationAnchorProfile],
+        recentAlbums: [AlbumSearchResult] = [],
+        recentSnapshots: [AppleMusicRecentPlaySnapshot] = []
+    ) -> Set<String> {
+        let alreadyKnownRecommendationIDs = Set(feedback.compactMap { feedback in
+            RecommendationFeedbackType(rawValue: feedback.feedbackType) == .alreadyKnown
+                ? feedback.recommendationID
+                : nil
+        })
+        let alreadyKnownArtists = recommendations
+            .filter { alreadyKnownRecommendationIDs.contains($0.id) }
+            .compactMap { $0.album?.artistName }
+        let artistNames = logs.compactMap { $0.album?.artistName }
+            + anchorProfiles.map { $0.album.artistName }
+            + alreadyKnownArtists
+            + recentAlbums.map(\.artistName)
+            + recentSnapshots.map(\.artistName)
+        return Set(artistNames.map(\.normalizedRecommendationText))
+    }
+
+    @MainActor
+    private func resolvedDiscoveryAnchors(
+        from profiles: [RecommendationAnchorProfile]
+    ) async throws -> [(RecommendationAnchorProfile, AlbumSearchResult)] {
+        var resolved: [(RecommendationAnchorProfile, AlbumSearchResult)] = []
+        for profile in profiles.filter(\.isPositive).prefix(Self.relationshipAnchorLimit) {
+            if let catalogID = profile.album.appleMusicID?.trimmingCharacters(in: .whitespacesAndNewlines), !catalogID.isEmpty {
+                resolved.append((profile, AlbumSearchResult(
+                    id: catalogID,
+                    title: profile.album.title,
+                    artistName: profile.album.artistName,
+                    releaseYear: profile.album.releaseYear,
+                    genreName: profile.album.genreName,
+                    artworkURL: profile.album.artworkURL
+                )))
+                continue
+            }
+
+            guard let catalogService else { continue }
+            do {
+                let query = "\(profile.album.title) \(profile.album.artistName)"
+                if let exact = try await catalogService.searchAlbums(query: query).first(where: {
+                    $0.title.normalizedRecommendationText == profile.album.title.normalizedRecommendationText
+                        && $0.artistName.normalizedRecommendationText == profile.album.artistName.normalizedRecommendationText
+                }) {
+                    resolved.append((profile, exact))
+                }
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                // An unresolved local anchor simply skips relationship discovery.
+            }
+        }
+        return resolved
+    }
+
+    static func mergeDiscoveryCandidates(_ candidates: [DiscoveryCandidate]) -> [DiscoveryCandidate] {
+        var mergedCandidates: [DiscoveryCandidate] = []
+        for candidate in candidates {
+            if let index = mergedCandidates.indices.first(where: { index in
+                Self.matches(mergedCandidates[index].album, candidate.album)
+            }) {
+                var existing = mergedCandidates[index]
+                existing.merge(candidate)
+                mergedCandidates[index] = existing
+            } else {
+                mergedCandidates.append(candidate)
+            }
+        }
+        return mergedCandidates.sorted { lhs, rhs in
+            if lhs.album.catalogID != rhs.album.catalogID {
+                return lhs.album.catalogID < rhs.album.catalogID
+            }
+            return "\(lhs.album.artistName.normalizedRecommendationText)|\(lhs.album.title.normalizedRecommendationText)"
+                < "\(rhs.album.artistName.normalizedRecommendationText)|\(rhs.album.title.normalizedRecommendationText)"
+        }
+    }
+
+    private static func netNewDiscoveryCandidates(
+        _ candidates: [DiscoveryCandidate],
+        excluding checkedCandidates: [DiscoveryCandidate]
+    ) -> [DiscoveryCandidate] {
+        mergeDiscoveryCandidates(candidates).filter { candidate in
+            !checkedCandidates.contains { Self.matches($0.album, candidate.album) }
+        }
+    }
+
+    private static func mergeVerifiedDiscoveryCandidates(
+        _ verifiedCandidates: [DiscoveryCandidate],
+        with candidates: [DiscoveryCandidate]
+    ) -> [DiscoveryCandidate] {
+        mergeDiscoveryCandidates(verifiedCandidates + candidates)
+            .filter { $0.isKnownArtist != nil }
     }
 
     @MainActor
@@ -859,7 +1268,17 @@ struct LocalRecommendationService {
         )
     }
 
-    private func explanation(candidate: AlbumSearchResult, receipts: [PendingRecommendationReceipt]) -> String {
+    private func explanation(
+        candidate: AlbumSearchResult,
+        receipts: [PendingRecommendationReceipt],
+        source: RecommendationSource?
+    ) -> String {
+        if source == .relatedAlbum, let receipt = receipts.first {
+            return "Today's Pick is \(candidate.title) by \(candidate.artistName), branching from your log for \(receipt.sourceAlbumTitle)."
+        }
+        if source == .similarArtist, receipts.count >= 2 {
+            return "Today's Pick is \(candidate.title) by \(candidate.artistName), a bridge from your logs for \(receipts[0].sourceAlbumTitle) and \(receipts[1].sourceAlbumTitle)."
+        }
         switch receipts.count {
         case 0:
             return "Today's Pick is \(candidate.title) by \(candidate.artistName). Your strongest signals are still taking shape, so this is a lower-confidence pick."
@@ -997,7 +1416,7 @@ struct LocalRecommendationService {
             switch feedbackType {
             case .liked, .listened: return 1
             case .savedForLater: return 0.5
-            case .dismissed: return 0
+            case .dismissed, .alreadyKnown: return 0
             }
         }
 
@@ -1053,8 +1472,24 @@ private struct PendingRecommendationInput {
 
 private struct AppleMusicLibraryCheckResult {
     let index: Int
-    let album: AlbumSearchResult
-    let isInLibrary: Bool
+    let candidate: DiscoveryCandidate
+}
+
+private struct AppleMusicArtistLibraryCheckResult {
+    let artistKey: String
+    let isKnownArtist: Bool
+}
+
+private actor ArtistLibraryResultCache {
+    private var resultsByArtistKey: [String: Bool] = [:]
+
+    func result(for artistKey: String) -> Bool? {
+        resultsByArtistKey[artistKey]
+    }
+
+    func store(_ isKnownArtist: Bool, for artistKey: String) {
+        resultsByArtistKey[artistKey] = isKnownArtist
+    }
 }
 
 struct ScoredRecommendationCandidate {
@@ -1064,6 +1499,7 @@ struct ScoredRecommendationCandidate {
     let explanation: String
     let receipts: [PendingRecommendationReceipt]
     let scoreBreakdown: RecommendationScoreBreakdown
+    let discoverySource: RecommendationSource
 }
 
 struct PendingRecommendationReceipt {

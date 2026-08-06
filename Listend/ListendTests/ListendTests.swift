@@ -3537,6 +3537,255 @@ struct ListendTests {
         #expect(latestFeedback.feedbackAffinity == 0)
     }
 
+    @Test func alreadyKnownFeedbackDismissesWithoutCreatingNegativeTasteAffinity() throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let album = Album(title: "Known Pick", artistName: "Known Artist", genreName: "Art Pop")
+        let recommendation = Recommendation(album: album, score: 0.8, confidence: 0.8, explanationText: "Pick.")
+        modelContext.insert(album)
+        modelContext.insert(recommendation)
+        try modelContext.save()
+
+        try LocalRecommendationService().submitFeedback(.alreadyKnown, for: recommendation, in: modelContext)
+        let feedback = try modelContext.fetch(FetchDescriptor<RecommendationFeedback>())
+        let breakdown = LocalRecommendationService().recommendationScoreBreakdown(
+            for: AlbumSearchResult(id: "new", title: "New", artistName: "New Artist", releaseYear: 2020, genreName: "Art Pop"),
+            anchorProfiles: [],
+            recommendations: [recommendation],
+            feedback: feedback
+        )
+
+        #expect(recommendation.status == RecommendationStatus.dismissed.rawValue)
+        #expect(feedback.first?.feedbackType == RecommendationFeedbackType.alreadyKnown.rawValue)
+        #expect(breakdown.feedbackAffinity == 0)
+    }
+
+    @Test func balancedHardFiltersKnownArtistsWhenFiveUnfamiliarCandidatesExist() throws {
+        let anchor = LogEntry(album: Album(title: "Anchor", artistName: "Known Artist", genreName: "Art Pop"), rating: 5)
+        let service = LocalRecommendationService(catalogAlbums: [
+            AlbumSearchResult(id: "known", title: "Known", artistName: "Known Artist", releaseYear: 2020, genreName: "Art Pop"),
+            AlbumSearchResult(id: "new1", title: "New 1", artistName: "New 1", releaseYear: 2020, genreName: "Art Pop"),
+            AlbumSearchResult(id: "new2", title: "New 2", artistName: "New 2", releaseYear: 2020, genreName: "Art Pop"),
+            AlbumSearchResult(id: "new3", title: "New 3", artistName: "New 3", releaseYear: 2020, genreName: "Art Pop"),
+            AlbumSearchResult(id: "new4", title: "New 4", artistName: "New 4", releaseYear: 2020, genreName: "Art Pop"),
+            AlbumSearchResult(id: "new5", title: "New 5", artistName: "New 5", releaseYear: 2020, genreName: "Art Pop")
+        ])
+
+        let result = try #require(service.bestCandidate(logs: [anchor], recommendations: [], anchorProfiles: service.recommendationAnchorProfiles(from: [anchor], evidence: []), mode: .balanced))
+
+        #expect(result.album.catalogID != "known")
+        #expect(LocalRecommendationService.balancedUnfamiliarArtistHardFilterMinimum == 5)
+    }
+
+    @Test func adventurousModeRejectsKnownArtistCandidates() {
+        let anchor = LogEntry(album: Album(title: "Anchor", artistName: "Known Artist", genreName: "Art Pop"), rating: 5, tags: ["lush"])
+        let service = LocalRecommendationService(catalogAlbums: [
+            AlbumSearchResult(id: "known", title: "Known", artistName: "Known Artist", releaseYear: 2020, genreName: "Art Pop")
+        ])
+
+        let result = service.bestCandidate(logs: [anchor], recommendations: [], anchorProfiles: service.recommendationAnchorProfiles(from: [anchor], evidence: []), mode: .adventurous)
+
+        #expect(result == nil)
+    }
+
+    @Test func discoveryCandidateDedupMergesNormalizedAlbumProvenance() {
+        let firstLogID = UUID()
+        let secondLogID = UUID()
+        let merged = LocalRecommendationService.mergeDiscoveryCandidates([
+            DiscoveryCandidate(
+                album: AlbumSearchResult(id: "catalog.one", title: "Same Album", artistName: "Same Artist", releaseYear: 2024, genreName: "Art Pop"),
+                source: .relatedAlbum,
+                anchorAlbumKeys: ["anchor-one"],
+                anchorLogIDs: [firstLogID],
+                isKnownArtist: false
+            ),
+            DiscoveryCandidate(
+                album: AlbumSearchResult(id: "catalog.two", title: "same album", artistName: "SAME ARTIST", releaseYear: 2024, genreName: "Art Pop"),
+                source: .similarArtist,
+                anchorAlbumKeys: ["anchor-two"],
+                anchorLogIDs: [secondLogID],
+                isKnownArtist: false
+            )
+        ])
+
+        #expect(merged.count == 1)
+        #expect(merged[0].distinctAnchorCount == 2)
+        #expect(merged[0].anchorLogIDs == [firstLogID, secondLogID])
+        #expect(merged[0].source == .relatedAlbum)
+    }
+
+    @MainActor
+    @Test func viableSimilarCandidatePreventsPersonalRecommendationRequest() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let anchorAlbum = Album(appleMusicID: "anchor.catalog", title: "Anchor", artistName: "Anchor Artist", releaseYear: 2020, genreName: "Art Pop")
+        let anchorLog = LogEntry(album: anchorAlbum, rating: 5, tags: ["lush"])
+        let similar = AlbumSearchResult(id: "similar.catalog", title: "Similar", artistName: "New Artist", releaseYear: 2024, genreName: "Art Pop")
+        modelContext.insert(anchorAlbum)
+        modelContext.insert(anchorLog)
+        insertRecommendationSupportLogs(in: modelContext, count: 4)
+        try modelContext.save()
+
+        let callRecorder = AppleMusicRecommendationCallRecorder()
+        let recommendation = try await LocalRecommendationService(
+            catalogAlbums: [],
+            appleMusicService: RecordingAppleMusicRecommendationService(
+                personalRecommendations: [AlbumSearchResult(id: "personal.catalog", title: "Personal", artistName: "Personal Artist", releaseYear: 2024, genreName: "Art Pop")],
+                relatedAlbumsByAnchorID: ["anchor.catalog": []],
+                similarAlbumsByAnchorID: ["anchor.catalog": [similar]],
+                callRecorder: callRecorder
+            )
+        ).currentOrGenerateRecommendation(in: modelContext)
+
+        let callCounts = await callRecorder.counts()
+        #expect(recommendation.album?.appleMusicID == "similar.catalog")
+        #expect(recommendation.source == RecommendationSource.similarArtist.rawValue)
+        #expect(callCounts.similarArtistRequests == 1)
+        #expect(callCounts.personalRecommendationRequests == 0)
+    }
+
+    @MainActor
+    @Test func failedArtistLookupIsCachedAndDoesNotCreateAdventurousPick() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let anchorAlbum = Album(appleMusicID: "anchor.catalog", title: "Anchor", artistName: "Anchor Artist", releaseYear: 2020, genreName: "Art Pop")
+        modelContext.insert(anchorAlbum)
+        modelContext.insert(LogEntry(album: anchorAlbum, rating: 5, tags: ["lush"]))
+        insertRecommendationSupportLogs(in: modelContext, count: 4)
+        try modelContext.save()
+
+        let relatedAlbums = [
+            AlbumSearchResult(id: "related.one", title: "Related One", artistName: "Shared Artist", releaseYear: 2024, genreName: "Art Pop"),
+            AlbumSearchResult(id: "related.two", title: "Related Two", artistName: "shared artist", releaseYear: 2024, genreName: "Art Pop")
+        ]
+        let callRecorder = AppleMusicRecommendationCallRecorder()
+        let recommendation = try await LocalRecommendationService(
+            catalogAlbums: [AlbumSearchResult(id: "fallback.catalog", title: "Fallback", artistName: "Fallback Artist", releaseYear: 2024, genreName: "Art Pop")],
+            appleMusicService: RecordingAppleMusicRecommendationService(
+                personalRecommendations: [],
+                shouldThrowArtistLibraryLookup: true,
+                relatedAlbumsByAnchorID: ["anchor.catalog": relatedAlbums],
+                callRecorder: callRecorder
+            )
+        ).currentOrGenerateRecommendation(in: modelContext, mode: .adventurous)
+
+        let callCounts = await callRecorder.counts()
+        #expect(callCounts.artistLibraryRequests == 1)
+        #expect(recommendation.album?.appleMusicID == "fallback.catalog")
+        #expect(recommendation.source == RecommendationSource.listendFallback.rawValue)
+    }
+
+    @MainActor
+    @Test func unusableRelatedPoolStillAllowsPersonalSupplement() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let anchorIDs = ["anchor.one", "anchor.two", "anchor.three"]
+        for (index, anchorID) in anchorIDs.enumerated() {
+            let album = Album(appleMusicID: anchorID, title: "Anchor \(index)", artistName: "Anchor Artist \(index)", releaseYear: 2020, genreName: "Art Pop")
+            modelContext.insert(album)
+            modelContext.insert(LogEntry(album: album, rating: 5, tags: ["lush"]))
+        }
+        insertRecommendationSupportLogs(in: modelContext, count: 2)
+        try modelContext.save()
+
+        let relatedAlbumsByAnchorID = Dictionary(uniqueKeysWithValues: anchorIDs.map { anchorID in
+            (anchorID, (0..<10).map { index in
+                AlbumSearchResult(id: "\(anchorID).related.\(index)", title: "Unavailable \(anchorID) \(index)", artistName: "Unavailable Artist \(index)", releaseYear: 2024, genreName: "Art Pop")
+            })
+        })
+        let unavailableIDs = Set(relatedAlbumsByAnchorID.values.flatMap { $0.map(\.catalogID) })
+        let personal = AlbumSearchResult(id: "personal.viable", title: "Personal Viable", artistName: "Personal Artist", releaseYear: 2024, genreName: "Art Pop")
+
+        let recommendation = try await LocalRecommendationService(
+            catalogAlbums: [],
+            appleMusicService: RecordingAppleMusicRecommendationService(
+                personalRecommendations: [personal],
+                libraryCatalogIDs: unavailableIDs,
+                relatedAlbumsByAnchorID: relatedAlbumsByAnchorID
+            )
+        ).currentOrGenerateRecommendation(in: modelContext)
+
+        #expect(recommendation.album?.appleMusicID == "personal.viable")
+        #expect(recommendation.source == RecommendationSource.applePersonalRecommendations.rawValue)
+    }
+
+    @MainActor
+    @Test func failedLibraryLookupDoesNotDiscardVerifiedRelationshipCandidate() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let anchorAlbum = Album(appleMusicID: "anchor.catalog", title: "Anchor", artistName: "Anchor Artist", releaseYear: 2020, genreName: "Art Pop")
+        modelContext.insert(anchorAlbum)
+        modelContext.insert(LogEntry(album: anchorAlbum, rating: 5, tags: ["lush"]))
+        insertRecommendationSupportLogs(in: modelContext, count: 4)
+        try modelContext.save()
+
+        let verified = AlbumSearchResult(id: "related.verified", title: "Verified", artistName: "Verified Artist", releaseYear: 2024, genreName: "Art Pop")
+        let failing = AlbumSearchResult(id: "related.failed", title: "Failed", artistName: "Failed Artist", releaseYear: 2024, genreName: "Art Pop")
+        let recommendation = try await LocalRecommendationService(
+            catalogAlbums: [],
+            appleMusicService: RecordingAppleMusicRecommendationService(
+                personalRecommendations: [],
+                failingLibraryCatalogIDs: ["related.failed"],
+                relatedAlbumsByAnchorID: ["anchor.catalog": [verified, failing]]
+            )
+        ).currentOrGenerateRecommendation(in: modelContext)
+
+        #expect(recommendation.album?.appleMusicID == "related.verified")
+        #expect(recommendation.source == RecommendationSource.relatedAlbum.rawValue)
+    }
+
+    @MainActor
+    @Test func personalCandidateRetainsReceiptGroundingWhenItHasNoRelationshipProvenance() async throws {
+        let container = try makeInMemoryContainer()
+        let modelContext = container.mainContext
+        let anchorAlbum = Album(title: "Anchor", artistName: "Anchor Artist", releaseYear: 2020, genreName: "Art Pop")
+        let anchorLog = LogEntry(album: anchorAlbum, rating: 5, tags: ["lush"])
+        modelContext.insert(anchorAlbum)
+        modelContext.insert(anchorLog)
+        insertRecommendationSupportLogs(in: modelContext, count: 4)
+        try modelContext.save()
+
+        let recommendation = try await LocalRecommendationService(
+            catalogAlbums: [],
+            appleMusicService: RecordingAppleMusicRecommendationService(personalRecommendations: [
+                AlbumSearchResult(id: "personal.catalog", title: "Personal", artistName: "New Artist", releaseYear: 2024, genreName: "Art Pop")
+            ])
+        ).currentOrGenerateRecommendation(in: modelContext)
+
+        #expect(recommendation.source == RecommendationSource.applePersonalRecommendations.rawValue)
+        #expect(recommendation.explanationText.contains("grounded in your log for Anchor"))
+    }
+
+    @Test func alreadyKnownArtistIsSuppressedWithoutMakingOrdinaryRecommendationHistoryPermanent() throws {
+        let anchor = LogEntry(album: Album(title: "Anchor", artistName: "Anchor Artist", genreName: "Art Pop"), rating: 5)
+        let profiles = LocalRecommendationService().recommendationAnchorProfiles(from: [anchor], evidence: [])
+        let knownArtistAlbum = Album(title: "Old", artistName: "Known Artist", genreName: "Art Pop")
+        let knownRecommendation = Recommendation(album: knownArtistAlbum, score: 0.7, confidence: 0.7, explanationText: "")
+        let alreadyKnown = RecommendationFeedback(recommendationID: knownRecommendation.id, feedbackType: RecommendationFeedbackType.alreadyKnown.rawValue)
+        let candidatePool = [
+            AlbumSearchResult(id: "known.new", title: "Known New", artistName: "Known Artist", releaseYear: 2024, genreName: "Art Pop"),
+            AlbumSearchResult(id: "new1", title: "New 1", artistName: "New 1", releaseYear: 2024, genreName: "Art Pop"),
+            AlbumSearchResult(id: "new2", title: "New 2", artistName: "New 2", releaseYear: 2024, genreName: "Art Pop"),
+            AlbumSearchResult(id: "new3", title: "New 3", artistName: "New 3", releaseYear: 2024, genreName: "Art Pop"),
+            AlbumSearchResult(id: "new4", title: "New 4", artistName: "New 4", releaseYear: 2024, genreName: "Art Pop"),
+            AlbumSearchResult(id: "new5", title: "New 5", artistName: "New 5", releaseYear: 2024, genreName: "Art Pop")
+        ]
+        let service = LocalRecommendationService(catalogAlbums: candidatePool)
+
+        let balanced = try #require(service.bestCandidate(logs: [anchor], recommendations: [knownRecommendation], feedback: [alreadyKnown], anchorProfiles: profiles, mode: .balanced))
+        let ordinaryHistory = Recommendation(album: Album(title: "Past", artistName: "Ordinary Artist", genreName: "Art Pop"), score: 0.7, confidence: 0.7, explanationText: "")
+        let ordinaryCandidate = try #require(service.bestCandidate(
+            candidates: [AlbumSearchResult(id: "ordinary.new", title: "Ordinary New", artistName: "Ordinary Artist", releaseYear: 2024, genreName: "Art Pop")],
+            logs: [anchor],
+            recommendations: [ordinaryHistory],
+            anchorProfiles: profiles,
+            mode: .balanced
+        ))
+
+        #expect(balanced.album.catalogID != "known.new")
+        #expect(ordinaryCandidate.album.catalogID == "ordinary.new")
+    }
+
     @Test func recommendationRankingExcludesEveryPriorExactAlbumAndBreaksTiesDeterministically() throws {
         let priorAlbum = Album(appleMusicID: "a", title: "Prior", artistName: "Artist")
         let prior = Recommendation(album: priorAlbum, score: 0.5, confidence: 0.5, status: RecommendationStatus.saved.rawValue, explanationText: "")
@@ -4458,23 +4707,67 @@ private final class RecordingAlbumCatalogService: AlbumCatalogServiceProtocol {
     }
 }
 
+private actor AppleMusicRecommendationCallRecorder {
+    private(set) var personalRecommendationRequests = 0
+    private(set) var similarArtistRequests = 0
+    private(set) var artistLibraryRequests = 0
+
+    func recordPersonalRecommendationRequest() {
+        personalRecommendationRequests += 1
+    }
+
+    func recordSimilarArtistRequest() {
+        similarArtistRequests += 1
+    }
+
+    func recordArtistLibraryRequest() {
+        artistLibraryRequests += 1
+    }
+
+    func counts() -> (personalRecommendationRequests: Int, similarArtistRequests: Int, artistLibraryRequests: Int) {
+        (personalRecommendationRequests, similarArtistRequests, artistLibraryRequests)
+    }
+}
+
 private struct RecordingAppleMusicRecommendationService: AppleMusicRecommendationServiceProtocol {
     let personalRecommendations: [AlbumSearchResult]
     let recentlyPlayedAlbums: [AlbumSearchResult]
     let libraryCatalogIDs: Set<String>
+    let failingLibraryCatalogIDs: Set<String>
+    let shouldThrowPersonalRecommendations: Bool
+    let shouldThrowArtistLibraryLookup: Bool
+    let relatedAlbumsByAnchorID: [String: [AlbumSearchResult]]
+    let similarAlbumsByAnchorID: [String: [AlbumSearchResult]]
+    let callRecorder: AppleMusicRecommendationCallRecorder?
 
     init(
         personalRecommendations: [AlbumSearchResult],
         recentlyPlayedAlbums: [AlbumSearchResult] = [],
-        libraryCatalogIDs: Set<String> = []
+        libraryCatalogIDs: Set<String> = [],
+        failingLibraryCatalogIDs: Set<String> = [],
+        shouldThrowPersonalRecommendations: Bool = false,
+        shouldThrowArtistLibraryLookup: Bool = false,
+        relatedAlbumsByAnchorID: [String: [AlbumSearchResult]] = [:],
+        similarAlbumsByAnchorID: [String: [AlbumSearchResult]] = [:],
+        callRecorder: AppleMusicRecommendationCallRecorder? = nil
     ) {
         self.personalRecommendations = personalRecommendations
         self.recentlyPlayedAlbums = recentlyPlayedAlbums
         self.libraryCatalogIDs = libraryCatalogIDs
+        self.failingLibraryCatalogIDs = failingLibraryCatalogIDs
+        self.shouldThrowPersonalRecommendations = shouldThrowPersonalRecommendations
+        self.shouldThrowArtistLibraryLookup = shouldThrowArtistLibraryLookup
+        self.relatedAlbumsByAnchorID = relatedAlbumsByAnchorID
+        self.similarAlbumsByAnchorID = similarAlbumsByAnchorID
+        self.callRecorder = callRecorder
     }
 
     func recommendedAlbums(limit: Int) async throws -> [AlbumSearchResult] {
-        Array(personalRecommendations.prefix(limit))
+        await callRecorder?.recordPersonalRecommendationRequest()
+        if shouldThrowPersonalRecommendations {
+            throw ThrowingAppleMusicRecommendationError.failed
+        }
+        return Array(personalRecommendations.prefix(limit))
     }
 
     func recentlyPlayedAlbums(limit: Int) async throws -> [AlbumSearchResult] {
@@ -4482,7 +4775,27 @@ private struct RecordingAppleMusicRecommendationService: AppleMusicRecommendatio
     }
 
     func containsInLibrary(_ album: AlbumSearchResult) async throws -> Bool {
-        libraryCatalogIDs.contains(album.catalogID)
+        if failingLibraryCatalogIDs.contains(album.catalogID) {
+            throw ThrowingAppleMusicRecommendationError.failed
+        }
+        return libraryCatalogIDs.contains(album.catalogID)
+    }
+
+    func containsArtistInLibrary(named artistName: String) async throws -> Bool {
+        await callRecorder?.recordArtistLibraryRequest()
+        if shouldThrowArtistLibraryLookup {
+            throw ThrowingAppleMusicRecommendationError.failed
+        }
+        return false
+    }
+
+    func relatedAlbums(for anchor: AlbumSearchResult, limit: Int) async throws -> [AlbumSearchResult] {
+        Array((relatedAlbumsByAnchorID[anchor.catalogID] ?? []).prefix(limit))
+    }
+
+    func similarArtistAlbums(for anchor: AlbumSearchResult, artistLimit: Int, albumLimit: Int) async throws -> [AlbumSearchResult] {
+        await callRecorder?.recordSimilarArtistRequest()
+        return Array((similarAlbumsByAnchorID[anchor.catalogID] ?? []).prefix(albumLimit))
     }
 }
 

@@ -738,9 +738,9 @@ final class ListendUITests: XCTestCase {
         app.buttons["Familiar"].tap()
         XCTAssertTrue(app.staticTexts["Stays close to the artists, genres, eras, and tags you already love."].waitForExistence(timeout: 2))
         app.buttons["Balanced"].tap()
-        XCTAssertTrue(app.staticTexts["Uses a mix of familiarity and discovery, matching Today's Pick's original behavior."].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Starts with new artists connected to the albums you love, then keeps quality in the mix."].waitForExistence(timeout: 2))
         app.buttons["Adventurous"].tap()
-        XCTAssertTrue(app.staticTexts["Explores new artists and adjacent sounds, always tied back to your logs."].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Pushes further into new artists, always with a clear connection to your logs."].waitForExistence(timeout: 2))
 
         app.navigationBars.buttons.element(boundBy: 0).tap()
         app.buttons["findTodayPickButton"].tap()
@@ -780,6 +780,25 @@ final class ListendUITests: XCTestCase {
 
         XCTAssertTrue(app.buttons["likeRecommendationButton"].waitForExistence(timeout: 5))
         assertPreviewUnavailableAfterTap()
+    }
+
+    @MainActor
+    func testTodayPickDismissDialogSeparatesAlreadyKnownFromTasteDismissal() throws {
+        launchResetApp(additionalArguments: ["-seed-today-pick-eligible"])
+
+        openTab("Home")
+        app.buttons["todayPickLink"].tap()
+        app.buttons["findTodayPickButton"].tap()
+        XCTAssertTrue(app.buttons["dismissRecommendationButton"].waitForExistence(timeout: 5))
+        app.buttons["dismissRecommendationButton"].tap()
+
+        let alreadyKnownAction = app.buttons["Already know this"].firstMatch
+        let notForMeAction = app.buttons["Not for me"].firstMatch
+        XCTAssertTrue(alreadyKnownAction.waitForExistence(timeout: 5))
+        XCTAssertTrue(notForMeAction.exists)
+        alreadyKnownAction.tap()
+        XCTAssertTrue(app.buttons["findTodayPickButton"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["dismissRecommendationButton"].waitForNonExistence(timeout: 5))
     }
 
     private func launchResetApp(additionalArguments: [String] = []) {

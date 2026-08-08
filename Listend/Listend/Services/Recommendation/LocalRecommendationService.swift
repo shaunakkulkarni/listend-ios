@@ -950,14 +950,16 @@ struct LocalRecommendationService {
         } else {
             relevantProfiles = candidateRelevantPositiveProfiles(candidate, profiles: anchorProfiles)
         }
-        let receiptsAndProfiles = relevantProfiles.compactMap { profile -> (PendingRecommendationReceipt, RecommendationAnchorProfile)? in
+        let receiptCandidates = relevantProfiles.compactMap { profile -> (PendingRecommendationReceipt, RecommendationAnchorProfile)? in
             guard let receipt = makeReceipt(from: profile, candidate: candidate) else { return nil }
             return (receipt, profile)
         }
-        .prefix(2)
+        let receiptsAndProfiles = receiptCandidates.prefix(3)
         let receipts = receiptsAndProfiles.map(\.0)
-        let receiptProfiles = receiptsAndProfiles.map(\.1)
-        let confidenceCap: Double = if receipts.isEmpty {
+        // Keep confidence behavior tied to the original two strongest profiles;
+        // the third snapshot only adds a more useful receipt surface.
+        let receiptProfiles = receiptCandidates.prefix(2).map(\.1)
+        let confidenceCap: Double = if receiptCandidates.isEmpty {
             0.55
         } else if receiptProfiles.allSatisfy({ $0.hasPositiveEvidence && !$0.hasAvoidanceEvidence }) {
             0.85

@@ -45,4 +45,18 @@ struct FallbackAlbumCatalogService: AlbumCatalogServiceProtocol {
             return try await fallback.albumDetails(id: id)
         }
     }
+
+    func appleMusicURL(for id: String) async throws -> URL? {
+        do {
+            if let url = try await primary.appleMusicURL(for: id) {
+                return url
+            }
+
+            return try await fallback.appleMusicURL(for: id)
+        } catch is CancellationError {
+            return try await fallback.appleMusicURL(for: id)
+        } catch {
+            return try await fallback.appleMusicURL(for: id)
+        }
+    }
 }

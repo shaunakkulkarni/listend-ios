@@ -672,6 +672,44 @@ final class ListendUITests: XCTestCase {
     }
 
     @MainActor
+    func testTodayPickShowsWhyReceiptsAppleMusicActionAndRetainsPreviewAndFeedback() throws {
+        launchResetApp(additionalArguments: [
+            "-seed-today-pick-eligible",
+            "-seed-today-pick-rich-receipts",
+            "-seed-today-pick-apple-music-url"
+        ])
+
+        openTab("Home")
+        app.buttons["todayPickLink"].tap()
+        if app.buttons["findTodayPickButton"].waitForExistence(timeout: 3) {
+            app.buttons["findTodayPickButton"].tap()
+        }
+
+        XCTAssertTrue(app.buttons["likeRecommendationButton"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["saveRecommendationButton"].exists)
+        XCTAssertTrue(app.buttons["albumPreviewButton"].exists)
+        XCTAssertTrue(app.staticTexts["Why this pick"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["todayPickWhyText"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Receipts"].exists)
+        app.swipeUp()
+        XCTAssertTrue(app.descendants(matching: .any)["todayPickReceiptHeadline-0"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["openInAppleMusicButton"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testTodayPickOmitsAppleMusicActionWhenURLIsUnavailable() throws {
+        launchResetApp(additionalArguments: ["-seed-today-pick-eligible"])
+
+        openTab("Home")
+        app.buttons["todayPickLink"].tap()
+        app.buttons["findTodayPickButton"].tap()
+
+        XCTAssertTrue(app.buttons["likeRecommendationButton"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["albumPreviewButton"].exists)
+        XCTAssertTrue(app.buttons["openInAppleMusicButton"].waitForNonExistence(timeout: 3))
+    }
+
+    @MainActor
     func testTodayPickSavePersistsInSavedPicksAndUsesSharedMatchLabel() throws {
         launchResetApp(additionalArguments: ["-seed-today-pick-eligible"])
 

@@ -87,7 +87,7 @@ final class ListendUITests: XCTestCase {
         launchResetApp()
 
         XCTAssertTrue(app.staticTexts["Listend"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["addLogButton"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["homeActivationActionButton"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Recently Played"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.descendants(matching: .any)["recentLogsSection"].exists)
         XCTAssertFalse(app.buttons["homeSoundPrintLink"].exists)
@@ -214,7 +214,7 @@ final class ListendUITests: XCTestCase {
     func testAddLogChooserAutoLoadsRecentAlbumAndOpensEditor() throws {
         launchResetApp()
 
-        app.buttons["addLogButton"].tap()
+        app.buttons["homeActivationActionButton"].tap()
 
         XCTAssertTrue(app.navigationBars["Choose Album"].waitForExistence(timeout: 5))
         let recentAlbum = app.buttons["albumSelectionRecent-mock.frank-ocean.blonde"]
@@ -234,7 +234,7 @@ final class ListendUITests: XCTestCase {
     func testAddLogChooserSearchResultOpensEditor() throws {
         launchResetApp()
 
-        app.buttons["addLogButton"].tap()
+        app.buttons["homeActivationActionButton"].tap()
         XCTAssertTrue(app.navigationBars["Choose Album"].waitForExistence(timeout: 5))
 
         let searchField = app.searchFields["Album, artist, or genre"]
@@ -839,15 +839,19 @@ final class ListendUITests: XCTestCase {
         XCTAssertTrue(app.buttons["dismissRecommendationButton"].waitForNonExistence(timeout: 5))
     }
 
-    private func launchResetApp(additionalArguments: [String] = []) {
-        app.launchArguments = ["-ui-testing", "-reset-ui-testing-data"] + additionalArguments
+    private func launchResetApp(additionalArguments: [String] = [], bypassOnboarding: Bool = true) {
+        let onboardingArguments = bypassOnboarding ? ["-bypass-onboarding"] : []
+        app.launchArguments = ["-ui-testing", "-reset-ui-testing-data"]
+            + onboardingArguments
+            + additionalArguments
         configureUITestingStore()
         app.launch()
     }
 
-    private func launchAppPreservingData(additionalArguments: [String] = []) {
+    private func launchAppPreservingData(additionalArguments: [String] = [], bypassOnboarding: Bool = true) {
         app = XCUIApplication()
-        app.launchArguments = ["-ui-testing"] + additionalArguments
+        let onboardingArguments = bypassOnboarding ? ["-bypass-onboarding"] : []
+        app.launchArguments = ["-ui-testing"] + onboardingArguments + additionalArguments
         configureUITestingStore()
         app.launch()
     }

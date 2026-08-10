@@ -17,7 +17,7 @@ final class TasteInsightsScreenshotTests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["-ui-testing", "-reset-ui-testing-data"]
+        app.launchArguments = ["-ui-testing", "-reset-ui-testing-data", "-bypass-onboarding"]
         app.launchEnvironment["LISTEND_UI_TEST_STORE_ID"] = uiTestingStoreID
         app.launch()
     }

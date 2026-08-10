@@ -18,6 +18,8 @@ struct ListendApp: App {
     private let albumPreviewService: AlbumPreviewServiceProtocol
     private let albumTrackService: AlbumTrackServiceProtocol
     private let appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol?
+    private let appleMusicAuthorizationService: AppleMusicAuthorizationServiceProtocol
+    private let launchConfiguration: ActivationLaunchConfiguration
 
     var sharedModelContainer: ModelContainer = {
         let arguments = ProcessInfo.processInfo.arguments
@@ -34,6 +36,7 @@ struct ListendApp: App {
                 resetStore(at: storeURL)
                 UserDefaults.standard.removeObject(forKey: TodayPickPreferenceKey.recommendationMode)
                 UserDefaults.standard.removeObject(forKey: SoundPrintPreferenceKey.reflectionNeedsRefresh)
+                OnboardingPreferences().resetForUITesting()
             }
 
             modelConfiguration = ModelConfiguration("ListendUITests", schema: schema, url: storeURL)
@@ -193,11 +196,17 @@ struct ListendApp: App {
     }()
 
     init() {
+        let launchConfiguration = ActivationLaunchConfiguration()
+
+        self.launchConfiguration = launchConfiguration
         catalogService = Self.makeCatalogService()
         recentlyPlayedAlbumService = Self.makeRecentlyPlayedAlbumService()
         albumPreviewService = Self.makeAlbumPreviewService()
         albumTrackService = Self.makeAlbumTrackService()
         appleMusicRecommendationService = Self.makeAppleMusicRecommendationService()
+        appleMusicAuthorizationService = Self.makeAppleMusicAuthorizationService(
+            launchConfiguration: launchConfiguration
+        )
     }
 
     var body: some Scene {
@@ -206,12 +215,14 @@ struct ListendApp: App {
         )
 
         WindowGroup {
-            ContentView(
+            AppRootView(
                 catalogService: catalogService,
                 recentlyPlayedAlbumService: recentlyPlayedAlbumService,
-                appleMusicRecommendationService: appleMusicRecommendationService
+                appleMusicRecommendationService: appleMusicRecommendationService,
+                launchConfiguration: launchConfiguration
             )
                 .environment(soundPrintRefreshCoordinator)
+                .environment(\.appleMusicAuthorizationService, appleMusicAuthorizationService)
                 .environment(\.soundPrintProvider, Self.makeSoundPrintProvider(
                     preferAppleIntelligence: SandboxMode.isEnabled && sandboxIntelligenceProvider == .onDevice
                         ? true
@@ -267,6 +278,19 @@ struct ListendApp: App {
         }
 
         return AppleMusicRecommendationService()
+    }
+
+    private static func makeAppleMusicAuthorizationService(
+        launchConfiguration: ActivationLaunchConfiguration
+    ) -> AppleMusicAuthorizationServiceProtocol {
+        if SandboxMode.isEnabled || launchConfiguration.isUITesting {
+            return MockAppleMusicAuthorizationService(
+                initialState: launchConfiguration.appleMusicAuthorizationInitialState ?? .notDetermined,
+                requestResult: launchConfiguration.appleMusicAuthorizationRequestResult ?? .authorized
+            )
+        }
+
+        return MusicKitAppleMusicAuthorizationService()
     }
 
     private static func makeSoundPrintProvider(

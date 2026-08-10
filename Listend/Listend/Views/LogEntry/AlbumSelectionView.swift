@@ -31,6 +31,7 @@ struct AlbumSelectionView: View {
 
     private let catalogService: AlbumCatalogServiceProtocol
     private let recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol
+    private let automaticallyLoadsRecentlyPlayed: Bool
     private let selectAlbum: (Album) -> Void
 
     @State private var query = ""
@@ -46,10 +47,12 @@ struct AlbumSelectionView: View {
     init(
         catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService(),
         recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol = MockRecentlyPlayedAlbumService(),
+        automaticallyLoadsRecentlyPlayed: Bool = true,
         selectAlbum: @escaping (Album) -> Void
     ) {
         self.catalogService = catalogService
         self.recentlyPlayedAlbumService = recentlyPlayedAlbumService
+        self.automaticallyLoadsRecentlyPlayed = automaticallyLoadsRecentlyPlayed
         self.selectAlbum = selectAlbum
     }
 
@@ -95,7 +98,9 @@ struct AlbumSelectionView: View {
         }
         .searchable(text: $query, prompt: "Album, artist, or genre")
         .task {
-            await loadRecentlyPlayedAlbums()
+            if automaticallyLoadsRecentlyPlayed {
+                await loadRecentlyPlayedAlbums()
+            }
         }
         .task(id: trimmedQuery) {
             await searchTask(for: trimmedQuery)
@@ -140,12 +145,28 @@ struct AlbumSelectionView: View {
                 .accessibilityIdentifier("retryRecentlyPlayedAlbumsButton")
             }
             .padding(.vertical, 4)
-        } else {
+        } else if automaticallyLoadsRecentlyPlayed || didLoadRecentlyPlayed {
             ContentUnavailableView(
                 (didLoadRecentlyPlayed || !cachedRecentlyPlayedAlbumSnapshots.isEmpty) ? "No Recent Albums" : "Loading Recent Albums",
                 systemImage: "music.note",
                 description: Text((didLoadRecentlyPlayed || !cachedRecentlyPlayedAlbumSnapshots.isEmpty) ? "Search Apple Music to choose an album." : "Checking Apple Music for recent albums.")
             )
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Bring in recent albums", systemImage: "music.note")
+                    .font(.headline)
+
+                Text("Load from Apple Music when you are ready, or search for an album below.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                Button("Load from Apple Music") {
+                    requestRecentlyPlayedAlbums()
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("loadAlbumSelectionRecentlyPlayedButton")
+            }
+            .padding(.vertical, 4)
         }
     }
 

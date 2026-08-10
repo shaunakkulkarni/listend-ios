@@ -19,17 +19,25 @@ struct ContentView: View {
     private let catalogService: AlbumCatalogServiceProtocol
     private let recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol
     private let appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol?
+    private let authorizationRefreshID: Int
+    private let replayIntroduction: () -> Void
 
     @State private var selectedTab: ListendTab = .home
+    @State private var profileNavigationPath = NavigationPath()
+    @State private var profileNavigationStackID = UUID()
 
     init(
         catalogService: AlbumCatalogServiceProtocol = MockAlbumCatalogService(),
         recentlyPlayedAlbumService: RecentlyPlayedAlbumServiceProtocol = MockRecentlyPlayedAlbumService(),
-        appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol? = nil
+        appleMusicRecommendationService: AppleMusicRecommendationServiceProtocol? = nil,
+        authorizationRefreshID: Int = 0,
+        replayIntroduction: @escaping () -> Void = {}
     ) {
         self.catalogService = catalogService
         self.recentlyPlayedAlbumService = recentlyPlayedAlbumService
         self.appleMusicRecommendationService = appleMusicRecommendationService
+        self.authorizationRefreshID = authorizationRefreshID
+        self.replayIntroduction = replayIntroduction
     }
 
     var body: some View {
@@ -39,7 +47,11 @@ struct ContentView: View {
                     catalogService: catalogService,
                     recentlyPlayedAlbumService: recentlyPlayedAlbumService,
                     appleMusicRecommendationService: appleMusicRecommendationService,
-                    switchToProfileTab: { selectedTab = .profile }
+                    switchToProfileTab: {
+                        profileNavigationPath = NavigationPath()
+                        profileNavigationStackID = UUID()
+                        selectedTab = .profile
+                    }
                 )
             }
             .tabItem {
@@ -66,9 +78,13 @@ struct ContentView: View {
             .tag(ListendTab.search)
             .accessibilityIdentifier("searchTab")
 
-            NavigationStack {
-                ProfileView()
+            NavigationStack(path: $profileNavigationPath) {
+                ProfileView(
+                    authorizationRefreshID: authorizationRefreshID,
+                    replayIntroduction: replayIntroduction
+                )
             }
+            .id(profileNavigationStackID)
             .tabItem {
                 Label("Profile", systemImage: "person.crop.circle")
             }

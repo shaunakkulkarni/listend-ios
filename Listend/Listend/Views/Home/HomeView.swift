@@ -21,6 +21,8 @@ struct HomeView: View {
     @Query(sort: \SoundPrintPersona.generatedAt, order: .reverse) private var personas: [SoundPrintPersona]
     @Query(sort: \Recommendation.createdAt, order: .reverse) private var recommendations: [Recommendation]
     @Query(sort: \RecentlyPlayedAlbumSnapshot.sortOrder) private var cachedRecentlyPlayedAlbumSnapshots: [RecentlyPlayedAlbumSnapshot]
+    @Query private var tasteEvidence: [TasteEvidence]
+    @Query private var tasteDimensions: [TasteDimension]
     @State private var isShowingNewLog = false
     @State private var albumForNewLog: Album?
     @State private var recentlyPlayedAlbums: [AlbumSearchResult] = []
@@ -48,8 +50,16 @@ struct HomeView: View {
                     logCount: logs.count,
                     averageRatingText: averageRatingText,
                     latestLogDate: logs.first?.loggedAt,
+                    showsAddLogAction: !activationPresentation.isVisible,
                     addLog: showNewLog
                 )
+
+                if activationPresentation.isVisible {
+                    HomeActivationModule(
+                        presentation: activationPresentation,
+                        primaryAction: performActivationAction
+                    )
+                }
 
                 NavigationLink {
                     TodayPickView(
@@ -89,6 +99,10 @@ struct HomeView: View {
                     .accessibilityLabel(currentReflection.accessibilitySummary)
                     .accessibilityHint("Opens your SoundPrint Reflection in Profile.")
                     .accessibilityIdentifier("homeSoundPrintLink")
+                }
+
+                if !latestTasteSignals.isEmpty {
+                    LatestTasteSignalLine(signals: latestTasteSignals)
                 }
 
                 LatestLogPreviewSection(log: logs.first)
@@ -131,6 +145,29 @@ struct HomeView: View {
         }
 
         return persona
+    }
+
+    private var activationPresentation: HomeActivationPresentation {
+        HomeActivationPresentation.resolve(
+            logCount: logs.count,
+            representedLogCount: currentReflection?.logCountAtGeneration
+        )
+    }
+
+    private var latestTasteSignals: [LatestTasteSignal] {
+        guard let latestLog = logs.first,
+              LatestTasteSignalSelector.hasFreshProfile(
+                logUpdatedAt: latestLog.updatedAt,
+                profileUpdatedAt: tasteDimensions.map(\.updatedAt).max()
+              ) else {
+            return []
+        }
+
+        return LatestTasteSignalSelector.select(
+            latestLogID: latestLog.id,
+            evidence: tasteEvidence,
+            dimensions: tasteDimensions
+        )
     }
 
     private var activeRecommendation: Recommendation? {
@@ -190,6 +227,17 @@ struct HomeView: View {
         isShowingNewLog = true
     }
 
+    private func performActivationAction() {
+        switch activationPresentation.phase {
+        case .empty, .collecting:
+            showNewLog()
+        case .readyToCreate:
+            switchToProfileTab()
+        case .hidden:
+            break
+        }
+    }
+
     private func requestRecentlyPlayedAlbums() {
         Task {
             await loadRecentlyPlayedAlbums()
@@ -235,6 +283,7 @@ private struct HomeIdentityHeader: View {
     let logCount: Int
     let averageRatingText: String
     let latestLogDate: Date?
+    let showsAddLogAction: Bool
     let addLog: () -> Void
 
     var body: some View {
@@ -254,18 +303,22 @@ private struct HomeIdentityHeader: View {
                 HomeStatNumeral(value: averageRatingText, label: "Average")
             }
 
-            HStack(alignment: .center, spacing: ListendSpacing.md) {
-                Button(action: addLog) {
-                    Label("Add Log", systemImage: "plus")
-                }
-                .listendProminentButtonStyle()
-                .accessibilityIdentifier("addLogButton")
+            if showsAddLogAction || latestLogDate != nil {
+                HStack(alignment: .center, spacing: ListendSpacing.md) {
+                    if showsAddLogAction {
+                        Button(action: addLog) {
+                            Label("Add Log", systemImage: "plus")
+                        }
+                        .listendProminentButtonStyle()
+                        .accessibilityIdentifier("addLogButton")
+                    }
 
-                if let latestLogDate {
-                    Text("Last logged \(latestLogDate, format: .relative(presentation: .named))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                    if let latestLogDate {
+                        Text("Last logged \(latestLogDate, format: .relative(presentation: .named))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
                 }
             }
         }

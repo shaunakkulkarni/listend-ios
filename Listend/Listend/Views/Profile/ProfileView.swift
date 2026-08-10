@@ -16,6 +16,17 @@ struct ProfileView: View {
     @Query private var logs: [LogEntry]
     @Query(sort: \SoundPrintPersona.generatedAt, order: .reverse) private var personas: [SoundPrintPersona]
 
+    private let authorizationRefreshID: Int
+    private let replayIntroduction: () -> Void
+
+    init(
+        authorizationRefreshID: Int = 0,
+        replayIntroduction: @escaping () -> Void = {}
+    ) {
+        self.authorizationRefreshID = authorizationRefreshID
+        self.replayIntroduction = replayIntroduction
+    }
+
     var body: some View {
         List {
             Section("Stats") {
@@ -72,6 +83,19 @@ struct ProfileView: View {
         .scrollContentBackground(.hidden)
         .background(Color.listendPaper)
         .navigationTitle("Profile")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                NavigationLink {
+                    GeneralSettingsView(
+                        authorizationRefreshID: authorizationRefreshID,
+                        replayIntroduction: replayIntroduction
+                    )
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+                .accessibilityIdentifier("generalSettingsLink")
+            }
+        }
     }
 
     private var averageRatingText: String {

@@ -1,0 +1,657 @@
+{
+  "appId": "6767377515",
+  "versionId": "80632ac5-a7d5-4108-a68f-8b311e79397b",
+  "versionString": "1.0",
+  "platform": "IOS",
+  "summary": {
+    "errors": 35,
+    "warnings": 1,
+    "infos": 1,
+    "blocking": 35
+  },
+  "remediation": {
+    "totalActionable": 37,
+    "steps": [
+      {
+        "order": 1,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "metadata.required.description",
+        "message": "description is required",
+        "remediation": "Provide a description for this localization",
+        "locale": "en-US",
+        "field": "description",
+        "resourceType": "appStoreVersionLocalization",
+        "resourceId": "cb47c424-244e-4a79-b981-367a35e05ef1"
+      },
+      {
+        "order": 2,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "metadata.required.keywords",
+        "message": "keywords are required",
+        "remediation": "Provide keywords for this localization",
+        "locale": "en-US",
+        "field": "keywords",
+        "resourceType": "appStoreVersionLocalization",
+        "resourceId": "cb47c424-244e-4a79-b981-367a35e05ef1"
+      },
+      {
+        "order": 3,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "metadata.required.support_url",
+        "message": "support URL is required",
+        "remediation": "Provide a support URL for this localization",
+        "locale": "en-US",
+        "field": "supportUrl",
+        "resourceType": "appStoreVersionLocalization",
+        "resourceId": "cb47c424-244e-4a79-b981-367a35e05ef1"
+      },
+      {
+        "order": 4,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "review_details.missing_field",
+        "message": "review detail field is missing",
+        "remediation": "Complete App Store review details in App Store Connect",
+        "field": "contactFirstName",
+        "resourceType": "appStoreReviewDetail"
+      },
+      {
+        "order": 5,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "review_details.missing_field",
+        "message": "review detail field is missing",
+        "remediation": "Complete App Store review details in App Store Connect",
+        "field": "contactLastName",
+        "resourceType": "appStoreReviewDetail"
+      },
+      {
+        "order": 6,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "review_details.missing_field",
+        "message": "review detail field is missing",
+        "remediation": "Complete App Store review details in App Store Connect",
+        "field": "contactEmail",
+        "resourceType": "appStoreReviewDetail"
+      },
+      {
+        "order": 7,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "review_details.missing_field",
+        "message": "review detail field is missing",
+        "remediation": "Complete App Store review details in App Store Connect",
+        "field": "contactPhone",
+        "resourceType": "appStoreReviewDetail"
+      },
+      {
+        "order": 8,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "categories.primary_missing",
+        "message": "primary category is not set",
+        "remediation": "Set a primary category in App Store Connect (App Information)",
+        "field": "primaryCategory",
+        "resourceType": "appInfo",
+        "resourceId": "c71863e2-358d-4bb2-aac8-23770a4b990b"
+      },
+      {
+        "order": 9,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "content_rights.missing",
+        "message": "content rights declaration is not set",
+        "remediation": "Set content rights: asc apps update --id 6767377515 --content-rights DOES_NOT_USE_THIRD_PARTY_CONTENT",
+        "field": "contentRightsDeclaration",
+        "resourceType": "app",
+        "resourceId": "6767377515"
+      },
+      {
+        "order": 10,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "build.required.missing",
+        "message": "no build attached to app store version",
+        "remediation": "Select a build for this version in App Store Connect",
+        "resourceType": "build"
+      },
+      {
+        "order": 11,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "availability.missing",
+        "message": "app availability is missing",
+        "remediation": "Configure availability for the app in App Store Connect (Pricing and Availability)",
+        "field": "appAvailabilityV2",
+        "resourceType": "app",
+        "resourceId": "6767377515"
+      },
+      {
+        "order": 12,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "screenshots.required.any",
+        "message": "no screenshot sets found",
+        "remediation": "Upload screenshots for at least one required device size in App Store Connect"
+      },
+      {
+        "order": 13,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "advertising"
+      },
+      {
+        "order": 14,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "gambling"
+      },
+      {
+        "order": 15,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "healthOrWellnessTopics"
+      },
+      {
+        "order": 16,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "lootBox"
+      },
+      {
+        "order": 17,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "messagingAndChat"
+      },
+      {
+        "order": 18,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "parentalControls"
+      },
+      {
+        "order": 19,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "ageAssurance"
+      },
+      {
+        "order": 20,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "unrestrictedWebAccess"
+      },
+      {
+        "order": 21,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "userGeneratedContent"
+      },
+      {
+        "order": 22,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "alcoholTobaccoOrDrugUseOrReferences"
+      },
+      {
+        "order": 23,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "contests"
+      },
+      {
+        "order": 24,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "gamblingSimulated"
+      },
+      {
+        "order": 25,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "gunsOrOtherWeapons"
+      },
+      {
+        "order": 26,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "medicalOrTreatmentInformation"
+      },
+      {
+        "order": 27,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "profanityOrCrudeHumor"
+      },
+      {
+        "order": 28,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "sexualContentGraphicAndNudity"
+      },
+      {
+        "order": 29,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "sexualContentOrNudity"
+      },
+      {
+        "order": 30,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "horrorOrFearThemes"
+      },
+      {
+        "order": 31,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "matureOrSuggestiveThemes"
+      },
+      {
+        "order": 32,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "violenceCartoonOrFantasy"
+      },
+      {
+        "order": 33,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "violenceRealistic"
+      },
+      {
+        "order": 34,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "age_rating.missing_field",
+        "message": "age rating field is missing",
+        "remediation": "Complete the age rating declaration in App Store Connect",
+        "field": "violenceRealisticProlongedGraphicOrSadistic"
+      },
+      {
+        "order": 35,
+        "blocking": true,
+        "severity": "error",
+        "checkId": "legal.required.copyright",
+        "message": "copyright is required",
+        "remediation": "Set copyright via: asc versions update --version-id VERSION_ID --copyright \"2026 Your Company\"",
+        "field": "copyright",
+        "resourceType": "appStoreVersion"
+      },
+      {
+        "order": 36,
+        "blocking": false,
+        "severity": "warning",
+        "checkId": "metadata.recommended.privacy_policy_url",
+        "message": "privacy policy URL is empty",
+        "remediation": "Provide a privacy policy URL for this localization",
+        "locale": "en-US",
+        "field": "privacyPolicyUrl",
+        "resourceType": "appInfoLocalization",
+        "resourceId": "19b550f3-431a-48d8-8f9e-0a8c5933afa7"
+      },
+      {
+        "order": 37,
+        "blocking": false,
+        "severity": "info",
+        "checkId": "privacy.publish_state.unverified",
+        "message": "App Privacy publish state is not verifiable via the public App Store Connect API and may still block submission",
+        "remediation": "Confirm App Privacy is published in App Store Connect before submitting: https://appstoreconnect.apple.com/apps/6767377515/appPrivacy",
+        "resourceType": "appPrivacy",
+        "resourceId": "6767377515"
+      }
+    ]
+  },
+  "checks": [
+    {
+      "id": "metadata.required.description",
+      "severity": "error",
+      "message": "description is required",
+      "remediation": "Provide a description for this localization",
+      "locale": "en-US",
+      "field": "description",
+      "resourceType": "appStoreVersionLocalization",
+      "resourceId": "cb47c424-244e-4a79-b981-367a35e05ef1"
+    },
+    {
+      "id": "metadata.required.keywords",
+      "severity": "error",
+      "message": "keywords are required",
+      "remediation": "Provide keywords for this localization",
+      "locale": "en-US",
+      "field": "keywords",
+      "resourceType": "appStoreVersionLocalization",
+      "resourceId": "cb47c424-244e-4a79-b981-367a35e05ef1"
+    },
+    {
+      "id": "metadata.required.support_url",
+      "severity": "error",
+      "message": "support URL is required",
+      "remediation": "Provide a support URL for this localization",
+      "locale": "en-US",
+      "field": "supportUrl",
+      "resourceType": "appStoreVersionLocalization",
+      "resourceId": "cb47c424-244e-4a79-b981-367a35e05ef1"
+    },
+    {
+      "id": "metadata.recommended.privacy_policy_url",
+      "severity": "warning",
+      "message": "privacy policy URL is empty",
+      "remediation": "Provide a privacy policy URL for this localization",
+      "locale": "en-US",
+      "field": "privacyPolicyUrl",
+      "resourceType": "appInfoLocalization",
+      "resourceId": "19b550f3-431a-48d8-8f9e-0a8c5933afa7"
+    },
+    {
+      "id": "review_details.missing_field",
+      "severity": "error",
+      "message": "review detail field is missing",
+      "remediation": "Complete App Store review details in App Store Connect",
+      "field": "contactFirstName",
+      "resourceType": "appStoreReviewDetail"
+    },
+    {
+      "id": "review_details.missing_field",
+      "severity": "error",
+      "message": "review detail field is missing",
+      "remediation": "Complete App Store review details in App Store Connect",
+      "field": "contactLastName",
+      "resourceType": "appStoreReviewDetail"
+    },
+    {
+      "id": "review_details.missing_field",
+      "severity": "error",
+      "message": "review detail field is missing",
+      "remediation": "Complete App Store review details in App Store Connect",
+      "field": "contactEmail",
+      "resourceType": "appStoreReviewDetail"
+    },
+    {
+      "id": "review_details.missing_field",
+      "severity": "error",
+      "message": "review detail field is missing",
+      "remediation": "Complete App Store review details in App Store Connect",
+      "field": "contactPhone",
+      "resourceType": "appStoreReviewDetail"
+    },
+    {
+      "id": "categories.primary_missing",
+      "severity": "error",
+      "message": "primary category is not set",
+      "remediation": "Set a primary category in App Store Connect (App Information)",
+      "field": "primaryCategory",
+      "resourceType": "appInfo",
+      "resourceId": "c71863e2-358d-4bb2-aac8-23770a4b990b"
+    },
+    {
+      "id": "content_rights.missing",
+      "severity": "error",
+      "message": "content rights declaration is not set",
+      "remediation": "Set content rights: asc apps update --id 6767377515 --content-rights DOES_NOT_USE_THIRD_PARTY_CONTENT",
+      "field": "contentRightsDeclaration",
+      "resourceType": "app",
+      "resourceId": "6767377515"
+    },
+    {
+      "id": "build.required.missing",
+      "severity": "error",
+      "message": "no build attached to app store version",
+      "remediation": "Select a build for this version in App Store Connect",
+      "resourceType": "build"
+    },
+    {
+      "id": "availability.missing",
+      "severity": "error",
+      "message": "app availability is missing",
+      "remediation": "Configure availability for the app in App Store Connect (Pricing and Availability)",
+      "field": "appAvailabilityV2",
+      "resourceType": "app",
+      "resourceId": "6767377515"
+    },
+    {
+      "id": "screenshots.required.any",
+      "severity": "error",
+      "message": "no screenshot sets found",
+      "remediation": "Upload screenshots for at least one required device size in App Store Connect"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "advertising"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "gambling"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "healthOrWellnessTopics"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "lootBox"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "messagingAndChat"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "parentalControls"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "ageAssurance"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "unrestrictedWebAccess"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "userGeneratedContent"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "alcoholTobaccoOrDrugUseOrReferences"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "contests"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "gamblingSimulated"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "gunsOrOtherWeapons"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "medicalOrTreatmentInformation"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "profanityOrCrudeHumor"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "sexualContentGraphicAndNudity"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "sexualContentOrNudity"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "horrorOrFearThemes"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "matureOrSuggestiveThemes"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "violenceCartoonOrFantasy"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "violenceRealistic"
+    },
+    {
+      "id": "age_rating.missing_field",
+      "severity": "error",
+      "message": "age rating field is missing",
+      "remediation": "Complete the age rating declaration in App Store Connect",
+      "field": "violenceRealisticProlongedGraphicOrSadistic"
+    },
+    {
+      "id": "legal.required.copyright",
+      "severity": "error",
+      "message": "copyright is required",
+      "remediation": "Set copyright via: asc versions update --version-id VERSION_ID --copyright \"2026 Your Company\"",
+      "field": "copyright",
+      "resourceType": "appStoreVersion"
+    },
+    {
+      "id": "privacy.publish_state.unverified",
+      "severity": "info",
+      "message": "App Privacy publish state is not verifiable via the public App Store Connect API and may still block submission",
+      "remediation": "Confirm App Privacy is published in App Store Connect before submitting: https://appstoreconnect.apple.com/apps/6767377515/appPrivacy",
+      "resourceType": "appPrivacy",
+      "resourceId": "6767377515"
+    }
+  ]
+}

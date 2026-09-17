@@ -1,5 +1,7 @@
 # Listend Project Context for ChatGPT
 
+> Historical brief: this document predates the August onboarding, Settings, SoundPrint reflection, and discovery updates. Its gap list is not the current backlog. Use [Launch_Readiness.md](release/Launch_Readiness.md) and [Listend_Launch_Plan.md](Listend_Launch_Plan.md) for the current launch work.
+
 Use this file as a handoff brief when planning the next steps for Listend. It summarizes the current repo, what the app already does, the main architectural decisions, and the most useful directions for future feature work.
 
 ## Short Product Description
@@ -545,4 +547,3 @@ The highest-leverage next milestone is probably an evaluation and feedback loop 
 - Add visible explanation quality checks.
 
 Why this first: the app's central differentiator is "recommendations that understand what you liked and disliked." The current architecture supports this, but the recommendation algorithm is still simple. Improving it without an evaluation harness risks making behavior feel better in one case and worse elsewhere.
-

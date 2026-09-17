@@ -18,12 +18,12 @@ enum ListTextNormalizer {
         var normalizedValues: [String] = []
 
         for value in values {
-            let displayValue = displayTag(from: value)
+            let displayValue = TagTextNormalizer.displayValue(value)
             guard !displayValue.isEmpty else {
                 continue
             }
 
-            let key = normalizedTag(displayValue)
+            let key = TagTextNormalizer.comparisonKey(displayValue)
             guard !seen.contains(key) else {
                 continue
             }
@@ -121,14 +121,6 @@ enum ListTextNormalizer {
         case .trackNames:
             return normalizedTrackNames(values)
         }
-    }
-
-    private nonisolated static func normalizedTag(_ tag: String) -> String {
-        TagTextNormalizer.comparisonKey(tag)
-    }
-
-    private nonisolated static func displayTag(from tag: String) -> String {
-        TagTextNormalizer.displayValue(tag)
     }
 
     private nonisolated static func normalizedTrackNameKey(_ value: String) -> String {

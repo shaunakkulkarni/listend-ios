@@ -293,10 +293,7 @@ enum TodayPickPresentation {
             .split(whereSeparator: { $0 == " " })
             .joined(separator: " ")
         guard !collapsed.isEmpty else { return trimmed }
-        if collapsed.contains(" ") {
-            return collapsed.lowercased().capitalized
-        }
-        return collapsed.prefix(1).uppercased() + collapsed.dropFirst()
+        return collapsed.prefix(1).uppercased() + collapsed.dropFirst().lowercased()
     }
 }
 

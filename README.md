@@ -114,4 +114,8 @@ Migration caution: avoid adding non-optional fields to existing SwiftData models
 
 ## Current Status
 
-Listend is an MVP-stage iOS app with local logging, album search, SoundPrint, Today's Pick, Apple Music integration points, and test coverage for core flows. The app should remain useful without live Apple services; integrations are layered behind protocols and fallbacks.
+Listend is preparing a TestFlight beta before its first App Store release. The core experience includes reaction-first album logging, an Apple Music Share extension, explicit onboarding and connection settings, SoundPrint reflections after five logs, and discovery-first Today's Pick recommendations.
+
+The launch work is tracked in [the launch plan](docs/Listend_Launch_Plan.md). See [release readiness](docs/release/Launch_Readiness.md) for current build/test evidence and remaining gates, and [the owner validation checklist](docs/release/Owner_Validation_Checklist.md) for physical-device and beta acceptance. Historical product briefs may describe features that have since shipped.
+
+The app remains local-first. Optional Apple services have local fallbacks; the catalog fallback is limited. Live MusicKit, on-device intelligence, and install-over-existing-data acceptance require physical-device validation. There is no Listend account, cloud sync, or journal export.

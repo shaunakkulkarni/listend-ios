@@ -16,6 +16,7 @@ final class TasteInsightsScreenshotTests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication()
         app.launchArguments = ["-ui-testing", "-reset-ui-testing-data", "-bypass-onboarding"]
         app.launchEnvironment["LISTEND_UI_TEST_STORE_ID"] = uiTestingStoreID
@@ -84,7 +85,7 @@ final class TasteInsightsScreenshotTests: XCTestCase {
     // MARK: - Navigation
 
     private func openTab(_ title: String) {
-        let tab = app.tabBars.buttons[title]
+        let tab = app.listendTab(title)
         XCTAssertTrue(tab.waitForExistence(timeout: 5))
         tab.tap()
     }
@@ -177,7 +178,7 @@ final class TasteInsightsScreenshotTests: XCTestCase {
     }
 
     private func openAlbumDetailFromSearch(query: String, resultID: String) {
-        let searchTab = app.tabBars.buttons["Search"]
+        let searchTab = app.listendTab("Search")
         XCTAssertTrue(searchTab.waitForExistence(timeout: 5))
         searchTab.tap()
 

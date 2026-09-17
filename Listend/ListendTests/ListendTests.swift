@@ -3946,12 +3946,15 @@ struct ListendTests {
         let firstAlbum = Album(title: "First", artistName: "A", releaseYear: 2018, genreName: "Art Pop")
         let secondAlbum = Album(title: "Second", artistName: "B", releaseYear: 2017, genreName: "Art Pop")
         let thirdAlbum = Album(title: "Third", artistName: "C", releaseYear: 2016, genreName: "Art Pop")
+        let fourthAlbum = Album(title: "Fourth", artistName: "D", releaseYear: 2015, genreName: "Art Pop")
+        let negativeAlbum = Album(title: "Negative", artistName: "E", releaseYear: 2014, genreName: "Art Pop")
         let reviewLog = LogEntry(album: firstAlbum, rating: 5, reviewText: "A precise review")
         let standoutLog = LogEntry(album: firstAlbum, rating: 4, standoutMoment: "The bridge opens up")
         let favoriteLog = LogEntry(album: secondAlbum, rating: 4.5, favoriteTracks: ["Song"])
         let tagLog = LogEntry(album: thirdAlbum, rating: 4, tags: ["lush"])
-        let negativeLog = LogEntry(album: thirdAlbum, rating: 1, standoutMoment: "Not enough")
-        let logs = [reviewLog, standoutLog, favoriteLog, tagLog, negativeLog]
+        let ratingLog = LogEntry(album: fourthAlbum, rating: 4)
+        let negativeLog = LogEntry(album: negativeAlbum, rating: 1, standoutMoment: "Not enough")
+        let logs = [reviewLog, standoutLog, favoriteLog, tagLog, ratingLog, negativeLog]
         let profiles = service.recommendationAnchorProfiles(from: logs, evidence: [])
 
         let result = try #require(service.bestCandidate(logs: logs, recommendations: [], anchorProfiles: profiles))

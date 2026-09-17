@@ -155,7 +155,7 @@ final class ListendUITests: XCTestCase {
         launchAppPreservingData(additionalArguments: ["-seed-soundprint-reflection-update"])
         openTab("Profile")
 
-        XCTAssertTrue(app.staticTexts["5 new logs since this reflection"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Your SoundPrint is ready for an update."].waitForExistence(timeout: 5))
         let updateButton = app.buttons["updateSoundPrintButton"]
         XCTAssertTrue(updateButton.waitForExistence(timeout: 5))
         updateButton.tap()
@@ -592,6 +592,12 @@ final class ListendUITests: XCTestCase {
         favoriteTracksField.tap()
         favoriteTracksField.typeText("Nights")
 
+        // Finish editing before scrolling to the next field. Interactive keyboard
+        // dismissal can otherwise move the target during XCTest's synthesized tap.
+        let keyboardDone = app.buttons["Done"]
+        XCTAssertTrue(keyboardDone.waitForExistence(timeout: 5))
+        keyboardDone.tap()
+
         let lessFavoriteTracksField = app.textFields["lessFavoriteTracksTextField"]
         reveal(lessFavoriteTracksField)
         XCTAssertTrue(lessFavoriteTracksField.waitForExistence(timeout: 5))
@@ -861,7 +867,7 @@ final class ListendUITests: XCTestCase {
     }
 
     private func openTab(_ title: String) {
-        let tab = app.tabBars.buttons[title]
+        let tab = app.listendTab(title)
         XCTAssertTrue(tab.waitForExistence(timeout: 5))
         tab.tap()
     }

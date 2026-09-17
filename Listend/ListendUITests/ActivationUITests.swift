@@ -25,11 +25,11 @@ final class ActivationUITests: XCTestCase {
 
         XCTAssertTrue(onboardingElement("onboardingWelcomeStage").waitForExistence(timeout: 5))
         app.buttons["onboardingSkipButton"].tap()
-        XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.listendTab("Home").waitForExistence(timeout: 5))
 
         app.terminate()
         launchAppPreservingData()
-        XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.listendTab("Home").waitForExistence(timeout: 5))
         XCTAssertFalse(onboardingElement("onboardingView").exists)
 
         app.terminate()
@@ -40,7 +40,7 @@ final class ActivationUITests: XCTestCase {
         launchAppPreservingData(
             additionalArguments: ["-force-onboarding", "-bypass-onboarding"]
         )
-        XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.listendTab("Home").waitForExistence(timeout: 5))
         XCTAssertFalse(onboardingElement("onboardingView").exists)
     }
 
@@ -48,7 +48,7 @@ final class ActivationUITests: XCTestCase {
     func testExistingLogBypassesOnboardingWithoutCompletionPreference() throws {
         launchResetApp(additionalArguments: ["-seed-reaction-existing-custom"])
 
-        XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.listendTab("Home").waitForExistence(timeout: 5))
         XCTAssertFalse(onboardingElement("onboardingView").exists)
         let progress = app.descendants(matching: .any)["homeActivationProgressText"]
         XCTAssertTrue(progress.waitForExistence(timeout: 5))
@@ -97,7 +97,7 @@ final class ActivationUITests: XCTestCase {
         XCTAssertTrue(onboardingElement("onboardingCompletionStage").waitForExistence(timeout: 5))
         tapOnboardingButton("onboardingOpenListendButton")
 
-        XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.listendTab("Home").waitForExistence(timeout: 5))
     }
 
     @MainActor
@@ -250,7 +250,7 @@ final class ActivationUITests: XCTestCase {
         tapOnboardingButton("onboardingDoThisLaterButton")
         XCTAssertTrue(onboardingElement("onboardingCompletionStage").waitForExistence(timeout: 5))
         tapOnboardingButton("onboardingOpenListendButton")
-        XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.listendTab("Home").waitForExistence(timeout: 5))
     }
 
     private func launchResetApp(additionalArguments: [String] = []) {
@@ -302,7 +302,7 @@ final class ActivationUITests: XCTestCase {
     }
 
     private func openTab(_ title: String) {
-        let tab = app.tabBars.buttons[title]
+        let tab = app.listendTab(title)
         XCTAssertTrue(tab.waitForExistence(timeout: 5))
         tab.tap()
     }

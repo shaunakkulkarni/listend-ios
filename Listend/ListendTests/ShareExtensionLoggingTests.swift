@@ -90,6 +90,88 @@ struct ShareExtensionLoggingTests {
         #expect(logs.count == 1)
     }
 
+    @Test func failedMigrationLeavesOriginalJournalAndCanRetry() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "ListendFailedMigration-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appending(path: "Default/default.store")
+        let destination = root.appending(path: "Shared/Listend.store")
+        try FileManager.default.createDirectory(at: source.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let wal = URL(fileURLWithPath: source.path + "-wal")
+        try Data("journal".utf8).write(to: source)
+        try Data("recent logs".utf8).write(to: wal)
+
+        #expect(throws: (any Error).self) {
+            try ListendSharedStoreMigrator.copyDefaultStoreIfNeeded(
+                defaultStoreURL: source, sharedStoreURL: destination,
+                fileManager: FailingMigrationFileManager()
+            )
+        }
+        #expect(!FileManager.default.fileExists(atPath: destination.path))
+        #expect(try Data(contentsOf: source) == Data("journal".utf8))
+        #expect(try Data(contentsOf: wal) == Data("recent logs".utf8))
+
+        try ListendSharedStoreMigrator.copyDefaultStoreIfNeeded(defaultStoreURL: source, sharedStoreURL: destination)
+        #expect(try Data(contentsOf: destination) == Data("journal".utf8))
+        #expect(try Data(contentsOf: URL(fileURLWithPath: destination.path + "-wal")) == Data("recent logs".utf8))
+    }
+
+    @Test func migrationPreservesPersistedJournalAndRelationships() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "ListendRealMigration-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appending(path: "Default/default.store")
+        let destination = root.appending(path: "Shared/Listend.store")
+        try FileManager.default.createDirectory(at: source.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let schema = ListendModelSchema.schema
+        let original = try ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, url: source)])
+        let album = Album(title: "Preserved album", artistName: "Preserved artist")
+        let log = LogEntry(album: album, rating: 4.5, reviewText: "Keep this review", tags: ["warm"], favoriteTracks: ["Track one"])
+        original.mainContext.insert(album)
+        original.mainContext.insert(log)
+        try original.mainContext.save()
+
+        try ListendSharedStoreMigrator.copyDefaultStoreIfNeeded(defaultStoreURL: source, sharedStoreURL: destination)
+        let migrated = try ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, url: destination)])
+        let saved = try #require(migrated.mainContext.fetch(FetchDescriptor<LogEntry>()).first)
+        #expect(saved.id == log.id)
+        #expect(saved.album?.id == album.id)
+        #expect(saved.reviewText == "Keep this review")
+        #expect(saved.tags == ["warm"])
+        #expect(saved.favoriteTracks == ["Track one"])
+        #expect(try original.mainContext.fetchCount(FetchDescriptor<LogEntry>()) == 1)
+    }
+
+    @Test func retryRemovesOrphanedDestinationWALWhenSourceWasCheckpointed() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "ListendOrphanedWAL-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appending(path: "Default/default.store")
+        let destination = root.appending(path: "Shared/Listend.store")
+        try FileManager.default.createDirectory(at: source.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("checkpointed journal".utf8).write(to: source)
+        let orphan = URL(fileURLWithPath: destination.path + "-wal")
+        try Data("old WAL".utf8).write(to: orphan)
+        try ListendSharedStoreMigrator.copyDefaultStoreIfNeeded(defaultStoreURL: source, sharedStoreURL: destination)
+        #expect(!FileManager.default.fileExists(atPath: orphan.path))
+        #expect(try Data(contentsOf: destination) == Data("checkpointed journal".utf8))
+    }
+
+    @Test func failedPublicationRollsBackSidecarsAndRetries() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "ListendPublishFailure-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appending(path: "Default/default.store")
+        let destination = root.appending(path: "Shared/Listend.store")
+        try FileManager.default.createDirectory(at: source.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("journal".utf8).write(to: source)
+        try Data("wal".utf8).write(to: URL(fileURLWithPath: source.path + "-wal"))
+        #expect(throws: (any Error).self) {
+            try ListendSharedStoreMigrator.copyDefaultStoreIfNeeded(defaultStoreURL: source, sharedStoreURL: destination, fileManager: FailingPublicationFileManager())
+        }
+        #expect(!FileManager.default.fileExists(atPath: destination.path))
+        #expect(!FileManager.default.fileExists(atPath: destination.path + "-wal"))
+        try ListendSharedStoreMigrator.copyDefaultStoreIfNeeded(defaultStoreURL: source, sharedStoreURL: destination)
+        #expect(try Data(contentsOf: destination) == Data("journal".utf8))
+    }
+
     @Test func shareExtensionSaveManualAlbumDoesNotRequireMusicKit() throws {
         let container = try makeInMemoryContainer()
         let context = container.mainContext
@@ -190,5 +272,23 @@ struct ShareExtensionLoggingTests {
         let schema = ListendModelSchema.schema
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [configuration])
+    }
+}
+
+private final class FailingMigrationFileManager: FileManager, @unchecked Sendable {
+    override func copyItem(at srcURL: URL, to dstURL: URL) throws {
+        if srcURL.path.hasSuffix("-wal") {
+            throw CocoaError(.fileWriteOutOfSpace)
+        }
+        try super.copyItem(at: srcURL, to: dstURL)
+    }
+}
+
+private final class FailingPublicationFileManager: FileManager, @unchecked Sendable {
+    override func moveItem(at srcURL: URL, to dstURL: URL) throws {
+        if dstURL.lastPathComponent == "Listend.store" {
+            throw CocoaError(.fileWriteOutOfSpace)
+        }
+        try super.moveItem(at: srcURL, to: dstURL)
     }
 }

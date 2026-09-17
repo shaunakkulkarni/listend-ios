@@ -152,7 +152,6 @@ nonisolated struct TaxonomyCatalog: Sendable {
     let ambiguousAliases: AmbiguousAliasCatalog
 
     private let reactionsByID: [String: ReactionTagDefinition]
-    private let genreStylesByID: [String: GenreStyleDefinition]
 
     var isEmpty: Bool {
         reactions.tags.isEmpty && genres.styles.isEmpty
@@ -175,15 +174,10 @@ nonisolated struct TaxonomyCatalog: Sendable {
         self.genres = genres
         self.ambiguousAliases = ambiguousAliases
         self.reactionsByID = Dictionary(uniqueKeysWithValues: reactions.tags.map { ($0.id, $0) })
-        self.genreStylesByID = Dictionary(uniqueKeysWithValues: genres.styles.map { ($0.id, $0) })
     }
 
     func reaction(id: String) -> ReactionTagDefinition? {
         reactionsByID[id]
-    }
-
-    func genreStyle(id: String) -> GenreStyleDefinition? {
-        genreStylesByID[id]
     }
 
     static let empty = TaxonomyCatalog(
@@ -201,6 +195,5 @@ nonisolated struct TaxonomyCatalog: Sendable {
         self.genres = genres
         self.ambiguousAliases = ambiguousAliases
         self.reactionsByID = [:]
-        self.genreStylesByID = [:]
     }
 }

@@ -9,10 +9,6 @@ import SwiftUI
 // .listendHairline, .listendAccent, and .listendAccentSoft are generated
 // automatically from Assets.xcassets (Xcode's asset symbol generation).
 
-extension Color {
-    static let listendDestructive = Color.red
-}
-
 enum ListendSpacing {
     static let xs: CGFloat = 4
     static let sm: CGFloat = 8

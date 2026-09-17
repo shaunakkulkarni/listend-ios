@@ -53,10 +53,6 @@ enum JournalAssistValidator {
         currentReviewText
     }
 
-    nonisolated static func hasMeaningfulInput(_ input: JournalAssistInput) -> Bool {
-        input.hasMeaningfulUserInput
-    }
-
     private nonisolated static func sentenceCount(in text: String) -> Int {
         let matches = text.matches(of: /[^.!?]+[.!?]*/)
         let count = matches

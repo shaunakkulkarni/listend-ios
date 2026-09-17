@@ -220,11 +220,12 @@ private extension FoundationModelsSoundPrintProvider {
         )
 
         let draftText = try await requestPersonaText(input: input)
-        if SoundPrintOutputValidator.validatePersona(draftText, context: context).isValid {
+        let draftOutcome = SoundPrintOutputValidator.validatePersona(draftText, context: context)
+        if draftOutcome.isValid {
             return PersonaResult(text: draftText, generationSource: .foundationModels)
         }
 
-        FoundationModelsSoundPrintProvider.logger.error("FoundationModels persona rejected; retrying draft once: \(String(describing: SoundPrintOutputValidator.validatePersona(draftText, context: context)), privacy: .public)")
+        FoundationModelsSoundPrintProvider.logger.error("FoundationModels persona rejected; retrying draft once: \(String(describing: draftOutcome), privacy: .public)")
 
         let retryText = try await requestPersonaText(input: input)
         let retryOutcome = SoundPrintOutputValidator.validatePersona(retryText, context: context)
@@ -309,39 +310,6 @@ private extension FoundationModelsSoundPrintProvider {
         }
 
         return String(singleLine.prefix(characterLimit)).trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    static func requestTasteExtractionPayload(input: TasteExtractionInput) async throws -> TasteExtractionPayload {
-        let generated = try await textResponse(
-            instructions: SoundPrintPromptTemplates.tasteExtractionInstructions(),
-            prompt: """
-            \(SoundPrintPromptTemplates.tasteExtractionPrompt(
-                albumTitle: input.albumTitle,
-                artistName: input.artistName,
-                releaseYear: input.releaseYear,
-                genreName: input.genreName,
-                rating: input.rating,
-                reviewText: input.reviewText,
-                tags: input.tags,
-                favoriteTracks: input.favoriteTracks,
-                skipTracks: input.skipTracks,
-                standoutMoment: input.standoutMoment,
-                existingDimensions: input.existingDimensions
-            ))
-
-            Return only pipe-delimited lines in this format:
-            SENTIMENT | <score> | <confidence>
-            POSITIVE | <dimensionKey> | <strength> | <confidence> | <summary> | <evidenceSnippet>
-            AVOIDANCE | <signalKey> | <strength> | <confidence> | <summary> | <evidenceSnippet>
-
-            Allowed dimensionKey values: \(FoundationModelsSoundPrintValidator.allowedDimensionNames.joined(separator: ", "))
-            Allowed signalKey values: \(FoundationModelsSoundPrintValidator.allowedAvoidanceCategoryNames.joined(separator: ", "))
-            Always include exactly one SENTIMENT line.
-            Omit POSITIVE or AVOIDANCE lines when no signal of that type is supported.
-            Do not use the | character inside summaries or evidence snippets.
-            """
-        )
-        return try FoundationModelsSoundPrintValidator.decodedTasteExtractionPayload(from: generated)
     }
 
     static func requestCompactSummaryText(instructions: String, prompt: String) async throws -> CompactSummaryResult {
